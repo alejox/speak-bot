@@ -1,0 +1,54 @@
+import { useEffect, useId, useRef, useState } from "react";
+import { useT } from "../i18n/I18nProvider";
+
+interface RestoreDefaultsProps {
+  onRestore: () => Promise<void>;
+}
+
+/** Destructive action with an inline two-step confirmation (never a browser dialog). */
+export function RestoreDefaults({ onRestore }: RestoreDefaultsProps) {
+  const t = useT();
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
+  const promptId = useId();
+  const startButton = useRef<HTMLButtonElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const wasConfirming = useRef(false);
+
+  // Focus the safe choice when asking, and return focus to the trigger afterwards.
+  useEffect(() => {
+    if (isConfirming) cancelButton.current?.focus();
+    else if (wasConfirming.current) startButton.current?.focus();
+    wasConfirming.current = isConfirming;
+  }, [isConfirming]);
+
+  if (!isConfirming) {
+    return (
+      <button ref={startButton} type="button" className="button button-small button-danger" onClick={() => setIsConfirming(true)}>
+        {t("phrases.restore")}
+      </button>
+    );
+  }
+
+  const confirm = () => {
+    setIsBusy(true);
+    void onRestore().finally(() => {
+      setIsBusy(false);
+      setIsConfirming(false);
+    });
+  };
+
+  return (
+    <div className="restore-confirm" role="group" aria-labelledby={promptId}>
+      <p id={promptId}>{t("phrases.restoreConfirm")}</p>
+      <div className="restore-actions">
+        <button type="button" className="button button-small button-danger" onClick={confirm} disabled={isBusy}>
+          {t("phrases.restoreYes")}
+        </button>
+        <button ref={cancelButton} type="button" className="button button-small" onClick={() => setIsConfirming(false)}>
+          {t("phrases.restoreCancel")}
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -5,6 +5,7 @@ import {
   type Phrase,
   type SpeakRequest,
   type SpeechCapabilities,
+  type UiLanguage,
   type Voice,
 } from "@speak-bot/core";
 
@@ -62,6 +63,11 @@ export class DesktopApiClient {
 
   async savePhrase(phrase: Phrase): Promise<void> {
     await this.request("POST", "/api/phrases", phrase);
+  }
+
+  /** Replaces every desktop phrase with the default set in `language`. */
+  async restorePhrases(language: UiLanguage): Promise<void> {
+    await this.request("POST", "/api/phrases/restore", { language });
   }
 
   async deletePhrase(id: string): Promise<void> {

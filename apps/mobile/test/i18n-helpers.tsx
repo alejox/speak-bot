@@ -22,3 +22,9 @@ export function memoryLanguageStore(initial: UiLanguage | null = "en"): Language
 export function renderWithLanguage(ui: ReactElement, language: UiLanguage = "en") {
   return render(<I18nProvider language={language}>{ui}</I18nProvider>);
 }
+
+/** Opens a section from the navigation menu. */
+export async function goTo(user: { click: (element: Element) => Promise<void> }, section: string) {
+  const { screen } = await import("@testing-library/react");
+  await user.click(screen.getByRole("link", { name: section }));
+}

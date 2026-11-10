@@ -19,9 +19,7 @@ export function SettingsPanel({ voices, settings, onChange, onLanguageChange, sp
   const t = useT();
   const language = useLanguage();
   return (
-    <details className="settings">
-      <summary>{t("settings.title")}</summary>
-
+    <div className="settings">
       <label className="field">
         <span>{t("settings.language")}</span>
         <select value={language} onChange={(event) => onLanguageChange(event.target.value as UiLanguage)}>
@@ -82,6 +80,6 @@ export function SettingsPanel({ voices, settings, onChange, onLanguageChange, sp
           onChange={(event) => onChange({ ...settings, rate: Number(event.target.value) })}
         />
       </label>
-    </details>
+    </div>
   );
 }

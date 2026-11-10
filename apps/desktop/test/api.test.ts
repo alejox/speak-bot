@@ -12,6 +12,7 @@ import {
   type DesktopSpeakOptions,
   type DesktopSpeechSynthesizer,
 } from "../src/adapters/tts/process-speech-synthesizer";
+import { DEFAULT_PHRASES } from "../src/default-phrases";
 import { createDesktopServer, type DesktopServer } from "../src/server/create-server";
 
 class FakeSynthesizer implements DesktopSpeechSynthesizer {
@@ -260,6 +261,44 @@ describe("desktop HTTP API", () => {
 
     expect(synthesizer.spoken.map((entry) => entry.options?.voiceId)).toEqual(["Monica", "Alex", "Chosen"]);
     expect(synthesizer.voiceListCount).toBe(1);
+  });
+
+  it("restores the default phrases in the requested language and broadcasts phrases-changed", async () => {
+    await post("/api/phrases", { text: "Mine" });
+    const client = await connect();
+
+    const response = await post("/api/phrases/restore", { language: "es" });
+    expect(response.status).toBe(200);
+    const restored = (await response.json()) as Phrase[];
+    expect(restored.map((p) => p.text)).toEqual([...DEFAULT_PHRASES.es]);
+    const listed = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
+    expect(listed.map((p) => p.text)).toEqual([...DEFAULT_PHRASES.es]);
+    expect((await client.next(1))[0]).toMatchObject({ type: "phrases-changed" });
+    client.close();
+
+    await post("/api/phrases/restore", { language: "en" });
+    const english = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
+    expect(english.map((p) => p.text)).toEqual([...DEFAULT_PHRASES.en]);
+  });
+
+  it("validates the restore language and keeps the phrases on error", async () => {
+    await post("/api/phrases", { text: "Mine" });
+
+    for (const body of [{}, { language: "fr" }, { language: 1 }, "{ broken"]) {
+      const response = await post("/api/phrases/restore", body);
+      expect(response.status).toBe(400);
+      expect(await response.json()).toHaveProperty("error");
+    }
+    const plain = await fetch(`${baseUrl}/api/phrases/restore`, { method: "POST", body: JSON.stringify({ language: "es" }) });
+    expect(plain.status).toBe(415);
+
+    const listed = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
+    expect(listed.map((p) => p.text)).toEqual(["Mine"]);
+  });
+
+  it("still deletes a phrase whose id is \"restore\"", async () => {
+    await post("/api/phrases", { id: "restore", text: "Odd id" });
+    expect((await fetch(`${baseUrl}/api/phrases/restore`, { method: "DELETE" })).status).toBe(204);
   });
 
   it("tells clients why speech failed with an error code", async () => {

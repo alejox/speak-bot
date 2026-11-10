@@ -21,6 +21,8 @@ export interface SpeechTarget {
   isDesktopAvailable: boolean;
   synthesizer: AppSpeechSynthesizer;
   phrases: PhraseDependencies;
+  /** Restores the default phrases on the desktop; null when phrases live on this device. */
+  restoreRemotePhrases: ((language: UiLanguage) => Promise<void>) | null;
   /** Only meaningful for this device: seeding happens on the desktop itself. */
   isFirstRun: () => boolean;
   settings: SpeechSettings;
@@ -138,6 +140,7 @@ export function useSpeechTarget(services: AppServices): SpeechTarget {
     isDesktopAvailable: desktop !== undefined && capabilities !== null,
     synthesizer,
     phrases: remote?.phrases ?? services.phrases,
+    restoreRemotePhrases: remote ? remote.restorePhrases : null,
     isFirstRun: isRemote ? neverFirstRun : services.isFirstRun,
     settings,
     updateSettings,

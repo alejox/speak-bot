@@ -5,6 +5,14 @@ export const es: Messages = {
   "app.title": "Speak Bot",
   "app.speechUnsupported": "Este navegador no permite la síntesis de voz. Prueba con Chrome o Safari.",
 
+  "nav.label": "Secciones",
+  "nav.speak": "Hablar",
+  "nav.phrases": "Frases",
+  "nav.connect": "Conectar",
+  "nav.settings": "Ajustes",
+
+  "speak.quickPhrases": "Frases rápidas",
+
   "composer.region": "Escribe para hablar",
   "composer.textLabel": "Texto para decir",
   "composer.placeholder": "Escribe lo que quieres decir…",
@@ -18,6 +26,13 @@ export const es: Messages = {
   "phrases.empty": "Aún no tienes frases guardadas. Escribe algo y pulsa «Guardar como frase».",
   "phrases.speakLabel": "Decir: {text}",
   "phrases.deleteLabel": "Eliminar frase: {text}",
+  "phrases.addLabel": "Nueva frase",
+  "phrases.addPlaceholder": "Escribe una nueva frase…",
+  "phrases.add": "Agregar",
+  "phrases.restore": "Restaurar frases predeterminadas",
+  "phrases.restoreConfirm": "¿Seguro? Se borrarán tus frases actuales y se reemplazarán por las predeterminadas.",
+  "phrases.restoreYes": "Sí, restaurar",
+  "phrases.restoreCancel": "Cancelar",
 
   "status.typeToSave": "Escribe algo para guardarlo como frase.",
   "status.duplicate": "Esa frase ya está guardada.",
@@ -26,6 +41,8 @@ export const es: Messages = {
   "status.loadFailed": "No se pudieron cargar las frases.",
   "status.saveFailed": "No se pudo guardar la frase.",
   "status.deleteFailed": "No se pudo eliminar la frase.",
+  "status.restored": "Se restauraron las frases predeterminadas.",
+  "status.restoreFailed": "No se pudieron restaurar las frases predeterminadas.",
 
   "error.emptyText": "Escribe algo antes de hablar.",
   "error.speechUnsupported": "Este dispositivo o navegador no permite la síntesis de voz.",
@@ -36,7 +53,6 @@ export const es: Messages = {
   "error.loadDesktopSettings": "No se pudo cargar la configuración de la computadora.",
   "error.saveDesktopSettings": "No se pudo guardar la configuración de la computadora.",
 
-  "settings.title": "Ajustes de voz",
   "settings.language": "Idioma / Language",
   "settings.speakOn": "Hablar en",
   "settings.speakOnDevice": "Este dispositivo",

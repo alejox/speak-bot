@@ -1,4 +1,4 @@
-import type { AudioDevice, DesktopSettings, PhraseDependencies, SpeechCapabilities } from "@speak-bot/core";
+import type { AudioDevice, DesktopSettings, PhraseDependencies, SpeechCapabilities, UiLanguage } from "@speak-bot/core";
 import { copyText as copyToClipboard } from "../adapters/clipboard";
 import { DesktopApiClient, type ConnectionInfo } from "../adapters/desktop-api";
 import { DesktopEventSource, type WebSocketFactory } from "../adapters/desktop-events";
@@ -27,6 +27,8 @@ export interface DesktopServices {
   detect(): Promise<SpeechCapabilities | null>;
   synthesizer: AppSpeechSynthesizer;
   phrases: PhraseDependencies;
+  /** Replaces the desktop phrases with the default set in `language`. */
+  restorePhrases(language: UiLanguage): Promise<void>;
   listDevices(): Promise<AudioDevice[]>;
   loadSettings(): Promise<DesktopSettings>;
   saveSettings(patch: Partial<DesktopSettings>): Promise<DesktopSettings>;
@@ -77,6 +79,7 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
       generateId: options.generateId ?? createId,
       now: () => Date.now(),
     },
+    restorePhrases: (language) => api.restorePhrases(language),
     listDevices: () => api.listDevices(),
     loadSettings: () => api.loadSettings(),
     saveSettings: (patch) => api.saveSettings(patch),

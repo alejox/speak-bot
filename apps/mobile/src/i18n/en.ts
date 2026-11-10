@@ -3,6 +3,14 @@ export const en = {
   "app.title": "Speak Bot",
   "app.speechUnsupported": "Speech is not supported in this browser. Try Chrome or Safari.",
 
+  "nav.label": "Sections",
+  "nav.speak": "Speak",
+  "nav.phrases": "Phrases",
+  "nav.connect": "Connect",
+  "nav.settings": "Settings",
+
+  "speak.quickPhrases": "Quick phrases",
+
   "composer.region": "Type to speak",
   "composer.textLabel": "Text to speak",
   "composer.placeholder": "Type what you want to say…",
@@ -16,6 +24,13 @@ export const en = {
   "phrases.empty": "No saved phrases yet. Type something and press “Save as phrase”.",
   "phrases.speakLabel": "Speak: {text}",
   "phrases.deleteLabel": "Delete phrase: {text}",
+  "phrases.addLabel": "New phrase",
+  "phrases.addPlaceholder": "Type a new phrase…",
+  "phrases.add": "Add",
+  "phrases.restore": "Restore default phrases",
+  "phrases.restoreConfirm": "Are you sure? Your current phrases will be deleted and replaced with the default ones.",
+  "phrases.restoreYes": "Yes, restore",
+  "phrases.restoreCancel": "Cancel",
 
   "status.typeToSave": "Type something to save it as a phrase.",
   "status.duplicate": "That phrase is already saved.",
@@ -24,6 +39,8 @@ export const en = {
   "status.loadFailed": "Could not load phrases.",
   "status.saveFailed": "Could not save the phrase.",
   "status.deleteFailed": "Could not delete the phrase.",
+  "status.restored": "Default phrases restored.",
+  "status.restoreFailed": "Could not restore the default phrases.",
 
   "error.emptyText": "Type something to speak first.",
   "error.speechUnsupported": "Speech is not supported on this device or browser.",
@@ -34,7 +51,6 @@ export const en = {
   "error.loadDesktopSettings": "Could not load the computer settings.",
   "error.saveDesktopSettings": "Could not save the computer settings.",
 
-  "settings.title": "Voice settings",
   "settings.language": "Language / Idioma",
   "settings.speakOn": "Speak on",
   "settings.speakOnDevice": "This device",

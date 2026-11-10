@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, type SpeechSettings } from "../src/adapters/local-storage-settings-store";
 import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesizer";
 import { App } from "../src/app/App";
-import { memoryLanguageStore } from "./i18n-helpers";
+import { goTo, memoryLanguageStore } from "./i18n-helpers";
 import type { AppServices } from "../src/app/composition-root";
 
 class FakeSynthesizer implements AppSpeechSynthesizer {
@@ -86,6 +86,7 @@ describe("App", () => {
 
   it("seeds default phrases on first run and speaks a phrase on tap", async () => {
     const { synthesizer, user } = setup({ firstRun: true });
+    await goTo(user, "Phrases");
 
     const phraseButtons = await screen.findAllByRole("button", { name: /^Speak: / });
     expect(phraseButtons).toHaveLength(DEFAULT_PHRASE_TEXTS.length);
@@ -102,8 +103,9 @@ describe("App", () => {
     expect(await screen.findByRole("button", { name: "Speak: I need water" })).toBeInTheDocument();
     expect(repository.phrases.map((p) => p.text)).toEqual(["I need water"]);
 
+    await goTo(user, "Phrases");
     await user.click(screen.getByRole("button", { name: "Edit" }));
-    const phrases = screen.getByRole("list");
+    const phrases = screen.getByRole("region", { name: "Saved phrases" });
     await user.click(within(phrases).getByRole("button", { name: "Delete phrase: I need water" }));
 
     expect(await screen.findByText(/No saved phrases yet/)).toBeInTheDocument();
@@ -112,6 +114,7 @@ describe("App", () => {
 
   it("persists the selected voice and rate", async () => {
     const { user, getSavedSettings } = setup();
+    await goTo(user, "Settings");
 
     await user.selectOptions(await screen.findByRole("combobox", { name: "Voice" }), "v1");
 

@@ -6,6 +6,7 @@ export {
   DEFAULT_PHRASE_TEXTS,
   deletePhrase,
   listPhrases,
+  restoreDefaultPhrases,
   savePhrase,
   seedDefaultPhrases,
   type PhraseDependencies,

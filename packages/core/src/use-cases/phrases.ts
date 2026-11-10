@@ -45,11 +45,21 @@ export async function seedDefaultPhrases(
   const existing = await repository.list();
   if (existing.length > 0) return [];
 
+  return saveInOrder({ repository, generateId, now }, texts);
+}
+
+/** Deletes every saved phrase and saves `texts` (in order) instead. Returns the phrases created. */
+export async function restoreDefaultPhrases(deps: PhraseDependencies, texts: readonly string[]): Promise<Phrase[]> {
+  for (const phrase of await deps.repository.list()) await deps.repository.delete(phrase.id);
+  return saveInOrder(deps, texts);
+}
+
+async function saveInOrder({ repository, generateId, now }: PhraseDependencies, texts: readonly string[]): Promise<Phrase[]> {
   const start = now();
-  const seeded = texts.map((text, index) =>
-    // Offset createdAt so the default order survives sorting.
+  const created = texts.map((text, index) =>
+    // Offset createdAt so the given order survives sorting.
     createPhrase({ id: generateId(), text, createdAt: start + index }),
   );
-  for (const phrase of seeded) await repository.save(phrase);
-  return seeded;
+  for (const phrase of created) await repository.save(phrase);
+  return created;
 }

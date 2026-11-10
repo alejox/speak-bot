@@ -7,7 +7,7 @@ import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesize
 import { App } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
 import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
-import { memoryLanguageStore } from "./i18n-helpers";
+import { goTo, memoryLanguageStore } from "./i18n-helpers";
 
 const synthesizer: AppSpeechSynthesizer = {
   isSupported: true,
@@ -74,6 +74,7 @@ function setup({ hostname = "localhost", answer = route } = {}) {
 describe("App connect panel", () => {
   it("shows the phone QR code and copies the OBS URL on the computer itself", async () => {
     const { copied } = setup();
+    await userEvent.click(await screen.findByRole("link", { name: "Connect" }));
 
     const qr = await screen.findByRole("img", { name: "QR code for http://192.168.1.20:4545/" });
     expect(qr).toHaveAttribute("src", "data:qr,http://192.168.1.20:4545/");
@@ -88,7 +89,9 @@ describe("App connect panel", () => {
 
   it("is hidden on the phone (page opened through the LAN address)", async () => {
     const { requests } = setup({ hostname: "192.168.1.20" });
+    await goTo(userEvent, "Settings");
     await screen.findByRole("combobox", { name: "Speak on" });
+    expect(screen.queryByRole("link", { name: "Connect" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Connect your phone" })).not.toBeInTheDocument();
     expect(requests.some((request) => request.url === "/api/connection")).toBe(false);
   });

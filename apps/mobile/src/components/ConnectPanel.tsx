@@ -18,7 +18,7 @@ export function ConnectPanel({ lanUrls, selectedUrl, onSelectUrl, qrImage, overl
   const t = useT();
   return (
     <section className="connect" aria-labelledby="connect-title">
-      <h2 id="connect-title">{t("connect.title")}</h2>
+      <h3 id="connect-title">{t("connect.title")}</h3>
 
       {lanUrls.length === 0 ? (
         <p className="connect-hint">{t("connect.noNetwork")}</p>

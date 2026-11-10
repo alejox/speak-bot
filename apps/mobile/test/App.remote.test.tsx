@@ -8,7 +8,7 @@ import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesize
 import { App } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
 import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
-import { memoryLanguageStore } from "./i18n-helpers";
+import { goTo, memoryLanguageStore } from "./i18n-helpers";
 
 class LocalSynthesizer implements AppSpeechSynthesizer {
   readonly isSupported = true;
@@ -96,8 +96,6 @@ describe("App remote mode", () => {
   it("defaults to Computer when served by the desktop and speaks through POST /api/speak", async () => {
     const { requests, local, user } = setup();
 
-    const speakOn = await screen.findByRole("combobox", { name: "Speak on" });
-    expect(speakOn).toHaveValue("computer");
     expect(await screen.findByRole("button", { name: "Speak: Hello from desktop" })).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Text to speak"), "Hi stream");
@@ -105,10 +103,14 @@ describe("App remote mode", () => {
 
     expect(requests).toContainEqual(expect.objectContaining({ method: "POST", url: "/api/speak", body: expect.objectContaining({ text: "Hi stream" }) }));
     expect(local.spoken).toEqual([]);
+
+    await goTo(user, "Settings");
+    expect(screen.getByRole("combobox", { name: "Speak on" })).toHaveValue("computer");
   });
 
   it("shows desktop voices and saves the output device on the desktop", async () => {
     const { requests, user } = setup();
+    await goTo(user, "Settings");
 
     expect(await screen.findByRole("option", { name: "Alex (en-US)" })).toBeInTheDocument();
     const device = await screen.findByRole("combobox", { name: "Output device" });
@@ -119,29 +121,33 @@ describe("App remote mode", () => {
   });
 
   it("hides the output device selector when the desktop cannot select devices", async () => {
-    setup({ route: desktopRoute(false) });
+    const { user } = setup({ route: desktopRoute(false) });
 
-    await screen.findByRole("combobox", { name: "Speak on" });
     await screen.findByRole("button", { name: "Speak: Hello from desktop" });
+    await goTo(user, "Settings");
+    await screen.findByRole("combobox", { name: "Speak on" });
     expect(screen.queryByRole("combobox", { name: "Output device" })).not.toBeInTheDocument();
   });
 
   it("switches back to this device and persists the choice", async () => {
     const { local, user, getTarget, requests } = setup();
+    await goTo(user, "Settings");
 
     await user.selectOptions(await screen.findByRole("combobox", { name: "Speak on" }), "device");
     expect(getTarget()).toBe("device");
+    expect(screen.queryByRole("combobox", { name: "Output device" })).not.toBeInTheDocument();
+    await goTo(user, "Speak");
     await user.click(await screen.findByRole("button", { name: "Speak: Local phrase" }));
 
     expect(local.spoken).toEqual(["Local phrase"]);
     expect(requests.filter((r) => r.url === "/api/speak")).toEqual([]);
-    expect(screen.queryByRole("combobox", { name: "Output device" })).not.toBeInTheDocument();
   });
 
   it("stays local and hides the setting when no desktop answers", async () => {
-    setup({ route: () => undefined });
+    const { user } = setup({ route: () => undefined });
 
     expect(await screen.findByRole("button", { name: "Speak: Local phrase" })).toBeInTheDocument();
+    await goTo(user, "Settings");
     expect(screen.queryByRole("combobox", { name: "Speak on" })).not.toBeInTheDocument();
   });
 });

@@ -5,6 +5,7 @@ import {
   EmptyTextError,
   InvalidPhraseError,
   listPhrases,
+  restoreDefaultPhrases,
   savePhrase,
   seedDefaultPhrases,
   speakText,
@@ -131,5 +132,31 @@ describe("seedDefaultPhrases", () => {
     expect(DEFAULT_PHRASE_TEXTS).toEqual(
       expect.arrayContaining(["Hello", "Thank you", "Yes", "No", "One moment please", "I can't speak but I can hear you"]),
     );
+  });
+});
+
+describe("restoreDefaultPhrases", () => {
+  it("replaces every saved phrase with the given defaults, in order", async () => {
+    const repository = new InMemoryPhraseRepository([
+      { id: "a", text: "Mine", createdAt: 1 },
+      { id: "b", text: "Hola", createdAt: 2 },
+    ]);
+
+    const restored = await restoreDefaultPhrases(
+      { repository, generateId: sequentialIds(), now: () => 100 },
+      ["Hola", "Gracias"],
+    );
+
+    expect(restored.map((phrase) => phrase.text)).toEqual(["Hola", "Gracias"]);
+    expect((await listPhrases(repository)).map((phrase) => phrase.text)).toEqual(["Hola", "Gracias"]);
+    expect((await repository.list()).some((phrase) => phrase.id === "a" || phrase.id === "b")).toBe(false);
+  });
+
+  it("works on an empty repository", async () => {
+    const repository = new InMemoryPhraseRepository();
+
+    await restoreDefaultPhrases({ repository, generateId: sequentialIds(), now: () => 100 }, ["Hello"]);
+
+    expect((await repository.list()).map((phrase) => phrase.text)).toEqual(["Hello"]);
   });
 });

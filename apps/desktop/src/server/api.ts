@@ -2,9 +2,11 @@ import {
   createPhrase,
   DESKTOP_SERVER_NAME,
   InvalidPhraseError,
+  isUiLanguage,
   listPhrases,
   MAX_SPEAK_TEXT_LENGTH,
   pickVoiceForLanguage,
+  restoreDefaultPhrases,
   type DesktopSettings,
   type HealthResponse,
   type Phrase,
@@ -21,6 +23,7 @@ import {
   type DesktopSpeakOptions,
   type DesktopSpeechSynthesizer,
 } from "../adapters/tts/process-speech-synthesizer";
+import { DEFAULT_PHRASES } from "../default-phrases";
 import { asObject, HttpError, readJsonBody, sendEmpty, sendJson } from "./http-utils";
 import { connectionInfo, isLoopbackAddress, type NetworkInterfaces } from "./network";
 
@@ -84,6 +87,15 @@ export function createApiHandler(deps: ApiDependencies) {
       sendJson(response, 201, phrase);
     },
 
+    /** Replaces every phrase with the default set in `language` ("es" or "en"). */
+    "POST /api/phrases/restore": async (request, response) => {
+      const { language } = asObject(await readJsonBody(request));
+      if (!isUiLanguage(language)) throw new HttpError(400, 'language must be "es" or "en".');
+      const restored = await restoreDefaultPhrases({ repository, generateId, now }, DEFAULT_PHRASES[language]);
+      broadcast({ type: "phrases-changed", at: now() });
+      sendJson(response, 200, restored);
+    },
+
     "DELETE /api/phrases/:id": async (_request, response, id) => {
       await repository.delete(id!);
       broadcast({ type: "phrases-changed", at: now() });
@@ -142,9 +154,10 @@ export function createApiHandler(deps: ApiDependencies) {
     if (pathname !== "/api" && !pathname.startsWith("/api/")) return false;
     const method = request.method ?? "GET";
     try {
-      const phraseMatch = /^\/api\/phrases\/([^/]+)$/.exec(pathname);
-      const key = phraseMatch ? `${method} /api/phrases/:id` : `${method} ${pathname}`;
-      const route = routes[key];
+      // Exact routes (e.g. POST /api/phrases/restore) win over the `:id` pattern.
+      const exact = routes[`${method} ${pathname}`];
+      const phraseMatch = exact ? null : /^\/api\/phrases\/([^/]+)$/.exec(pathname);
+      const route = exact ?? (phraseMatch ? routes[`${method} /api/phrases/:id`] : undefined);
       if (!route) throw new HttpError(404, "Not found.");
       await route(request, response, phraseMatch ? decodeURIComponent(phraseMatch[1]!) : undefined);
     } catch (error) {

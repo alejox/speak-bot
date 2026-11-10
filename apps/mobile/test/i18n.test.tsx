@@ -12,7 +12,7 @@ import { en } from "../src/i18n/en";
 import { es } from "../src/i18n/es";
 import { DEFAULT_PHRASES, translate } from "../src/i18n/messages";
 import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
-import { memoryLanguageStore } from "./i18n-helpers";
+import { goTo, memoryLanguageStore } from "./i18n-helpers";
 
 const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
 
@@ -111,9 +111,12 @@ describe("App language", () => {
 
   it("switches to English from the settings, re-renders and remembers the choice", async () => {
     const { languageStore, user } = setupLocal();
+    await goTo(user, "Ajustes");
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Idioma / Language" }), "en");
 
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
+    await goTo(user, "Speak");
     expect(screen.getByRole("button", { name: "Speak" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Hablar" })).not.toBeInTheDocument();
     expect(document.documentElement.lang).toBe("en");
@@ -121,14 +124,16 @@ describe("App language", () => {
   });
 
   it("seeds Spanish default phrases on first run", async () => {
-    setupLocal({ firstRun: true });
+    const { user } = setupLocal({ firstRun: true });
+    await goTo(user, "Frases");
 
     const buttons = await screen.findAllByRole("button", { name: /^Decir: / });
     expect(buttons.map((button) => button.textContent)).toEqual([...DEFAULT_PHRASES.es]);
   });
 
   it("seeds English default phrases on first run when English was chosen", async () => {
-    setupLocal({ firstRun: true, language: "en" });
+    const { user } = setupLocal({ firstRun: true, language: "en" });
+    await goTo(user, "Phrases");
 
     const buttons = await screen.findAllByRole("button", { name: /^Speak: / });
     expect(buttons.map((button) => button.textContent)).toEqual([...DEFAULT_PHRASES.en]);
@@ -136,10 +141,14 @@ describe("App language", () => {
 
   it("speaks with a voice matching the interface language when none is chosen", async () => {
     const { synthesizer, user } = setupLocal();
+    await goTo(user, "Ajustes");
     await screen.findByRole("option", { name: "Mónica (es-ES)" });
+    await goTo(user, "Hablar");
 
     await user.type(screen.getByLabelText("Texto para decir"), "Hola{Enter}");
+    await goTo(user, "Ajustes");
     await user.selectOptions(screen.getByRole("combobox", { name: "Idioma / Language" }), "en");
+    await goTo(user, "Speak");
     await user.type(screen.getByLabelText("Text to speak"), "Hi{Enter}");
 
     expect(synthesizer.spoken.map((entry) => entry.options?.voiceId)).toEqual(["monica", "alex"]);
@@ -191,12 +200,13 @@ describe("App language in Computer mode", () => {
   it("follows the desktop language when this device never chose one", async () => {
     setupRemote({ desktopLanguage: "en", choice: null });
 
-    expect(await screen.findByRole("combobox", { name: "Speak on" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Speak" })).toBeInTheDocument();
   });
 
   it("keeps this device's explicit choice and saves a new choice on the desktop", async () => {
     const { requests, user } = setupRemote({ desktopLanguage: "en", choice: "es" });
+    await goTo(user, "Ajustes");
 
     const speakOn = await screen.findByRole("combobox", { name: "Hablar en" });
     expect(speakOn).toHaveValue("computer");
