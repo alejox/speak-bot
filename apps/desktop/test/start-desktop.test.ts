@@ -1,4 +1,4 @@
-import { DEFAULT_PHRASES_BY_LANGUAGE } from "@speak-bot/core";
+import { DEFAULT_PHRASES_BY_LANGUAGE, type Board } from "@speak-bot/core";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -60,24 +60,22 @@ describe("startDesktop", () => {
     expect(((await response.json()) as { instanceId?: string }).instanceId).toBe(desktop.instanceId);
   });
 
-  it("seeds Spanish phrases on first run by default", async () => {
+  it("creates the Spanish communication board on first run by default", async () => {
     dir = await mkdtemp(join(tmpdir(), "speak-bot-start-"));
     desktop = await startDesktop({ argv: ["--port", "0", "--host", "127.0.0.1", "--data-dir", dir], env: {} });
 
-    const phrases = (await (await fetch(`http://127.0.0.1:${desktop.port}/api/phrases`)).json()) as Array<{ text: string }>;
-    expect(phrases.map((phrase) => phrase.text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
+    expect(await phraseTexts(desktop.port)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
     expect((await desktop.loadSettings()).language).toBe("es");
   });
 
-  it("seeds phrases in the language saved in the settings and reports settings changes", async () => {
+  it("creates the board in the language saved in the settings and reports settings changes", async () => {
     dir = await mkdtemp(join(tmpdir(), "speak-bot-start-"));
     await writeFile(join(dir, "settings.json"), JSON.stringify({ language: "en" }));
     desktop = await startDesktop({ argv: ["--port", "0", "--host", "127.0.0.1", "--data-dir", dir], env: {} });
     const changes: string[] = [];
     desktop.onSettingsChanged((settings) => changes.push(settings.language));
 
-    const phrases = (await (await fetch(`http://127.0.0.1:${desktop.port}/api/phrases`)).json()) as Array<{ text: string }>;
-    expect(phrases.map((phrase) => phrase.text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.en]);
+    expect(await phraseTexts(desktop.port)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.en]);
 
     await fetch(`http://127.0.0.1:${desktop.port}/api/settings`, {
       method: "PUT",
@@ -87,3 +85,9 @@ describe("startDesktop", () => {
     expect(changes).toEqual(["es"]);
   });
 });
+
+/** Texts of the speak keys on the first board, in slot order. */
+async function phraseTexts(port: number): Promise<string[]> {
+  const boards = (await (await fetch(`http://127.0.0.1:${port}/api/boards`)).json()) as Board[];
+  return boards[0]!.keys.flatMap((key) => (key.action.type === "voice.speak" ? [key.action.text] : []));
+}

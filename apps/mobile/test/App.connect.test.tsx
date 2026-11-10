@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from "../src/adapters/local-storage-settings-store";
 import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesizer";
 import { App } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
-import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
+import { boardsOf, createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
 import { goTo, memoryLanguageStore } from "./i18n-helpers";
 
 const synthesizer: AppSpeechSynthesizer = {
@@ -38,8 +38,8 @@ function route(request: RecordedRequest) {
       return { body: { ok: true, name: "speak-bot-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: false } } };
     case "GET /api/connection":
       return { body: connection };
-    case "GET /api/phrases":
-      return { body: [] };
+    case "GET /api/boards":
+      return { body: boardsOf([]) };
     case "GET /api/voices":
       return { body: [] };
     case "GET /api/settings":

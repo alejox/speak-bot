@@ -27,7 +27,7 @@ export interface DesktopServices {
   detect(): Promise<SpeechCapabilities | null>;
   synthesizer: AppSpeechSynthesizer;
   phrases: PhraseDependencies;
-  /** Replaces the desktop phrases with the default set in `language`. */
+  /** Puts back the desktop communication board (the phrases) in `language`. */
   restorePhrases(language: UiLanguage): Promise<void>;
   listDevices(): Promise<AudioDevice[]>;
   loadSettings(): Promise<DesktopSettings>;
@@ -85,13 +85,15 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
       generateId: options.generateId ?? createId,
       now: () => Date.now(),
     },
-    restorePhrases: (language) => api.restorePhrases(language),
+    restorePhrases: async (language) => {
+      await api.restoreDefaultBoard(language);
+    },
     listDevices: () => api.listDevices(),
     loadSettings: () => api.loadSettings(),
     saveSettings: (patch) => api.saveSettings(patch),
     onPhrasesChanged: (listener) =>
       events.subscribe((event) => {
-        if (event.type === "phrases-changed") listener();
+        if (event.type === "boards-changed") listener();
       }),
     repeat: () => api.repeat(),
     clearCaption: () => api.clearCaption(),

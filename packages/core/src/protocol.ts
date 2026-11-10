@@ -2,7 +2,8 @@
  * Wire protocol shared by the desktop server and its clients (mobile app, OBS overlay).
  * Pure types and tiny guards only: no runtime dependencies.
  */
-import type { Phrase } from "./domain/phrase";
+import type { Action } from "./domain/actions";
+import type { Board, Key } from "./domain/board";
 import type { Voice } from "./ports/speech-synthesizer";
 
 /** Longest text the desktop server accepts for a single utterance. */
@@ -25,7 +26,6 @@ export function isUiLanguage(value: unknown): value is UiLanguage {
 export interface CaptionEvent {
   readonly type: "caption";
   readonly text: string;
-  readonly phraseId?: string;
   /** Epoch milliseconds. */
   readonly at: number;
 }
@@ -36,8 +36,9 @@ export interface SpeakingEvent {
   readonly at: number;
 }
 
-export interface PhrasesChangedEvent {
-  readonly type: "phrases-changed";
+/** Boards or keys changed on the desktop (from any client); reload GET /api/boards. */
+export interface BoardsChangedEvent {
+  readonly type: "boards-changed";
   readonly at: number;
 }
 
@@ -69,7 +70,7 @@ export interface CaptionsVisibilityEvent {
 export type ServerEvent =
   | CaptionEvent
   | SpeakingEvent
-  | PhrasesChangedEvent
+  | BoardsChangedEvent
   | SpeakErrorEvent
   | CaptionClearEvent
   | CaptionsVisibilityEvent;
@@ -80,10 +81,10 @@ export function isServerEvent(value: unknown): value is ServerEvent {
   if (typeof event.at !== "number") return false;
   switch (event.type) {
     case "caption":
-      return typeof event.text === "string" && (event.phraseId === undefined || typeof event.phraseId === "string");
+      return typeof event.text === "string";
     case "speaking":
       return event.state === "start" || event.state === "end";
-    case "phrases-changed":
+    case "boards-changed":
       return true;
     case "speak-error":
       return typeof event.message === "string" && (event.code === undefined || typeof event.code === "string");
@@ -117,34 +118,52 @@ export interface HealthResponse {
   readonly instanceId: string;
 }
 
+/** GET /api/boards → Board[] in display order. */
+export type BoardsResponse = Board[];
+
+/** POST /api/boards → 201 Board; PATCH /api/boards/:id → Board. */
+export interface BoardNameRequest {
+  name: string;
+}
+
 /**
- * GET /api/phrases → Phrase[] (slot order); POST /api/phrases with this body → 201 Phrase;
- * PUT /api/phrases/:id with `UpdatePhraseRequest` → Phrase; DELETE /api/phrases/:id → 204.
- * A slot already used by another phrase → 409 with code "slot-occupied".
+ * PUT /api/boards/:id/keys/:slot → Key. A slot that already holds a key → 409 "slot-occupied"
+ * unless `replace` is true. DELETE /api/boards/:id/keys/:slot → 204 (an empty slot is fine).
  */
-export interface SavePhraseRequest {
-  /** Client-generated id; the server generates one when omitted. Saving an existing id replaces it. */
-  id?: string;
-  text: string;
+export interface SetKeyRequest {
   label?: string;
-  /** Deck slot; defaults to the phrase's current slot, or the lowest free one for a new phrase. */
-  slot?: number;
-  createdAt?: number;
+  /** One of `KEY_ICON_IDS`; empty for none. */
+  icon?: string;
+  /** `#rrggbb`; empty for none. */
+  color?: string;
+  action: Action;
+  replace?: boolean;
 }
 
-/** PUT /api/phrases/:id: fields left out keep their value; an empty label removes it. */
-export interface UpdatePhraseRequest {
-  text?: string;
-  label?: string;
-  slot?: number;
+/** POST /api/boards/:id/keys/move → Board. A key already at `to` is swapped to `from`. */
+export interface MoveKeyRequest {
+  from: number;
+  to: number;
 }
 
-export type PhrasesResponse = Phrase[];
+/** POST /api/boards/restore-default → Board: puts back the built-in communication board. */
+export interface RestoreDefaultBoardRequest {
+  language: UiLanguage;
+}
 
-/** POST /api/speak → 202. Either `text` or `phraseId` is required. */
+/**
+ * POST /api/actions/execute → 200 `{ ok: true }` (202 for speech, which runs in the background).
+ * Navigation actions run in each client → 400 "client-action".
+ */
+export interface ExecuteActionRequest {
+  action: Action;
+}
+
+export type { Board, Key };
+
+/** POST /api/speak → 202. */
 export interface SpeakRequest {
-  text?: string;
-  phraseId?: string;
+  text: string;
   voiceId?: string;
   /** Speaking rate multiplier, 1 is normal speed. */
   rate?: number;
@@ -170,7 +189,7 @@ export interface DesktopSettings {
   rate: number;
   /** Empty string means the system default output device. */
   deviceId: string;
-  /** Interface language; also picks the first-run phrases and, unless `voiceLanguage` is set, the default voice. */
+  /** Interface language; also picks the first-run board and, unless `voiceLanguage` is set, the default voice. */
   language: UiLanguage;
   /** False hides the OBS captions until turned back on. */
   captionsVisible: boolean;
@@ -184,7 +203,15 @@ export function voiceLanguageOf(settings: { language: UiLanguage; voiceLanguage?
 }
 
 /** Machine-readable reasons a request failed, so clients can explain them in their own language. */
-export type ApiErrorCode = "slot-occupied" | "phrase-not-found" | "nothing-to-repeat";
+export type ApiErrorCode =
+  | "slot-occupied"
+  | "nothing-to-repeat"
+  | "board-not-found"
+  | "key-not-found"
+  | "last-board"
+  | "invalid-board"
+  | "client-action"
+  | "obs-unavailable";
 
 export interface ErrorResponse {
   /** Technical detail in English. */

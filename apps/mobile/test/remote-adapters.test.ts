@@ -3,7 +3,7 @@ import { DesktopApiClient } from "../src/adapters/desktop-api";
 import { DesktopEventSource } from "../src/adapters/desktop-events";
 import { RemotePhraseRepository } from "../src/adapters/remote-phrase-repository";
 import { DesktopSpeechError, RemoteSpeechSynthesizer } from "../src/adapters/remote-speech-synthesizer";
-import { createFakeFetch, FakeSocket } from "./desktop-fakes";
+import { boardsOf, createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
 
 const capabilities = { platform: "darwin", engine: "say", supportsDeviceSelection: true };
 
@@ -40,46 +40,84 @@ describe("DesktopApiClient.detect", () => {
   });
 });
 
-describe("RemotePhraseRepository", () => {
-  it("lists, saves and deletes phrases over HTTP", async () => {
-    const { api, requests } = setup((request) =>
-      request.method === "GET"
-        ? { body: [{ id: "a", text: "Hi", slot: 0, createdAt: 1 }, { bogus: true }] }
-        : { status: request.method === "DELETE" ? 204 : 201, body: request.body },
-    );
-    const repository = new RemotePhraseRepository(api);
+describe("DesktopApiClient boards", () => {
+  it("calls every board endpoint", async () => {
+    const { api, requests } = setup((request) => ({ status: request.method === "DELETE" ? 204 : 200, body: request.method === "GET" ? boardsOf([]) : {} }));
 
-    expect(await repository.list()).toEqual([{ id: "a", text: "Hi", slot: 0, createdAt: 1 }]);
-    await repository.save({ id: "b", text: "Water", label: "W", slot: 1, createdAt: 2 });
-    await repository.delete("id/with space");
+    expect(await api.listBoards()).toEqual(boardsOf([]));
+    await api.createBoard("OBS");
+    await api.renameBoard("a/b", "Escenas");
+    await api.deleteBoard("a/b");
+    await api.setKey("b1", 3, { label: "Hi", action: { type: "voice.stop" } }, { replace: true });
+    await api.clearKey("b1", 3);
+    await api.moveKey("b1", 3, 4);
+    await api.restoreDefaultBoard("en");
+    await api.executeAction({ type: "captions.clear" });
 
     expect(requests).toEqual([
-      { method: "GET", url: "/api/phrases", body: undefined },
-      { method: "POST", url: "/api/phrases", body: { id: "b", text: "Water", label: "W", slot: 1, createdAt: 2 } },
-      { method: "DELETE", url: "/api/phrases/id%2Fwith%20space", body: undefined },
+      { method: "GET", url: "/api/boards", body: undefined },
+      { method: "POST", url: "/api/boards", body: { name: "OBS" } },
+      { method: "PATCH", url: "/api/boards/a%2Fb", body: { name: "Escenas" } },
+      { method: "DELETE", url: "/api/boards/a%2Fb", body: undefined },
+      { method: "PUT", url: "/api/boards/b1/keys/3", body: { label: "Hi", action: { type: "voice.stop" }, replace: true } },
+      { method: "DELETE", url: "/api/boards/b1/keys/3", body: undefined },
+      { method: "POST", url: "/api/boards/b1/keys/move", body: { from: 3, to: 4 } },
+      { method: "POST", url: "/api/boards/restore-default", body: { language: "en" } },
+      { method: "POST", url: "/api/actions/execute", body: { action: { type: "captions.clear" } } },
     ]);
   });
 
-  it("throws when the desktop rejects a request", async () => {
-    const repository = new RemotePhraseRepository(setup(() => ({ status: 400, body: { error: "text too long" } })).api);
+  it("drops invalid boards and keys sent by the desktop", async () => {
+    const { api } = setup(() => ({ body: [...boardsOf([{ text: "Hi", slot: 0 }]), { id: 5 }] }));
+    expect(await api.listBoards()).toEqual(boardsOf([{ text: "Hi", slot: 0 }]));
+  });
+});
 
-    await expect(repository.save({ id: "x", text: "Hi", slot: 0, createdAt: 1 })).rejects.toThrow("text too long");
+describe("RemotePhraseRepository", () => {
+  const route = (phrases: Parameters<typeof boardsOf>[0]) => (request: RecordedRequest) =>
+    request.method === "GET" ? { body: boardsOf(phrases) } : { status: request.method === "DELETE" ? 204 : 200, body: {} };
+
+  it("reads the speak keys of the first desktop board as phrases", async () => {
+    const { api } = setup((request) => {
+      const [board] = boardsOf([{ text: "Hi", label: "H", slot: 2 }]);
+      return { body: [{ ...board, keys: [...board!.keys, { slot: 10, action: { type: "voice.stop" } }] }] };
+    });
+
+    expect(await new RemotePhraseRepository(api).list()).toEqual([{ id: "slot-2", text: "Hi", label: "H", slot: 2, createdAt: 2 }]);
   });
 
-  it("updates a phrase with PUT, sending an empty label to remove it", async () => {
-    const { api, requests } = setup(() => ({ body: {} }));
+  it("saves into an empty key, so a key filled by another device is never overwritten", async () => {
+    const { api, requests } = setup(route([]));
+    const repository = new RemotePhraseRepository(api);
 
-    await new RemotePhraseRepository(api).update({ id: "a/b", text: "Hello", slot: 4, createdAt: 1 });
-    await new RemotePhraseRepository(api).update({ id: "c", text: "Hi", label: "H", slot: 0, createdAt: 1 });
+    await repository.save({ id: "new", text: "Water", label: "W", slot: 1, createdAt: 2 });
+    await repository.delete("slot-1");
 
     expect(requests).toEqual([
-      { method: "PUT", url: "/api/phrases/a%2Fb", body: { text: "Hello", label: "", slot: 4 } },
-      { method: "PUT", url: "/api/phrases/c", body: { text: "Hi", label: "H", slot: 0 } },
+      { method: "GET", url: "/api/boards", body: undefined },
+      { method: "PUT", url: "/api/boards/communication/keys/1", body: { label: "W", action: { type: "voice.speak", text: "Water" } } },
+      { method: "DELETE", url: "/api/boards/communication/keys/1", body: undefined },
+    ]);
+  });
+
+  it("updates a phrase in place, moving it first when its slot changed", async () => {
+    const { api, requests } = setup(route([{ text: "Hello", slot: 0 }]));
+    const repository = new RemotePhraseRepository(api);
+
+    await repository.update({ id: "slot-0", text: "Hello", slot: 0, createdAt: 0 });
+    await repository.update({ id: "slot-0", text: "Hi", label: "H", slot: 4, createdAt: 0 });
+
+    expect(requests.filter((request) => request.method !== "GET")).toEqual([
+      { method: "PUT", url: "/api/boards/communication/keys/0", body: { label: "", action: { type: "voice.speak", text: "Hello" }, replace: true } },
+      { method: "POST", url: "/api/boards/communication/keys/move", body: { from: 0, to: 4 } },
+      { method: "PUT", url: "/api/boards/communication/keys/4", body: { label: "H", action: { type: "voice.speak", text: "Hi" }, replace: true } },
     ]);
   });
 
   it("exposes the error code the desktop sends", async () => {
-    const { api } = setup(() => ({ status: 409, body: { error: "Slot 3 already holds a phrase.", code: "slot-occupied" } }));
+    const { api } = setup((request) =>
+      request.method === "GET" ? { body: boardsOf([]) } : { status: 409, body: { error: "Slot 3 is already in use.", code: "slot-occupied" } },
+    );
 
     await expect(new RemotePhraseRepository(api).save({ id: "x", text: "Hi", slot: 3, createdAt: 1 })).rejects.toMatchObject({
       status: 409,
@@ -90,7 +128,7 @@ describe("RemotePhraseRepository", () => {
   it("refuses to replace every phrase and sends nothing to the desktop", async () => {
     const { api, requests } = setup();
 
-    await expect(new RemotePhraseRepository(api).replaceAll([])).rejects.toThrow("restorePhrases");
+    await expect(new RemotePhraseRepository(api).replaceAll([])).rejects.toThrow("restoreDefaultBoard");
     expect(requests).toEqual([]);
   });
 });
@@ -170,9 +208,9 @@ describe("DesktopEventSource", () => {
     expect(FakeSocket.instances).toHaveLength(2);
 
     FakeSocket.instances[1]!.open();
-    FakeSocket.instances[1]!.emit({ type: "phrases-changed", at: 1 });
+    FakeSocket.instances[1]!.emit({ type: "boards-changed", at: 1 });
     FakeSocket.instances[1]!.emit({ type: "nonsense" });
-    expect(received).toEqual([{ type: "phrases-changed", at: 1 }]);
+    expect(received).toEqual([{ type: "boards-changed", at: 1 }]);
 
     unsubscribe();
     expect(FakeSocket.instances[1]!.closed).toBe(true);

@@ -4,7 +4,7 @@ import type { NetworkInterfaceInfo } from "node:os";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { JsonFilePhraseRepository } from "../src/adapters/json-file-phrase-repository";
+import { JsonFileBoardRepository } from "../src/adapters/json-file-board-repository";
 import { JsonFileSettingsStore } from "../src/adapters/json-file-settings-store";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createApiHandler } from "../src/server/api";
@@ -27,7 +27,7 @@ describe("GET /api/connection", () => {
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), "speak-bot-connection-"));
     server = createDesktopServer({
-      repository: new JsonFilePhraseRepository(join(dir, "phrases.json")),
+      repository: new JsonFileBoardRepository(join(dir, "boards.json")),
       settings: new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true }),
       synthesizer: {
         capabilities: { platform: "test", engine: "fake", supportsDeviceSelection: false },

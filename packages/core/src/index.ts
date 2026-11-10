@@ -13,6 +13,66 @@ export {
 } from "./domain/phrase";
 export { assignMissingSlots, lowestFreeSlot } from "./domain/phrase-slots";
 export type { PhraseRepository } from "./ports/phrase-repository";
+export {
+  ACTION_CATEGORIES,
+  ACTION_REGISTRY,
+  ACTION_TYPES,
+  actionDefinition,
+  InvalidBoardError,
+  isActionType,
+  MAX_ACTION_TEXT_LENGTH,
+  MAX_BOARD_ID_LENGTH,
+  MAX_OBS_NAME_LENGTH,
+  MAX_PAGE_NUMBER,
+  parseAction,
+  type Action,
+  type ActionCategory,
+  type ActionDefinition,
+  type ActionOf,
+  type ActionParamDefinition,
+  type ActionParamKind,
+  type ActionType,
+} from "./domain/actions";
+export {
+  assertKeySlot,
+  BOARD_COLUMNS,
+  BOARD_ROWS,
+  BoardNotFoundError,
+  createKey,
+  isHexColor,
+  isKeyIconId,
+  isValidKeySlot,
+  KEY_ICON_IDS,
+  KeyNotFoundError,
+  KEYS_PER_PAGE,
+  LastBoardError,
+  makeBoard,
+  MAX_BOARD_NAME_LENGTH,
+  MAX_BOARD_PAGES,
+  MAX_BOARDS,
+  MAX_ICON_ID_LENGTH,
+  MAX_KEY_LABEL_LENGTH,
+  MAX_KEY_SLOTS,
+  parseBoardName,
+  readStoredBoards,
+  type Board,
+  type Key,
+  type KeyIconId,
+} from "./domain/board";
+export { boardFromPhrases, buildDefaultBoard, COMMUNICATION_ACTIONS, DEFAULT_BOARD_ID, DEFAULT_BOARD_NAMES } from "./domain/default-board";
+export type { BoardChange, BoardRepository } from "./ports/board-repository";
+export {
+  clearKey,
+  createBoard,
+  deleteBoard,
+  initializeBoards,
+  listBoards,
+  moveKey,
+  renameBoard,
+  restoreDefaultBoard,
+  setKey,
+  type BoardDependencies,
+} from "./use-cases/boards";
 export type { SpeakOptions, SpeechSynthesizer, Voice } from "./ports/speech-synthesizer";
 export { EmptyTextError, speakText, stopSpeaking } from "./use-cases/speak";
 export {
@@ -45,9 +105,13 @@ export {
   type DevicesResponse,
   type ErrorResponse,
   type HealthResponse,
-  type PhrasesChangedEvent,
-  type PhrasesResponse,
-  type SavePhraseRequest,
+  type BoardNameRequest,
+  type BoardsChangedEvent,
+  type BoardsResponse,
+  type ExecuteActionRequest,
+  type MoveKeyRequest,
+  type RestoreDefaultBoardRequest,
+  type SetKeyRequest,
   type ServerEvent,
   type SpeakErrorCode,
   type SpeakErrorEvent,
@@ -55,6 +119,5 @@ export {
   type SpeechCapabilities,
   type SpeakRequest,
   type UiLanguage,
-  type UpdatePhraseRequest,
   type VoicesResponse,
 } from "./protocol";

@@ -7,7 +7,7 @@ import type { SpeakTarget } from "../src/adapters/local-storage-speak-target-sto
 import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesizer";
 import { App } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
-import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
+import { boardsOf, createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
 import { goTo, memoryLanguageStore } from "./i18n-helpers";
 
 class LocalSynthesizer implements AppSpeechSynthesizer {
@@ -56,8 +56,8 @@ function desktopRoute(supportsDeviceSelection = true) {
             capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection },
           },
         };
-      case "GET /api/phrases":
-        return { body: [{ id: "d1", text: "Hello from desktop", slot: 0, createdAt: 1 }] };
+      case "GET /api/boards":
+        return { body: boardsOf([{ id: "d1", text: "Hello from desktop", slot: 0, createdAt: 1 }]) };
       case "GET /api/voices":
         return { body: [{ id: "Alex", name: "Alex", lang: "en-US", isDefault: false }] };
       case "GET /api/devices":

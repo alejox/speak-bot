@@ -1,8 +1,9 @@
-import { DEFAULT_PHRASES_BY_LANGUAGE, seedDefaultPhrases, type DesktopSettings } from "@speak-bot/core";
+import type { DesktopSettings } from "@speak-bot/core";
 import { randomUUID } from "node:crypto";
 import { homedir, networkInterfaces } from "node:os";
 import { join } from "node:path";
-import { JsonFilePhraseRepository } from "./adapters/json-file-phrase-repository";
+import { prepareBoards } from "./adapters/board-migration";
+import { JsonFileBoardRepository } from "./adapters/json-file-board-repository";
 import { JsonFileSettingsStore } from "./adapters/json-file-settings-store";
 import { createSystemSynthesizer } from "./adapters/tts/create-system-synthesizer";
 import { loadConfig, type ConfigSources } from "./config";
@@ -54,14 +55,17 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
   });
   const log = options.log ?? (() => {});
 
-  const repository = new JsonFilePhraseRepository(join(config.dataDir, "phrases.json"));
+  const repository = new JsonFileBoardRepository(join(config.dataDir, "boards.json"));
   const settings = new JsonFileSettingsStore(join(config.dataDir, "settings.json"), config.defaults);
   const synthesizer = createSystemSynthesizer();
-  const phraseDeps = { repository, generateId: randomUUID, now: () => Date.now() };
+  const boardDeps = { repository, generateId: randomUUID, now: () => Date.now() };
 
-  if (!(await repository.exists())) {
-    await seedDefaultPhrases(phraseDeps, DEFAULT_PHRASES_BY_LANGUAGE[(await settings.load()).language]);
-  }
+  // Phrases saved by older versions become the communication board, once.
+  const prepared = await prepareBoards(repository, {
+    legacyPhrasesFile: join(config.dataDir, "phrases.json"),
+    language: (await settings.load()).language,
+  });
+  if (prepared === "migrated") log("Moved the saved phrases to the communication board (backup: phrases.json.migrated.bak).");
   const settingsListeners = new Set<(next: DesktopSettings) => void>();
 
   const pageHandler = createPageHandler({
@@ -69,7 +73,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     overlayFile: options.overlayFile ?? OVERLAY_FILE,
   });
   const server = createDesktopServer({
-    ...phraseDeps,
+    ...boardDeps,
     settings,
     synthesizer,
     log,

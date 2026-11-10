@@ -7,7 +7,7 @@ import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesize
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
 import { DockApp } from "../src/app/DockApp";
 import { isDockPath } from "../src/app/route";
-import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
+import { boardsOf, createFakeFetch, FakeSocket, phraseFromKeyRequest, type RecordedRequest } from "./desktop-fakes";
 import { memoryLanguageStore } from "./i18n-helpers";
 
 describe("isDockPath", () => {
@@ -49,8 +49,8 @@ function desktopRoute(request: RecordedRequest) {
   switch (`${request.method} ${request.url}`) {
     case "GET /api/health":
       return { body: { ok: true, name: "speak-bot-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: true } } };
-    case "GET /api/phrases":
-      return { body: [{ id: "d1", text: "Hola desde la computadora", slot: 0, createdAt: 1 }] };
+    case "GET /api/boards":
+      return { body: boardsOf([{ id: "d1", text: "Hola desde la computadora", slot: 0, createdAt: 1 }]) };
     case "GET /api/voices":
       return { body: [] };
     case "GET /api/settings":
@@ -104,9 +104,12 @@ describe("DockApp", () => {
   it("shows an empty deck the streamer can fill from the dock", async () => {
     let phrases: Phrase[] = [];
     const { requests, user } = setup((request) => {
-      if (request.url !== "/api/phrases") return desktopRoute(request);
-      if (request.method === "POST") phrases = [request.body as Phrase];
-      return request.method === "GET" ? { body: phrases } : { status: 201, body: request.body };
+      const saved = phraseFromKeyRequest(request);
+      if (saved) {
+        phrases = [{ id: `slot-${saved.slot}`, createdAt: saved.slot, ...saved }];
+        return { body: request.body };
+      }
+      return request.url === "/api/boards" ? { body: boardsOf(phrases) } : desktopRoute(request);
     });
 
     const deck = await screen.findByRole("region", { name: "Frases" });
@@ -115,7 +118,7 @@ describe("DockApp", () => {
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(await within(deck).findByRole("button", { name: "Decir: Bienvenidos" })).toBeInTheDocument();
-    expect(requests).toContainEqual(expect.objectContaining({ method: "POST", url: "/api/phrases", body: expect.objectContaining({ slot: 0 }) }));
+    expect(requests).toContainEqual(expect.objectContaining({ method: "PUT", url: "/api/boards/communication/keys/0" }));
     expect(within(deck).getByText("Página 1 de 1")).toBeInTheDocument();
     expect(within(deck).getAllByRole("listitem")).toHaveLength(15);
   });

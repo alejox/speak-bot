@@ -18,7 +18,7 @@ import { createDesktopServices, type AppServices } from "../src/app/composition-
 import { en } from "../src/i18n/en";
 import { es } from "../src/i18n/es";
 import { translate } from "../src/i18n/messages";
-import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
+import { boardsOf, createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
 import { goTo, memoryLanguageStore } from "./i18n-helpers";
 
 const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
@@ -174,8 +174,8 @@ function desktopRoute(language: UiLanguage) {
     switch (`${request.method} ${request.url}`) {
       case "GET /api/health":
         return { body: { ok: true, name: "speak-bot-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: false } } };
-      case "GET /api/phrases":
-        return { body: [] };
+      case "GET /api/boards":
+        return { body: boardsOf([]) };
       case "GET /api/voices":
         return { body: [] };
       case "GET /api/settings":

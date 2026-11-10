@@ -1,48 +1,15 @@
-import { DEFAULT_PHRASES_BY_LANGUAGE, type Phrase, type ServerEvent, type SpeakOptions, type Voice } from "@speak-bot/core";
+import type { ServerEvent, SpeakOptions, Voice } from "@speak-bot/core";
 import { mkdtemp, rm } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
-import { JsonFilePhraseRepository } from "../src/adapters/json-file-phrase-repository";
+import { JsonFileBoardRepository } from "../src/adapters/json-file-board-repository";
 import { JsonFileSettingsStore } from "../src/adapters/json-file-settings-store";
-import {
-  SpeechEngineUnavailableError,
-  type DesktopSpeakOptions,
-  type DesktopSpeechSynthesizer,
-} from "../src/adapters/tts/process-speech-synthesizer";
+import { SpeechEngineUnavailableError } from "../src/adapters/tts/process-speech-synthesizer";
 import { createDesktopServer, type DesktopServer } from "../src/server/create-server";
-
-class FakeSynthesizer implements DesktopSpeechSynthesizer {
-  readonly capabilities = { platform: "test", engine: "fake", supportsDeviceSelection: true };
-  failNext: Error | undefined;
-  readonly spoken: Array<{ text: string; options: DesktopSpeakOptions | undefined }> = [];
-  cancelCount = 0;
-  voiceListCount = 0;
-  voices: Voice[] = [{ id: "Alex", name: "Alex", lang: "en-US", isDefault: false }];
-  private finish: (() => void) | undefined;
-
-  speak(text: string, options?: DesktopSpeakOptions): Promise<void> {
-    this.spoken.push({ text, options });
-    if (this.failNext) return Promise.reject(this.failNext);
-    return new Promise((resolve) => (this.finish = resolve));
-  }
-  finishCurrent() {
-    this.finish?.();
-  }
-  cancel() {
-    this.cancelCount += 1;
-    this.finish?.();
-  }
-  async listVoices(): Promise<Voice[]> {
-    this.voiceListCount += 1;
-    return this.voices;
-  }
-  async listDevices() {
-    return [{ id: "BlackHole 2ch", name: "BlackHole 2ch" }];
-  }
-}
+import { FakeSynthesizer } from "./fake-synthesizer";
 
 describe("desktop HTTP API", () => {
   let dir: string;
@@ -57,7 +24,7 @@ describe("desktop HTTP API", () => {
     settingsChanges = [];
     let id = 0;
     server = createDesktopServer({
-      repository: new JsonFilePhraseRepository(join(dir, "phrases.json")),
+      repository: new JsonFileBoardRepository(join(dir, "boards.json")),
       settings: new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true }),
       synthesizer,
       generateId: () => `id-${++id}`,
@@ -110,89 +77,7 @@ describe("desktop HTTP API", () => {
     });
   });
 
-  it("creates, lists and deletes phrases and broadcasts phrases-changed", async () => {
-    const client = await connect();
 
-    const created = await post("/api/phrases", { text: "  I need water " });
-    expect(created.status).toBe(201);
-    const phrase = (await created.json()) as Phrase;
-    expect(phrase).toEqual({ id: "id-1", text: "I need water", slot: 0, createdAt: 1001 });
-
-    const upserted = await post("/api/phrases", { id: "client-1", text: "Hello", createdAt: 5 });
-    expect(await upserted.json()).toEqual({ id: "client-1", text: "Hello", slot: 1, createdAt: 5 });
-
-    const listed = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
-    expect(listed.map((p) => p.id)).toEqual(["id-1", "client-1"]);
-
-    const deleted = await fetch(`${baseUrl}/api/phrases/client-1`, { method: "DELETE" });
-    expect(deleted.status).toBe(204);
-    expect(((await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[]).map((p) => p.id)).toEqual(["id-1"]);
-
-    expect((await client.next(3)).map((e) => e.type)).toEqual(["phrases-changed", "phrases-changed", "phrases-changed"]);
-    client.close();
-  });
-
-  it("saves phrases into chosen slots and rejects occupied ones", async () => {
-    const created = await post("/api/phrases", { text: "Water", slot: 7 });
-    expect(created.status).toBe(201);
-    expect(await created.json()).toMatchObject({ text: "Water", slot: 7 });
-
-    const clash = await post("/api/phrases", { text: "Other", slot: 7 });
-    expect(clash.status).toBe(409);
-    expect(await clash.json()).toEqual({ error: expect.any(String), code: "slot-occupied" });
-
-    // Upserting the same id keeps its slot when none is given.
-    const listed = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
-    const again = await post("/api/phrases", { id: listed[0]!.id, text: "Water please" });
-    expect(await again.json()).toMatchObject({ slot: 7, text: "Water please" });
-
-    for (const slot of [-1, 1.5, "3", 99999]) {
-      expect((await post("/api/phrases", { text: "Bad", slot })).status).toBe(400);
-    }
-  });
-
-  it("updates a phrase with PUT, validating it and broadcasting phrases-changed", async () => {
-    const first = (await (await post("/api/phrases", { text: "Hello" })).json()) as Phrase;
-    await post("/api/phrases", { text: "Bye" });
-    const client = await connect();
-
-    const updated = await post(`/api/phrases/${first.id}`, { text: "Hello there", label: "Hi" }, "PUT");
-    expect(updated.status).toBe(200);
-    expect(await updated.json()).toEqual({ id: first.id, text: "Hello there", label: "Hi", slot: 0, createdAt: first.createdAt });
-    expect((await client.next(1))[0]).toMatchObject({ type: "phrases-changed" });
-    client.close();
-
-    const moved = await post(`/api/phrases/${first.id}`, { slot: 5 }, "PUT");
-    expect(await moved.json()).toMatchObject({ slot: 5, text: "Hello there" });
-
-    const cases: Array<[unknown, number]> = [
-      [{ slot: 1 }, 409],
-      [{ text: "  " }, 400],
-      [{ text: "x".repeat(1001) }, 400],
-      [{ label: 3 }, 400],
-      [{ slot: "2" }, 400],
-      ["[1]", 400],
-    ];
-    for (const [body, status] of cases) {
-      const response = await post(`/api/phrases/${first.id}`, body, "PUT");
-      expect({ body, status: response.status }).toEqual({ body, status });
-    }
-    expect((await post("/api/phrases/missing", { text: "x" }, "PUT")).status).toBe(404);
-    const plain = await fetch(`${baseUrl}/api/phrases/${first.id}`, { method: "PUT", body: JSON.stringify({ text: "x" }) });
-    expect(plain.status).toBe(415);
-
-    const listed = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
-    expect(listed.map((p) => [p.text, p.slot])).toEqual([
-      ["Bye", 1],
-      ["Hello there", 5],
-    ]);
-  });
-
-  it("assigns slots 0..n-1 when restoring the defaults", async () => {
-    await post("/api/phrases", { text: "Mine", slot: 40 });
-    const restored = (await (await post("/api/phrases/restore", { language: "es", captionsVisible: true })).json()) as Phrase[];
-    expect(restored.map((p) => p.slot)).toEqual(DEFAULT_PHRASES_BY_LANGUAGE.es.map((_, index) => index));
-  });
 
   it("speaks text with the saved settings and broadcasts caption and speaking events", async () => {
     await post("/api/settings", { voiceId: "Alex", rate: 1.2, deviceId: "BlackHole 2ch" }, "PUT");
@@ -211,17 +96,6 @@ describe("desktop HTTP API", () => {
       { type: "speaking", state: "start" },
       { type: "speaking", state: "end" },
     ]);
-    client.close();
-  });
-
-  it("speaks a saved phrase by id, with per-request voice and rate overrides", async () => {
-    const phrase = (await (await post("/api/phrases", { text: "Thank you" })).json()) as Phrase;
-    const client = await connect();
-
-    await post("/api/speak", { phraseId: phrase.id, voiceId: "Other", rate: 0.8 });
-
-    expect(synthesizer.spoken[0]).toEqual({ text: "Thank you", options: { voiceId: "Other", rate: 0.8 } });
-    expect((await client.next(1))[0]).toMatchObject({ type: "caption", text: "Thank you", phraseId: phrase.id });
     client.close();
   });
 
@@ -254,10 +128,7 @@ describe("desktop HTTP API", () => {
       ["/api/speak", { text: "   " }, 400],
       ["/api/speak", { text: "x".repeat(1001) }, 400],
       ["/api/speak", { text: "Hi", rate: 10 }, 400],
-      ["/api/speak", { phraseId: "missing" }, 404],
       ["/api/speak", "{ broken", 400],
-      ["/api/phrases", { text: "" }, 400],
-      ["/api/phrases", { text: 42 }, 400],
     ];
     for (const [path, body, status] of cases) {
       const response = await post(path, body);
@@ -324,57 +195,7 @@ describe("desktop HTTP API", () => {
     expect(synthesizer.voiceListCount).toBe(1);
   });
 
-  it("restores the default phrases in the requested language and broadcasts phrases-changed", async () => {
-    await post("/api/phrases", { text: "Mine" });
-    const client = await connect();
 
-    const response = await post("/api/phrases/restore", { language: "es", captionsVisible: true });
-    expect(response.status).toBe(200);
-    const restored = (await response.json()) as Phrase[];
-    expect(restored.map((p) => p.text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
-    const listed = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
-    expect(listed.map((p) => p.text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
-    expect((await client.next(1))[0]).toMatchObject({ type: "phrases-changed" });
-    client.close();
-
-    await post("/api/phrases/restore", { language: "en", captionsVisible: true });
-    const english = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
-    expect(english.map((p) => p.text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.en]);
-  });
-
-  it("ends with exactly the default phrases when two restores run at the same time", async () => {
-    await post("/api/phrases", { text: "Mine" });
-
-    const responses = await Promise.all([
-      post("/api/phrases/restore", { language: "es", captionsVisible: true }),
-      post("/api/phrases/restore", { language: "es", captionsVisible: true }),
-    ]);
-
-    expect(responses.map((response) => response.status)).toEqual([200, 200]);
-    const listed = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
-    expect(listed).toHaveLength(DEFAULT_PHRASES_BY_LANGUAGE.es.length);
-    expect(listed.map((p) => p.text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
-  });
-
-  it("validates the restore language and keeps the phrases on error", async () => {
-    await post("/api/phrases", { text: "Mine" });
-
-    for (const body of [{}, { language: "fr" }, { language: 1 }, "{ broken"]) {
-      const response = await post("/api/phrases/restore", body);
-      expect(response.status).toBe(400);
-      expect(await response.json()).toHaveProperty("error");
-    }
-    const plain = await fetch(`${baseUrl}/api/phrases/restore`, { method: "POST", body: JSON.stringify({ language: "es", captionsVisible: true }) });
-    expect(plain.status).toBe(415);
-
-    const listed = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
-    expect(listed.map((p) => p.text)).toEqual(["Mine"]);
-  });
-
-  it("still deletes a phrase whose id is \"restore\"", async () => {
-    await post("/api/phrases", { id: "restore", text: "Odd id" });
-    expect((await fetch(`${baseUrl}/api/phrases/restore`, { method: "DELETE" })).status).toBe(204);
-  });
 
   it("repeats the last spoken text with the saved settings, or explains that nothing was said", async () => {
     const nothing = await post("/api/repeat", {});
@@ -382,14 +203,14 @@ describe("desktop HTTP API", () => {
     expect(await nothing.json()).toEqual({ error: expect.any(String), code: "nothing-to-repeat" });
     expect(synthesizer.spoken).toEqual([]);
 
-    const phrase = (await (await post("/api/phrases", { text: "Thank you" })).json()) as Phrase;
-    await post("/api/speak", { phraseId: phrase.id, rate: 0.8 });
+    await post("/api/speak", { text: "Thank you", voiceId: "Other", rate: 0.8 });
     synthesizer.finishCurrent();
     const client = await connect();
 
     const repeated = await post("/api/repeat", {});
     expect(repeated.status).toBe(202);
     expect(synthesizer.spoken.map((entry) => entry.text)).toEqual(["Thank you", "Thank you"]);
+    expect(synthesizer.spoken[0]!.options).toEqual({ voiceId: "Other", rate: 0.8 });
     expect(synthesizer.spoken[1]!.options).toEqual({ voiceId: undefined, rate: 1 });
     expect((await client.next(2)).map((e) => e.type)).toEqual(["caption", "speaking"]);
     client.close();

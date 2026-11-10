@@ -7,7 +7,7 @@ import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesize
 import { App } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
 import { SECTION_STORAGE_KEY } from "../src/app/use-section";
-import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
+import { boardsOf, createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
 import { goTo, memoryLanguageStore } from "./i18n-helpers";
 
 class Synthesizer implements AppSpeechSynthesizer {
@@ -166,17 +166,17 @@ function desktopRoute() {
     switch (`${request.method} ${request.url}`) {
       case "GET /api/health":
         return { body: { ok: true, name: "speak-bot-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: false } } };
-      case "GET /api/phrases":
-        return { body: phrases };
+      case "GET /api/boards":
+        return { body: boardsOf(phrases) };
       case "GET /api/voices":
         return { body: [] };
       case "GET /api/settings":
         return { body: { voiceId: "", rate: 1, deviceId: "", language: "en" } };
       case "POST /api/speak":
         return { status: 202, body: { ok: true } };
-      case "POST /api/phrases/restore":
+      case "POST /api/boards/restore-default":
         phrases = [{ id: "r1", text: "Hello", slot: 0, createdAt: 1 }];
-        return { body: phrases };
+        return { body: boardsOf(phrases)[0] };
       default:
         return undefined;
     }
@@ -224,13 +224,13 @@ describe("phrase board in Computer mode", () => {
 
     await user.click(screen.getByRole("button", { name: "Restore default phrases" }));
     await user.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(requests.some((r) => r.url === "/api/phrases/restore")).toBe(false);
+    expect(requests.some((r) => r.url === "/api/boards/restore-default")).toBe(false);
 
     await user.click(screen.getByRole("button", { name: "Restore default phrases" }));
     await user.click(screen.getByRole("button", { name: "Yes, restore" }));
 
     expect(await screen.findByText("Default phrases restored.")).toBeInTheDocument();
-    expect(requests).toContainEqual({ method: "POST", url: "/api/phrases/restore", body: { language: "en" } });
+    expect(requests).toContainEqual({ method: "POST", url: "/api/boards/restore-default", body: { language: "en" } });
     expect(await screen.findByRole("button", { name: "Edit phrase: Hello" })).toBeInTheDocument();
     expect(localRepository.phrases.map((p) => p.text)).toEqual(["Local phrase"]);
   });

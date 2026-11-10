@@ -1,4 +1,4 @@
-import type { DesktopSettings, PhraseRepository, ServerEvent } from "@speak-bot/core";
+import type { BoardRepository, DesktopSettings, ServerEvent } from "@speak-bot/core";
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { hostname as osHostname } from "node:os";
@@ -11,7 +11,7 @@ import type { NetworkInterfaces } from "./network";
 import { createRequestGuard } from "./request-guard";
 
 export interface DesktopServerDependencies {
-  repository: PhraseRepository;
+  repository: BoardRepository;
   settings: JsonFileSettingsStore;
   synthesizer: DesktopSpeechSynthesizer;
   generateId: () => string;

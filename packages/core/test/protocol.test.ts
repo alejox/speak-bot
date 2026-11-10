@@ -13,10 +13,10 @@ describe("isServerEvent", () => {
   it("accepts every known event shape", () => {
     const events: ServerEvent[] = [
       { type: "caption", text: "Hello", at: 1 },
-      { type: "caption", text: "Hello", phraseId: "p1", at: 1 },
+      { type: "caption", text: "Hello", at: 1 },
       { type: "speaking", state: "start", at: 2 },
       { type: "speaking", state: "end", at: 3 },
-      { type: "phrases-changed", at: 4 },
+      { type: "boards-changed", at: 4 },
       { type: "speak-error", message: "espeak-ng is not installed", at: 5 },
       { type: "speak-error", message: "espeak-ng is not installed", code: "engine-unavailable", at: 6 },
       { type: "speak-error", message: "exit code 1", code: "speech-failed", at: 7 },
@@ -33,7 +33,7 @@ describe("isServerEvent", () => {
     expect(isServerEvent({ type: "caption", at: 1 })).toBe(false);
     expect(isServerEvent({ type: "speaking", state: "paused", at: 1 })).toBe(false);
     expect(isServerEvent({ type: "unknown", at: 1 })).toBe(false);
-    expect(isServerEvent({ type: "phrases-changed" })).toBe(false);
+    expect(isServerEvent({ type: "boards-changed" })).toBe(false);
     expect(isServerEvent({ type: "speak-error", at: 1 })).toBe(false);
     expect(isServerEvent({ type: "speak-error", message: "x", code: 3, at: 1 })).toBe(false);
     expect(isServerEvent({ type: "caption-clear" })).toBe(false);

@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from "../src/adapters/local-storage-settings-store";
 import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesizer";
 import { App } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
-import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
+import { boardsOf, createFakeFetch, FakeSocket, phraseFromKeyRequest, type RecordedRequest } from "./desktop-fakes";
 import { goTo, memoryLanguageStore } from "./i18n-helpers";
 
 class Synthesizer implements AppSpeechSynthesizer {
@@ -258,27 +258,22 @@ function desktopRoute() {
     switch (key) {
       case "GET /api/health":
         return { body: { ok: true, name: "speak-bot-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: false } } };
-      case "GET /api/phrases":
-        return { body: phrases };
+      case "GET /api/boards":
+        return { body: boardsOf(phrases) };
       case "GET /api/voices":
         return { body: [] };
       case "GET /api/settings":
         return { body: { voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true } };
       case "POST /api/speak":
         return { status: 202, body: { ok: true } };
-      case "POST /api/phrases": {
-        const body = request.body as Phrase;
+      default: {
+        const saved = phraseFromKeyRequest(request);
+        if (!saved) return undefined;
         // Another device filled this key first.
-        if (body.text === "Race") return { status: 409, body: { error: "Slot 3 already holds a phrase.", code: "slot-occupied" } };
-        phrases = [...phrases, body];
-        return { status: 201, body };
+        if (saved.text === "Race") return { status: 409, body: { error: "Slot 3 is already in use.", code: "slot-occupied" } };
+        phrases = [...phrases.filter((p) => p.slot !== saved.slot), { id: `slot-${saved.slot}`, createdAt: saved.slot, ...saved }];
+        return { body: request.body };
       }
-      case "PUT /api/phrases/d1": {
-        phrases = phrases.map((p) => (p.id === "d1" ? { ...p, ...(request.body as object) } : p));
-        return { body: phrases[0] };
-      }
-      default:
-        return undefined;
     }
   };
 }
@@ -319,14 +314,18 @@ describe("phrase deck in Computer mode", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(await within(deck).findByRole("button", { name: "Speak: Thanks for the raid" })).toBeInTheDocument();
     expect(requests).toContainEqual(
-      expect.objectContaining({ method: "POST", url: "/api/phrases", body: expect.objectContaining({ text: "Thanks for the raid", slot: 2 }) }),
+      expect.objectContaining({ method: "PUT", url: "/api/boards/communication/keys/2", body: { action: { type: "voice.speak", text: "Thanks for the raid" } } }),
     );
 
     fireEvent.contextMenu(within(deck).getByRole("button", { name: "Speak: Hello from desktop" }));
     await user.type(screen.getByRole("textbox", { name: "Short label (optional)" }), "Hi");
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(await within(deck).findByRole("button", { name: "Speak: Hello from desktop" })).toHaveTextContent("Hi");
-    expect(requests).toContainEqual({ method: "PUT", url: "/api/phrases/d1", body: { text: "Hello from desktop", label: "Hi", slot: 0 } });
+    expect(requests).toContainEqual({
+      method: "PUT",
+      url: "/api/boards/communication/keys/0",
+      body: { label: "Hi", action: { type: "voice.speak", text: "Hello from desktop" }, replace: true },
+    });
     expect(local.spoken).toEqual([]);
   });
 

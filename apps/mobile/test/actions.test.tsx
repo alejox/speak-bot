@@ -7,7 +7,7 @@ import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesize
 import { App } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
 import { DockApp } from "../src/app/DockApp";
-import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
+import { boardsOf, createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
 import { goTo, memoryLanguageStore } from "./i18n-helpers";
 
 class Synthesizer implements AppSpeechSynthesizer {
@@ -145,8 +145,8 @@ function desktopRoute(overrides: Partial<Record<string, { status?: number; body?
     switch (key) {
       case "GET /api/health":
         return { body: { ok: true, name: "speak-bot-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: false } } };
-      case "GET /api/phrases":
-        return { body: [{ id: "d1", text: "Water please", slot: 0, createdAt: 1 }] };
+      case "GET /api/boards":
+        return { body: boardsOf([{ id: "d1", text: "Water please", slot: 0, createdAt: 1 }]) };
       case "GET /api/voices":
         return { body: [] };
       case "GET /api/settings":

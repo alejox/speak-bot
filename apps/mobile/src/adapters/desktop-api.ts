@@ -1,13 +1,16 @@
 import {
   DESKTOP_SERVER_NAME,
+  readStoredBoards,
+  type Action,
   type ApiErrorCode,
   type AudioDevice,
+  type Board,
   type DesktopSettings,
-  type Phrase,
+  type Key,
+  type SetKeyRequest,
   type SpeakRequest,
   type SpeechCapabilities,
   type UiLanguage,
-  type UpdatePhraseRequest,
   type Voice,
 } from "@speak-bot/core";
 
@@ -63,27 +66,47 @@ export class DesktopApiClient {
     return body;
   }
 
-  listPhrases(): Promise<unknown> {
-    return this.request("GET", "/api/phrases");
+  /** Every desktop board in display order; anything invalid the desktop sends is dropped. */
+  async listBoards(): Promise<Board[]> {
+    return readStoredBoards(await this.request("GET", "/api/boards"));
   }
 
-  async savePhrase(phrase: Phrase): Promise<void> {
-    await this.request("POST", "/api/phrases", phrase);
+  createBoard(name: string): Promise<Board> {
+    return this.request("POST", "/api/boards", { name }) as Promise<Board>;
   }
 
-  /** Changes text, label and slot of an existing phrase; an empty label removes it. */
-  async updatePhrase(phrase: Phrase): Promise<void> {
-    const body: UpdatePhraseRequest = { text: phrase.text, label: phrase.label ?? "", slot: phrase.slot };
-    await this.request("PUT", `/api/phrases/${encodeURIComponent(phrase.id)}`, body);
+  renameBoard(boardId: string, name: string): Promise<Board> {
+    return this.request("PATCH", `/api/boards/${encodeURIComponent(boardId)}`, { name }) as Promise<Board>;
   }
 
-  /** Replaces every desktop phrase with the default set in `language`. */
-  async restorePhrases(language: UiLanguage): Promise<void> {
-    await this.request("POST", "/api/phrases/restore", { language });
+  /** Rejects with code "last-board" for the only board. */
+  async deleteBoard(boardId: string): Promise<void> {
+    await this.request("DELETE", `/api/boards/${encodeURIComponent(boardId)}`);
   }
 
-  async deletePhrase(id: string): Promise<void> {
-    await this.request("DELETE", `/api/phrases/${encodeURIComponent(id)}`);
+  /** Puts a key at `slot`; an occupied slot rejects with code "slot-occupied" unless `replace` is set. */
+  setKey(boardId: string, slot: number, key: Omit<SetKeyRequest, "replace">, { replace = false } = {}): Promise<Key> {
+    const body: SetKeyRequest = replace ? { ...key, replace: true } : key;
+    return this.request("PUT", `${keysPath(boardId)}/${slot}`, body) as Promise<Key>;
+  }
+
+  async clearKey(boardId: string, slot: number): Promise<void> {
+    await this.request("DELETE", `${keysPath(boardId)}/${slot}`);
+  }
+
+  /** Moves the key at `from` to `to`, swapping with a key already there. */
+  moveKey(boardId: string, from: number, to: number): Promise<Board> {
+    return this.request("POST", `${keysPath(boardId)}/move`, { from, to }) as Promise<Board>;
+  }
+
+  /** Puts back the built-in communication board in `language`. */
+  restoreDefaultBoard(language: UiLanguage): Promise<Board> {
+    return this.request("POST", "/api/boards/restore-default", { language }) as Promise<Board>;
+  }
+
+  /** Runs a voice, captions or OBS action on the desktop; navigation actions are refused ("client-action"). */
+  executeAction(action: Action): Promise<{ ok: true; captionsVisible?: boolean; voiceLanguage?: UiLanguage }> {
+    return this.request("POST", "/api/actions/execute", { action }) as Promise<{ ok: true }>;
   }
 
   async speak(request: SpeakRequest): Promise<void> {
@@ -136,6 +159,10 @@ export class DesktopApiClient {
     }
     return payload;
   }
+}
+
+function keysPath(boardId: string): string {
+  return `/api/boards/${encodeURIComponent(boardId)}/keys`;
 }
 
 function isConnectionInfo(value: unknown): value is ConnectionInfo {
