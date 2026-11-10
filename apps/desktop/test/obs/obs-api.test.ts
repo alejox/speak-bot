@@ -1,5 +1,7 @@
 import type { ServerEvent } from "@speak-bot/core";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { Readable } from "node:stream";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +10,7 @@ import { WebSocket } from "ws";
 import { JsonFileBoardRepository } from "../../src/adapters/json-file-board-repository";
 import { JsonFileSettingsStore } from "../../src/adapters/json-file-settings-store";
 import { ObsConnectionManager } from "../../src/adapters/obs/obs-connection-manager";
+import { createApiHandler } from "../../src/server/api";
 import { createDesktopServer, type DesktopServer } from "../../src/server/create-server";
 import { FakeObsClient, obsResponses } from "../fake-obs-client";
 import { FakeSynthesizer } from "../fake-synthesizer";
@@ -153,5 +156,101 @@ describe("OBS API", () => {
     expect(await retest.json()).toEqual({ status: "connected" });
     expect(FakeObsClient.created).toHaveLength(2);
     expect((await fetch(`${baseUrl}/api/obs/connect`, { method: "POST" })).status).toBe(415);
+  });
+
+  it("forgets the saved password when the host or port changes, unless a new one comes with it", async () => {
+    await enable();
+    const settingsFile = async () => JSON.parse(await readFile(join(dir, "settings.json"), "utf8")).obs;
+
+    const sameHost = await send("/api/settings", "PUT", { obs: { host: "127.0.0.1", port: 4455 } });
+    expect(await sameHost.json()).toMatchObject({ obs: { hasPassword: true } });
+
+    const moved = await send("/api/settings", "PUT", { obs: { host: "10.0.0.5" } });
+    expect(await moved.json()).toMatchObject({ obs: { host: "10.0.0.5", hasPassword: false } });
+    expect((await settingsFile()).password).toBe("");
+
+    await send("/api/settings", "PUT", { obs: { host: "10.0.0.6", password: "new-password" } });
+    expect((await settingsFile()).password).toBe("new-password");
+
+    const newPort = await send("/api/settings", "PUT", { obs: { port: 4456 } });
+    expect(await newPort.json()).toMatchObject({ obs: { port: 4456, hasPassword: false } });
+  });
+});
+
+describe("OBS API from other devices", () => {
+  let dir: string;
+  let obs: ObsConnectionManager;
+  let settings: JsonFileSettingsStore;
+  let handle: ReturnType<typeof createApiHandler>;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "speak-bot-obs-lan-"));
+    FakeObsClient.created = [];
+    obs = new ObsConnectionManager({ createClient: () => new FakeObsClient(null, obsResponses()) });
+    settings = new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true });
+    await settings.update({ obs: { enabled: true, host: "127.0.0.1", port: 4455, password: PASSWORD } });
+    handle = createApiHandler({
+      repository: new JsonFileBoardRepository(join(dir, "boards.json")),
+      settings,
+      synthesizer: new FakeSynthesizer(),
+      broadcast: () => {},
+      generateId: () => "id",
+      now: () => 1,
+      instanceId: "test",
+      obs,
+    });
+  });
+
+  afterEach(async () => {
+    await obs.disconnect();
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  /** Sends a request through the API handler as if it came from `remoteAddress`. */
+  const ask = async (remoteAddress: string, method: string, path: string, body: unknown) => {
+    const payload = JSON.stringify(body);
+    const request = Object.assign(Readable.from([Buffer.from(payload)]), {
+      method,
+      headers: { "content-type": "application/json", "content-length": String(Buffer.byteLength(payload)) },
+      socket: { remoteAddress, localPort: 4545 },
+    }) as unknown as IncomingMessage;
+    let status = 0;
+    let text = "";
+    const response = {
+      headersSent: false,
+      writeHead: (code: number) => {
+        status = code;
+      },
+      end: (chunk?: string) => {
+        text = chunk ?? "";
+      },
+    } as unknown as ServerResponse;
+    await handle(request, response, path);
+    return { status, body: text === "" ? undefined : (JSON.parse(text) as Record<string, unknown>) };
+  };
+
+  it("refuses OBS settings changes from other devices and keeps the stored ones", async () => {
+    for (const remoteAddress of ["192.168.1.30", "::ffff:192.168.1.30", "fe80::1"]) {
+      const result = await ask(remoteAddress, "PUT", "/api/settings", { obs: { host: "evil.example", enabled: true } });
+      expect({ remoteAddress, ...result }).toMatchObject({ remoteAddress, status: 403, body: { code: "loopback-only" } });
+    }
+    const stored = await settings.loadStored();
+    expect(stored.obs).toEqual({ enabled: true, host: "127.0.0.1", port: 4455, password: PASSWORD });
+    expect(FakeObsClient.created).toHaveLength(0);
+  });
+
+  it("still lets other devices change settings that do not touch OBS", async () => {
+    const result = await ask("192.168.1.30", "PUT", "/api/settings", { rate: 1.5 });
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({ rate: 1.5, obs: { host: "127.0.0.1", hasPassword: true } });
+  });
+
+  it("only reconnects OBS on demand from this computer", async () => {
+    const remote = await ask("192.168.1.30", "POST", "/api/obs/connect", {});
+    expect(remote).toMatchObject({ status: 403, body: { code: "loopback-only" } });
+    expect(FakeObsClient.created).toHaveLength(0);
+
+    const local = await ask("127.0.0.1", "PUT", "/api/settings", { obs: { port: 4455 } });
+    expect(local.status).toBe(200);
   });
 });

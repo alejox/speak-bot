@@ -83,6 +83,10 @@ export function createApiHandler(deps: ApiDependencies) {
     if (!deps.obs) throw new ObsUnavailableError();
     return deps.obs;
   };
+  /** OBS settings hold a password the desktop sends to OBS, so only this computer may change where it goes. */
+  const requireLoopback = (request: IncomingMessage) => {
+    if (!isLoopbackAddress(request.socket.remoteAddress)) throw new LoopbackOnlyError();
+  };
   const boardsChanged = () => broadcast({ type: "boards-changed", at: now() });
 
   // Exact paths are listed before `:param` paths that could also match them.
@@ -254,6 +258,7 @@ export function createApiHandler(deps: ApiDependencies) {
       path: "/api/settings",
       handler: async (request, response) => {
         const patch = await readJsonBody(request);
+        if (typeof patch === "object" && patch !== null && (patch as { obs?: unknown }).obs !== undefined) requireLoopback(request);
         const stored = await settings.updateStored(patch);
         const updated = toPublicSettings(stored);
         if (typeof (patch as { captionsVisible?: unknown }).captionsVisible === "boolean") {
@@ -286,6 +291,7 @@ export function createApiHandler(deps: ApiDependencies) {
       path: "/api/obs/connect",
       handler: async (request, response) => {
         asObject(await readJsonBody(request));
+        requireLoopback(request);
         const obs = requireObs();
         const { obs: config } = await settings.loadStored();
         if (!config.enabled) throw new ObsDisabledError();
@@ -356,7 +362,16 @@ function matchRoute(routes: readonly Route[], method: string, pathname: string):
   return null;
 }
 
+/** The request must come from this computer. */
+class LoopbackOnlyError extends Error {
+  constructor() {
+    super("Only available on this computer.");
+    this.name = "LoopbackOnlyError";
+  }
+}
+
 function describeFailure(error: unknown): { status: number; message: string; code?: ApiErrorCode } | null {
+  if (error instanceof LoopbackOnlyError) return { status: 403, message: error.message, code: "loopback-only" };
   if (error instanceof HttpError) return { status: error.status, message: error.message };
   if (error instanceof InvalidBoardError) return { status: 400, message: error.message, code: "invalid-board" };
   if (error instanceof InvalidSettingsError) return { status: 400, message: error.message };

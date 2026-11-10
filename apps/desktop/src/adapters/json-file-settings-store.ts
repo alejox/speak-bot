@@ -65,7 +65,7 @@ export class JsonFileSettingsStore {
     const { obs, ...changes } = parseSettingsPatch(patch);
     return this.queue.run(async () => {
       const current = await this.read();
-      const next: StoredSettings = { ...current, ...changes, obs: { ...current.obs, ...obs } };
+      const next: StoredSettings = { ...current, ...changes, obs: mergeObsConfig(current.obs, obs) };
       await writeJsonFileAtomic(this.file, next);
       return next;
     });
@@ -114,6 +114,18 @@ export function isValidPort(value: unknown): value is number {
 /** A host name or IP address: no spaces, slashes or other URL parts. */
 export function isValidHost(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= MAX_HOST_LENGTH && /^[A-Za-z0-9.:_-]+$/.test(value);
+}
+
+/**
+ * Applies an OBS patch. Pointing the desktop at another host or port forgets the saved password
+ * (unless the same patch brings a new one), so it is never sent to a server it was not meant for.
+ */
+function mergeObsConfig(current: ObsConfig, patch: Partial<ObsConfig> | undefined): ObsConfig {
+  if (!patch) return current;
+  const next = { ...current, ...patch };
+  const moved = next.host !== current.host || next.port !== current.port;
+  if (moved && patch.password === undefined) next.password = "";
+  return next;
 }
 
 function parseObsPatch(patch: unknown): Partial<ObsConfig> {

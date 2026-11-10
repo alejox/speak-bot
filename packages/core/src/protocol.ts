@@ -282,7 +282,8 @@ export type ApiErrorCode =
   | "client-action"
   | "obs-unavailable"
   | "obs-disabled"
-  | "obs-request-failed";
+  | "obs-request-failed"
+  | "loopback-only";
 
 export interface ErrorResponse {
   /** Technical detail in English. */
