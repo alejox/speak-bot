@@ -41,6 +41,7 @@ End users never touch a terminal. The phone app is a hosted, installable PWA. Th
 - Assess: risk high → independent verifier PASS with 1 medium (macOS 0.0.0.0 bind hides a 127.0.0.1 port conflict, so the window loaded another app) and 2 low findings. Scoped correction, test-first: `c890ff9` port ownership via instanceId and window on 127.0.0.1; `0f3260a` `/api/connection` loopback-only; `8b79cde` macOS template tray icon. Packaged smoke with a conflicting 127.0.0.1 server fell back to the next port, verified by its instanceId.
 - Parent spot check: `npm test` → 22, 87, 8, 61 passed.
 - Not verified for real: window and tray UI visually, macOS hidden start at login, dmg/NSIS/AppImage/deb builds, release and pages workflows on GitHub.
+- Delivery: stacked PRs chosen by the user, one per feature branch, each a size exception: #1 `feat/mobile-local-mvp` → main (~1,830 lines, no CI because the workflow arrives in #2), #2 `feat/desktop-obs` → #1 (~3,950), #3 `feat/desktop-app` → #2 (~2,030). Local unsigned dmg built: `apps/electron/release/speak-bot-0.0.0-mac-arm64.dmg` (120 MB).
 - Deferred nits: no `will-redirect` guard; `--hidden` second instance still shows the window; non-semver tags break the release.
 
 ## Next step
