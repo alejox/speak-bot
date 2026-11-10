@@ -4,7 +4,19 @@ import { VitePWA } from "vite-plugin-pwa";
 
 const THEME_COLOR = "#1d4ed8";
 
+/**
+ * Public path the app is served from: "/" on the desktop server, "/speak-bot/" on GitHub Pages.
+ * Set with the SPEAK_BOT_BASE environment variable at build time.
+ */
+export function resolveBase(value: string | undefined): string {
+  const trimmed = (value ?? "").trim().replace(/^\/+|\/+$/g, "");
+  return trimmed === "" ? "/" : `/${trimmed}/`;
+}
+
+const base = resolveBase(process.env.SPEAK_BOT_BASE);
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     VitePWA({
@@ -16,8 +28,8 @@ export default defineConfig({
         short_name: "Speak Bot",
         description: "Type or tap a phrase and let your phone speak for you.",
         display: "standalone",
-        start_url: ".",
-        scope: ".",
+        start_url: base,
+        scope: base,
         theme_color: THEME_COLOR,
         background_color: "#ffffff",
         icons: [

@@ -96,6 +96,7 @@ describe("desktop HTTP API", () => {
       ok: true,
       name: "speak-bot-desktop",
       capabilities: { platform: "test", engine: "fake", supportsDeviceSelection: true },
+      instanceId: expect.any(String),
     });
   });
 

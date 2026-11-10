@@ -18,6 +18,15 @@ export class DesktopRequestError extends Error {
   }
 }
 
+/** Mirrors `GET /api/connection` from the desktop server. */
+export interface ConnectionInfo {
+  port: number;
+  /** URLs a phone on the same network can open, best guess first. */
+  lanUrls: string[];
+  /** Browser Source URL for OBS on the computer. */
+  overlayUrl: string;
+}
+
 const DETECT_TIMEOUT_MS = 1500;
 
 /** Thin client for the desktop HTTP API. Uses relative URLs: the app is served by the desktop itself. */
@@ -38,6 +47,13 @@ export class DesktopApiClient {
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  /** The URLs a phone and OBS use to reach this desktop. */
+  async loadConnection(): Promise<ConnectionInfo> {
+    const body = await this.request("GET", "/api/connection");
+    if (!isConnectionInfo(body)) throw new DesktopRequestError(500, "Unexpected connection info.");
+    return body;
   }
 
   listPhrases(): Promise<unknown> {
@@ -94,6 +110,17 @@ export class DesktopApiClient {
     }
     return payload;
   }
+}
+
+function isConnectionInfo(value: unknown): value is ConnectionInfo {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.port === "number" &&
+    Array.isArray(candidate.lanUrls) &&
+    candidate.lanUrls.every((url) => typeof url === "string") &&
+    typeof candidate.overlayUrl === "string"
+  );
 }
 
 function isCapabilities(value: unknown): value is SpeechCapabilities {

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="86 112 340 340">
+  <!-- macOS template image: only the alpha channel matters; the sound waves are cut out. -->
+  <mask id="waves">
+    <rect x="0" y="0" width="512" height="512" fill="#fff"/>
+    <path d="M214 222q22 30 0 60M254 202q40 50 0 100M294 182q58 70 0 140" fill="none" stroke="#000" stroke-width="20" stroke-linecap="round"/>
+  </mask>
+  <path d="M136 152h240a40 40 0 0 1 40 40v120a40 40 0 0 1-40 40H252l-76 60v-60h-40a40 40 0 0 1-40-40V192a40 40 0 0 1 40-40z" fill="#000" mask="url(#waves)"/>
+</svg>

@@ -1,13 +1,24 @@
 import type { AudioDevice, DesktopSettings, PhraseDependencies, SpeechCapabilities } from "@speak-bot/core";
-import { DesktopApiClient } from "../adapters/desktop-api";
+import { copyText as copyToClipboard } from "../adapters/clipboard";
+import { DesktopApiClient, type ConnectionInfo } from "../adapters/desktop-api";
 import { DesktopEventSource, type WebSocketFactory } from "../adapters/desktop-events";
 import { LocalStoragePhraseRepository } from "../adapters/local-storage-phrase-repository";
 import { LocalStorageSettingsStore, type SettingsStore } from "../adapters/local-storage-settings-store";
 import { LocalStorageSpeakTargetStore, type SpeakTargetStore } from "../adapters/local-storage-speak-target-store";
+import { createQrCodeImage } from "../adapters/qr-code";
 import { RemotePhraseRepository } from "../adapters/remote-phrase-repository";
 import { RemoteSpeechSynthesizer } from "../adapters/remote-speech-synthesizer";
 import { WebSpeechSynthesizer, type AppSpeechSynthesizer } from "../adapters/web-speech-synthesizer";
 import { createId } from "./create-id";
+
+/** Pairing a phone with the desktop; only offered on the computer itself. */
+export interface ConnectionServices {
+  load(): Promise<ConnectionInfo>;
+  /** Resolves with an image URL (data URL) of a QR code for `text`. */
+  createQrCode(text: string): Promise<string>;
+  /** Resolves true when the text reached the clipboard. */
+  copyText(text: string): Promise<boolean>;
+}
 
 /** Speaking through the desktop computer that serves this app. */
 export interface DesktopServices {
@@ -21,6 +32,8 @@ export interface DesktopServices {
   /** Notifies when phrases change on the desktop (e.g. edited from another device). */
   onPhrasesChanged(listener: () => void): () => void;
   target: SpeakTargetStore;
+  /** Present only when this page is open on the desktop computer itself (localhost). */
+  connection?: ConnectionServices;
 }
 
 export interface AppServices {
@@ -37,14 +50,22 @@ export interface AppServices {
 export interface DesktopServicesOptions {
   fetch?: typeof fetch;
   createSocket?: WebSocketFactory;
-  location?: Pick<Location, "protocol" | "host">;
+  location?: Pick<Location, "protocol" | "host"> & Partial<Pick<Location, "hostname">>;
   generateId?: () => string;
   targetStore?: SpeakTargetStore;
+  createQrCode?: (text: string) => Promise<string>;
+  copyText?: (text: string) => Promise<boolean>;
+}
+
+/** True when the page is open on the computer running the desktop app, not on a phone. */
+export function isLocalHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]" || hostname === "::1";
 }
 
 export function createDesktopServices(options: DesktopServicesOptions = {}): DesktopServices {
+  const location = options.location ?? window.location;
   const api = new DesktopApiClient(options.fetch);
-  const events = new DesktopEventSource(options.createSocket, options.location);
+  const events = new DesktopEventSource(options.createSocket, location);
   return {
     detect: () => api.detect(),
     synthesizer: new RemoteSpeechSynthesizer(api, events),
@@ -61,6 +82,13 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
         if (event.type === "phrases-changed") listener();
       }),
     target: options.targetStore ?? new LocalStorageSpeakTargetStore(),
+    connection: isLocalHostname(location.hostname ?? "")
+      ? {
+          load: () => api.loadConnection(),
+          createQrCode: options.createQrCode ?? createQrCodeImage,
+          copyText: options.copyText ?? ((text) => copyToClipboard(text)),
+        }
+      : undefined,
   };
 }
 

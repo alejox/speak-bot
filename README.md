@@ -4,6 +4,37 @@ An assistive text-to-speech tool for people who cannot speak. Type a message or 
 
 Runs on **macOS, Windows and Linux**.
 
+## Install
+
+### On the phone
+
+1. Open **https://alejox.github.io/speak-bot/** in Safari (iPhone) or Chrome (Android).
+2. Add it to the home screen: **Share → Add to Home Screen** on iPhone, or **⋮ → Install app** on Android.
+3. Open it from the home screen. It works offline and uses the phone's own voices.
+
+### On the computer
+
+Download the installer for your system from the [latest release](https://github.com/alejox/speak-bot/releases/latest):
+
+| System                | File                                  |
+| --------------------- | ------------------------------------- |
+| macOS (Apple Silicon) | `speak-bot-<version>-mac-arm64.dmg`   |
+| macOS (Intel)         | `speak-bot-<version>-mac-x64.dmg`     |
+| Windows               | `speak-bot-<version>-win-x64.exe`     |
+| Linux                 | `.AppImage` or `.deb`                 |
+
+Open **Speak Bot**. A window appears where you can type, use saved phrases and change settings. Closing the window keeps the app running in the tray or menu bar, so OBS captions keep working. Use the tray menu to quit, to copy the OBS URL, or to start Speak Bot at login.
+
+**Connect the phone:** in the **Connect phone** panel, scan the QR code with the phone (same Wi-Fi). Then, under **Speak on**, choose **Computer**. The first time, allow incoming network connections when your system asks.
+
+#### The installers are not signed yet
+
+Your system will warn you the first time. To open the app anyway:
+
+- **macOS**: double-click the app. When it is blocked, open **System Settings → Privacy & Security** and click **Open Anyway**.
+- **Windows**: on the "Windows protected your PC" screen, click **More info → Run anyway**.
+- **Linux (AppImage)**: make the file executable (`chmod +x speak-bot-*.AppImage`) and run it. Install `espeak-ng` and `pulseaudio-utils` for the voice. The tray icon on GNOME needs the AppIndicator extension.
+
 ## How it fits together
 
 ```
@@ -19,10 +50,13 @@ Runs on **macOS, Windows and Linux**.
 | `packages/core` | Framework-free domain: phrases, ports, use cases, shared protocol types    |
 | `apps/mobile`   | Vite + React PWA: local (Web Speech API) and remote (desktop) modes        |
 | `apps/desktop`  | Node.js server: system TTS, phrases API, WebSocket events, OBS overlay     |
+| `apps/electron` | Desktop app shell: runs the server, window, tray, phone pairing            |
 
 The core follows a hexagonal layout. `PhraseRepository` and `SpeechSynthesizer` are ports, and each app provides its own adapters.
 
-## Requirements
+## Development
+
+### Requirements
 
 - Node.js 22 or newer.
 - A system voice engine:
@@ -30,12 +64,15 @@ The core follows a hexagonal layout. `PhraseRepository` and `SpeechSynthesizer` 
   - **Windows**: built in (System.Speech / Windows voices).
   - **Linux**: `espeak-ng` and `pulseaudio-utils` (works with PipeWire's PulseAudio compatibility). On Debian/Ubuntu: `sudo apt install espeak-ng pulseaudio-utils`.
 
-## Quick start
+### Run from source
 
 ```sh
 npm install
-npm start          # builds the mobile app and starts the desktop server on port 4545
+npm start                          # builds the mobile app and starts the desktop server on port 4545
+npm run dev -w @speak-bot/electron # or run the desktop app shell
 ```
+
+If port 4545 is busy, the server uses the next free port and says so in the output.
 
 - **On the computer**, open `http://localhost:4545`.
 - **On the phone** (same Wi-Fi), open `http://<computer-ip>:4545`. Under **Speak on**, choose **Computer** to use the phone as a remote deck.
@@ -136,6 +173,11 @@ To block other websites open in your browser from reading captions or triggering
 | `npm run build`     | Build the mobile PWA                              |
 
 CI runs tests, typecheck and build on Linux, macOS and Windows (`.github/workflows/ci.yml`).
+
+### Releasing
+
+- **Desktop installers**: push a version tag (`git tag v0.1.0 && git push origin v0.1.0`). `.github/workflows/release.yml` builds the installers on all three systems and attaches them to a GitHub Release. Run `npm run pack -w @speak-bot/electron` to build an unpacked app locally.
+- **Phone app**: every push to `main` deploys the PWA to GitHub Pages (`.github/workflows/pages.yml`).
 
 ## Notes
 

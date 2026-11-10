@@ -1,4 +1,5 @@
 import type { PhraseRepository, ServerEvent } from "@speak-bot/core";
+import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { hostname as osHostname } from "node:os";
 import type { JsonFileSettingsStore } from "../adapters/json-file-settings-store";
@@ -6,6 +7,7 @@ import type { DesktopSpeechSynthesizer } from "../adapters/tts/process-speech-sy
 import { createApiHandler } from "./api";
 import { EventHub } from "./event-hub";
 import { requestPathname, sendJson } from "./http-utils";
+import type { NetworkInterfaces } from "./network";
 import { createRequestGuard } from "./request-guard";
 
 export interface DesktopServerDependencies {
@@ -19,21 +21,30 @@ export interface DesktopServerDependencies {
   allowedHosts?: readonly string[];
   /** This machine's name; defaults to os.hostname(). */
   hostname?: string;
+  /** Lists this computer's network interfaces; defaults to os.networkInterfaces(). */
+  networkInterfaces?: () => NetworkInterfaces;
   /** Handles every non-API GET (static files, overlay). Returns false when it did not respond. */
   pageHandler?: (request: IncomingMessage, response: ServerResponse, pathname: string) => Promise<boolean>;
+  /** Reported by GET /api/health; defaults to a random id per server. */
+  instanceId?: string;
 }
 
 export interface DesktopServer {
   readonly httpServer: Server;
+  /** Random per launch; GET /api/health reports it so the desktop can recognise itself. */
+  readonly instanceId: string;
   broadcast(event: ServerEvent): void;
   listen(port: number, host: string): Promise<void>;
+  /** Stops listening without shutting the server down, so it can listen on another port. */
+  unlisten(): Promise<void>;
   close(): Promise<void>;
 }
 
 export function createDesktopServer(deps: DesktopServerDependencies): DesktopServer {
   const isAllowedRequest = createRequestGuard({ hostname: deps.hostname ?? osHostname(), allowedHosts: deps.allowedHosts });
   const hub = new EventHub(isAllowedRequest);
-  const handleApi = createApiHandler({ ...deps, broadcast: (event) => hub.broadcast(event) });
+  const instanceId = deps.instanceId ?? randomUUID();
+  const handleApi = createApiHandler({ ...deps, instanceId, broadcast: (event) => hub.broadcast(event) });
 
   const httpServer = createServer((request, response) => {
     void (async () => {
@@ -59,6 +70,7 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
 
   return {
     httpServer,
+    instanceId,
     broadcast: (event) => hub.broadcast(event),
     listen: (port, host) =>
       new Promise((resolve, reject) => {
@@ -68,6 +80,10 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
           resolve();
         });
       }),
+    unlisten: async () => {
+      httpServer.closeAllConnections();
+      await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    },
     close: async () => {
       await hub.close();
       httpServer.closeAllConnections();

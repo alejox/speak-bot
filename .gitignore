@@ -9,3 +9,6 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# Electron installers
+apps/electron/release/
