@@ -185,10 +185,61 @@ describe("stored boards without a kind", () => {
     expect(readStoredBoards(JSON.parse(JSON.stringify(once)))).toEqual(once);
   });
 
-  it("treats an unknown kind as missing and drops keys a stored kind does not allow", () => {
+  it("treats an unknown kind as missing", () => {
     expect(readStoredBoards([{ ...legacy("x", [{ slot: 0, action: scene("Main") }]), kind: "radio" }])).toEqual([board("x", "deck", [{ slot: 0, action: scene("Main") }])]);
-    const stored = [board("v", "voice", [{ slot: 0, action: speak("Hi") }, { slot: 1, action: scene("Main") }])];
-    expect(readStoredBoards(stored)).toEqual([board("v", "voice", [{ slot: 0, action: speak("Hi") }])]);
+  });
+
+  it("keeps a key that opens another board on the voice half of a split board, in its slot", () => {
+    const goToBoard: Key = { slot: 7, label: "More", action: { type: "nav.goToBoard", boardId: "other" } };
+    const mixed = legacy("main", [{ slot: 0, action: speak("Hi") }, { slot: 3, action: scene("Main") }, goToBoard]);
+    const [voice, deck] = readStoredBoards([mixed, legacy("other")]);
+    expect(voice).toEqual(board("main", "voice", [{ slot: 0, action: speak("Hi") }, goToBoard]));
+    expect(deck).toEqual(board("main-deck", "deck", [{ slot: 3, action: scene("Main") }], "main (Deck)"));
+  });
+
+  it("never cuts a surrogate pair when it shortens the split board's name or id", () => {
+    const mixed = [{ slot: 0, action: speak("Hi") }, { slot: 1, action: scene("Main") }];
+    // The limits fall in the middle of the last emoji of each: 33 name units and 95 id units are both odd.
+    const [, deck] = readStoredBoards([legacy("😀".repeat(50), mixed, "😀".repeat(MAX_BOARD_NAME_LENGTH / 2))]);
+    expect(deck!.name).toBe(`${"😀".repeat(16)} (Deck)`);
+    expect(deck!.id).toBe(`${"😀".repeat(47)}-deck`);
+    const loneHighSurrogate = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])/;
+    expect(loneHighSurrogate.test(deck!.name)).toBe(false);
+    expect(loneHighSurrogate.test(deck!.id)).toBe(false);
+  });
+});
+
+describe("stored boards whose kind does not allow some of their keys", () => {
+  it("moves the keys a voice board cannot hold to a new deck board, slots unchanged", () => {
+    const stored = [
+      board("v", "voice", [{ slot: 0, action: speak("Hi") }, { slot: 1, action: scene("Main") }, { slot: 5, action: { type: "nav.nextPage" } }, { slot: 20, action: { type: "captions.clear" } }], "Talk"),
+      board("last", "deck"),
+    ];
+    expect(readStoredBoards(stored)).toEqual([
+      board("v", "voice", [{ slot: 0, action: speak("Hi") }, { slot: 5, action: { type: "nav.nextPage" } }], "Talk"),
+      board("v-deck", "deck", [{ slot: 1, action: scene("Main") }, { slot: 20, action: { type: "captions.clear" } }], "Talk (Deck)"),
+      board("last", "deck"),
+    ]);
+  });
+
+  it("moves the voice keys of a deck board to a new voice board, slots unchanged", () => {
+    const stored = [board("d", "deck", [{ slot: 2, action: scene("Main") }, { slot: 4, label: "Hi", action: speak("Hello") }, { slot: 9, action: { type: "nav.prevPage" } }], "Stream")];
+    expect(readStoredBoards(stored)).toEqual([
+      board("d", "deck", [{ slot: 2, action: scene("Main") }, { slot: 9, action: { type: "nav.prevPage" } }], "Stream"),
+      board("d-voice", "voice", [{ slot: 4, label: "Hi", action: speak("Hello") }], "Stream (Voice)"),
+    ]);
+  });
+
+  it("is idempotent and gives the new board an id no other board uses", () => {
+    const stored = [board("v", "voice", [{ slot: 0, action: speak("Hi") }, { slot: 1, action: scene("Main") }]), board("v-deck", "deck", [{ slot: 1, action: scene("BRB") }])];
+    const once = readStoredBoards(stored);
+    expect(once.map((b) => [b.id, b.kind, b.keys.length])).toEqual([
+      ["v", "voice", 1],
+      ["v-deck-2", "deck", 1],
+      ["v-deck", "deck", 1],
+    ]);
+    expect(readStoredBoards(JSON.parse(JSON.stringify(once)))).toEqual(once);
+    expect(readStoredBoards(stored)).toEqual(once);
   });
 });
 

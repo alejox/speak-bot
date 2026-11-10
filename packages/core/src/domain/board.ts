@@ -222,11 +222,11 @@ interface StoredBoard {
 
 /**
  * Reads boards from stored or received data without ever throwing: invalid boards are dropped, and
- * so are invalid keys, keys whose slot an earlier key already uses and keys the board's kind does
- * not allow. Board ids stay unique.
+ * so are invalid keys and keys whose slot an earlier key already uses. Board ids stay unique.
  *
- * Boards stored before boards had a kind get one from their keys (see `boardsOfLegacyBoard`), which
- * may split a board in two. Reading the result again changes nothing.
+ * Boards stored before boards had a kind get one from their keys, and a board holding keys its kind
+ * does not allow is split in two (see `boardsOfStoredBoard`), so no valid key is ever lost. Reading
+ * the result again changes nothing.
  */
 export function readStoredBoards(value: unknown): Board[] {
   if (!Array.isArray(value)) return [];
@@ -241,10 +241,7 @@ export function readStoredBoards(value: unknown): Board[] {
   }
   const boards: Board[] = [];
   for (const board of stored) {
-    const read =
-      board.kind === undefined
-        ? boardsOfLegacyBoard(board, ids)
-        : [makeBoard(board.id, board.name, board.kind, board.keys.filter((key) => isActionAllowedOnBoard(board.kind!, key.action.type)))];
+    const read = boardsOfStoredBoard(board, ids);
     // A split board is kept whole or not at all, so it is never stored half migrated.
     if (boards.length + read.length > MAX_STORED_BOARDS) break;
     boards.push(...read);
@@ -252,36 +249,56 @@ export function readStoredBoards(value: unknown): Board[] {
   return boards;
 }
 
+/** How the board split out of a board of the other kind is told apart from it. */
+const SPLIT_SUFFIXES: Readonly<Record<BoardKind, { readonly id: string; readonly name: string }>> = {
+  voice: { id: "-voice", name: " (Voice)" },
+  deck: { id: "-deck", name: " (Deck)" },
+};
+
 /**
- * Gives a board stored without a kind one, never moving or dropping a key:
- * - only voice and navigation keys, or no keys → a voice board;
- * - no voice keys and at least one OBS or caption key → a deck board;
- * - both → the board becomes a voice board with its voice and navigation keys, followed by a new
- *   deck board `<id>-deck` named `<name> (Deck)` with its OBS and caption keys in the same slots.
- * `takenIds` holds every board id in use; the id of a new deck board is added to it.
+ * Turns a stored board into boards whose keys their kind allows, never moving or dropping a key.
+ * The board keeps its id, name, kind and every key that kind allows; the others move, in the same
+ * slots, to a new board of the other kind placed right after it: `<id>-deck` named `<name> (Deck)`
+ * for a voice board, `<id>-voice` named `<name> (Voice)` for a deck board.
+ *
+ * A board stored without a kind is a deck board when it has no voice keys and at least one OBS or
+ * caption key, and a voice board otherwise.
+ * `takenIds` holds every board id in use; the id of a new board is added to it.
  */
-function boardsOfLegacyBoard(board: StoredBoard, takenIds: Set<string>): Board[] {
-  const deckOnly = board.keys.filter((key) => !isActionAllowedOnBoard("voice", key.action.type));
-  if (deckOnly.length === 0) return [makeBoard(board.id, board.name, "voice", board.keys)];
-  if (board.keys.every((key) => isActionAllowedOnBoard("deck", key.action.type))) return [makeBoard(board.id, board.name, "deck", board.keys)];
-  const voiceKeys = board.keys.filter((key) => isActionAllowedOnBoard("voice", key.action.type));
-  const deckId = splitDeckId(board.id, takenIds);
-  takenIds.add(deckId);
-  return [makeBoard(board.id, board.name, "voice", voiceKeys), makeBoard(deckId, splitDeckName(board.name), "deck", deckOnly)];
+function boardsOfStoredBoard(board: StoredBoard, takenIds: Set<string>): Board[] {
+  const kind = board.kind ?? kindOfLegacyKeys(board.keys);
+  const moved = board.keys.filter((key) => !isActionAllowedOnBoard(kind, key.action.type));
+  if (moved.length === 0) return [makeBoard(board.id, board.name, kind, board.keys)];
+  const kept = board.keys.filter((key) => isActionAllowedOnBoard(kind, key.action.type));
+  // Every action is allowed on at least one kind, so the other kind takes what this one refuses.
+  const otherKind: BoardKind = kind === "voice" ? "deck" : "voice";
+  const suffixes = SPLIT_SUFFIXES[otherKind];
+  const splitId = freeSplitId(board.id, suffixes.id, takenIds);
+  takenIds.add(splitId);
+  const splitName = `${truncate(board.name, MAX_BOARD_NAME_LENGTH - suffixes.name.length).trimEnd()}${suffixes.name}`;
+  return [makeBoard(board.id, board.name, kind, kept), makeBoard(splitId, splitName, otherKind, moved)];
 }
 
-/** `<id>-deck`, then `<id>-deck-2`, `<id>-deck-3`… until free; the original id is shortened to keep the limit. */
-function splitDeckId(id: string, takenIds: ReadonlySet<string>): string {
+function kindOfLegacyKeys(keys: readonly Key[]): BoardKind {
+  const fitsVoice = keys.every((key) => isActionAllowedOnBoard("voice", key.action.type));
+  return !fitsVoice && keys.every((key) => isActionAllowedOnBoard("deck", key.action.type)) ? "deck" : "voice";
+}
+
+/** `<id><suffix>`, then `<id><suffix>-2`, `<id><suffix>-3`… until free; the original id is shortened to keep the limit. */
+function freeSplitId(id: string, suffix: string, takenIds: ReadonlySet<string>): string {
   for (let attempt = 1; ; attempt += 1) {
-    const suffix = attempt === 1 ? "-deck" : `-deck-${attempt}`;
-    const candidate = `${id.slice(0, MAX_BOARD_ID_LENGTH - suffix.length)}${suffix}`;
+    const ending = attempt === 1 ? suffix : `${suffix}-${attempt}`;
+    const candidate = `${truncate(id, MAX_BOARD_ID_LENGTH - ending.length)}${ending}`;
     if (!takenIds.has(candidate)) return candidate;
   }
 }
 
-function splitDeckName(name: string): string {
-  const suffix = " (Deck)";
-  return `${name.slice(0, MAX_BOARD_NAME_LENGTH - suffix.length).trimEnd()}${suffix}`;
+/** The start of `text`, at most `maxLength` UTF-16 units long, never ending in half a surrogate pair. */
+function truncate(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  const lastKept = text.charCodeAt(maxLength - 1);
+  const endsInHighSurrogate = lastKept >= 0xd800 && lastKept <= 0xdbff;
+  return text.slice(0, endsInHighSurrogate ? maxLength - 1 : maxLength);
 }
 
 function readStoredBoard(value: unknown): StoredBoard | null {
