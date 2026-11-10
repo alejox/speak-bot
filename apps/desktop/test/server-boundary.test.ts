@@ -126,6 +126,15 @@ describe("desktop server boundary", () => {
     }
   });
 
+  it("accepts requests from an OBS dock page served by this desktop on 127.0.0.1", async () => {
+    const dock = { host: `127.0.0.1:${port}`, origin: `http://127.0.0.1:${port}` };
+    const json = { ...dock, "content-type": "application/json" };
+    expect(await requestWith(port, "/api/health", dock)).toBe(200);
+    expect(await requestWith(port, "/api/phrases", dock)).toBe(200);
+    expect(await requestWith(port, "/api/stop", json, "POST", "{}")).toBe(200);
+    expect(await requestWith(port, "/dock", dock)).toBe(200);
+  });
+
   it("rejects requests whose Origin does not match the Host", async () => {
     expect(await requestWith(port, "/api/health", { host: "localhost:4545", origin: "http://evil.example" })).toBe(403);
     expect(await requestWith(port, "/api/health", { host: "localhost:4545", origin: "null" })).toBe(403);

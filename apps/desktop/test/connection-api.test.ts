@@ -56,6 +56,7 @@ describe("GET /api/connection", () => {
       port,
       lanUrls: [`http://192.168.1.20:${port}/`],
       overlayUrl: `http://localhost:${port}/overlay`,
+      dockUrl: `http://127.0.0.1:${port}/dock`,
     });
   });
 

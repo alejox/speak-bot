@@ -68,8 +68,14 @@ export const en = {
   "connect.networkAddress": "Network address",
   "connect.obsHint": "Captions for OBS (add a Browser Source):",
   "connect.copyObsUrl": "Copy OBS URL",
+  "connect.dockHint": "Control panel for OBS (Docks → Custom Browser Docks):",
+  "connect.copyDockUrl": "Copy dock URL",
   "connect.copied": "Copied!",
   "connect.copyFailed": "Could not copy. Select the URL and copy it by hand.",
+
+  "dock.checking": "Connecting to the computer…",
+  "dock.noDesktop":
+    "The Speak Bot computer app was not found. Open this dock with the URL shown in the app (Connect section) while the app is running.",
 } as const;
 
 export type MessageKey = keyof typeof en;

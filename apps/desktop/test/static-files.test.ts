@@ -72,6 +72,17 @@ describe("page handler", () => {
     expect(await asset.text()).toBe("console.log('app')");
   });
 
+  it("serves the app for the OBS dock route", async () => {
+    await start(join(dir, "dist"));
+
+    for (const path of ["/dock", "/dock/"]) {
+      const response = await fetch(`${baseUrl}${path}`);
+      expect(response.status, path).toBe(200);
+      expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
+      expect(await response.text()).toContain("Speak Bot");
+    }
+  });
+
   it("falls back to index.html for app routes but 404s for missing files", async () => {
     await start(join(dir, "dist"));
 

@@ -33,6 +33,7 @@ describe("startDesktop", () => {
 
     expect(desktop.port).toBeGreaterThan(busyPort);
     expect(desktop.overlayUrl).toBe(`http://localhost:${desktop.port}/overlay`);
+    expect(desktop.dockUrl).toBe(`http://127.0.0.1:${desktop.port}/dock`);
     expect(messages).toContain(`Port ${busyPort} is busy; using ${desktop.port} instead.`);
     const response = await fetch(`http://127.0.0.1:${desktop.port}/api/health`);
     expect(response.status).toBe(200);

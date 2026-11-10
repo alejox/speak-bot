@@ -71,6 +71,12 @@ export const es: Messages = {
   "connect.networkAddress": "Dirección de red",
   "connect.obsHint": "Subtítulos para OBS (agrega una fuente de navegador):",
   "connect.copyObsUrl": "Copiar URL de OBS",
+  "connect.dockHint": "Panel de control para OBS (Docks → Docks de navegador personalizados):",
+  "connect.copyDockUrl": "Copiar URL del dock",
   "connect.copied": "¡Copiado!",
   "connect.copyFailed": "No se pudo copiar. Selecciona la URL y cópiala manualmente.",
+
+  "dock.checking": "Conectando con la computadora…",
+  "dock.noDesktop":
+    "No se encontró la app de Speak Bot en la computadora. Abre este dock con la URL que aparece en la app (sección Conectar) mientras la app está abierta.",
 };

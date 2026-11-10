@@ -145,6 +145,11 @@ function refreshTrayMenu(): void {
         enabled: desktop !== undefined,
         click: () => desktop && clipboard.writeText(desktop.overlayUrl),
       },
+      {
+        label: strings.copyObsDockUrl,
+        enabled: desktop !== undefined,
+        click: () => desktop && clipboard.writeText(desktop.dockUrl),
+      },
       { type: "separator" },
       {
         label: strings.startAtLogin,

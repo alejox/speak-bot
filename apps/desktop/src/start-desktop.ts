@@ -33,6 +33,8 @@ export interface RunningDesktop {
   /** Every URL the app can be opened at, localhost first. */
   urls: string[];
   overlayUrl: string;
+  /** OBS Custom Browser Dock URL (compact app view). */
+  dockUrl: string;
   /** The saved desktop settings (voice, rate, device, interface language). */
   loadSettings(): Promise<DesktopSettings>;
   /** Notifies after settings are saved from any client. Returns an unsubscribe function. */
@@ -102,6 +104,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     dataDir: config.dataDir,
     urls: serverUrls(config.host, actualPort),
     overlayUrl: connectionInfo(actualPort, {}).overlayUrl,
+    dockUrl: connectionInfo(actualPort, {}).dockUrl,
     loadSettings: () => settings.load(),
     onSettingsChanged: (listener) => {
       settingsListeners.add(listener);

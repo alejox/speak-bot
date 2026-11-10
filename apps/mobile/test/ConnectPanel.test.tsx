@@ -9,9 +9,11 @@ const base = {
   selectedUrl: "http://192.168.1.20:4545/",
   qrImage: "data:image/svg+xml;charset=utf-8,qr",
   overlayUrl: "http://localhost:4545/overlay",
+  dockUrl: "http://127.0.0.1:4545/dock",
   copyStatus: null,
   onSelectUrl: () => {},
   onCopyOverlayUrl: () => {},
+  onCopyDockUrl: () => {},
 };
 
 describe("ConnectPanel", () => {
@@ -42,10 +44,19 @@ describe("ConnectPanel", () => {
 
   it("copies the OBS URL and reports the result", async () => {
     const onCopyOverlayUrl = vi.fn();
-    render(<ConnectPanel {...base} copyStatus="connect.copied" onCopyOverlayUrl={onCopyOverlayUrl} />);
+    render(<ConnectPanel {...base} copyStatus={{ target: "overlay", message: "connect.copied" }} onCopyOverlayUrl={onCopyOverlayUrl} />);
     await userEvent.click(screen.getByRole("button", { name: "Copy OBS URL" }));
     expect(onCopyOverlayUrl).toHaveBeenCalled();
     expect(screen.getByText("http://localhost:4545/overlay")).toBeInTheDocument();
     expect(screen.getByText("Copied!")).toBeInTheDocument();
+  });
+
+  it("shows the OBS dock URL and copies it", async () => {
+    const onCopyDockUrl = vi.fn();
+    render(<ConnectPanel {...base} copyStatus={{ target: "dock", message: "connect.copied" }} onCopyDockUrl={onCopyDockUrl} />);
+    expect(screen.getByText("http://127.0.0.1:4545/dock")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Copy dock URL" }));
+    expect(onCopyDockUrl).toHaveBeenCalled();
+    expect(screen.getAllByRole("status").map((status) => status.textContent)).toEqual(["", "Copied!"]);
   });
 });

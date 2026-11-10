@@ -16,9 +16,20 @@ describe("isLocalHostname", () => {
 
 describe("DesktopApiClient.loadConnection", () => {
   it("reads the phone and OBS URLs", async () => {
-    const info = { port: 4545, lanUrls: ["http://192.168.1.20:4545/"], overlayUrl: "http://localhost:4545/overlay" };
+    const info = {
+      port: 4545,
+      lanUrls: ["http://192.168.1.20:4545/"],
+      overlayUrl: "http://localhost:4545/overlay",
+      dockUrl: "http://127.0.0.1:4545/dock",
+    };
     const { fetch } = createFakeFetch((request) => (request.url === "/api/connection" ? { body: info } : undefined));
     expect(await new DesktopApiClient(fetch).loadConnection()).toEqual(info);
+  });
+
+  it("rejects answers without the dock URL", async () => {
+    const info = { port: 4545, lanUrls: [], overlayUrl: "http://localhost:4545/overlay" };
+    const { fetch } = createFakeFetch(() => ({ body: info }));
+    await expect(new DesktopApiClient(fetch).loadConnection()).rejects.toThrow("Unexpected connection info.");
   });
 
   it("rejects malformed answers", async () => {

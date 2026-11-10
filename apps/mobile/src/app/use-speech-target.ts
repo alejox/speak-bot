@@ -14,7 +14,16 @@ import type { AppSpeechSynthesizer } from "../adapters/web-speech-synthesizer";
 import type { MessageKey } from "../i18n/messages";
 import type { AppServices } from "./composition-root";
 
+/** Whether a desktop server answered: still asking, found, or not there. */
+export type DesktopDetection = "pending" | "found" | "missing";
+
+export interface SpeechTargetOptions {
+  /** Always speak on the computer (the OBS dock); the "Speak on" choice is hidden. */
+  forceComputer?: boolean;
+}
+
 export interface SpeechTarget {
+  detection: DesktopDetection;
   /** True when speech, phrases and settings come from the desktop. */
   isRemote: boolean;
   /** True when a desktop server answered, whichever target is chosen. */
@@ -45,9 +54,10 @@ const noSubscription = () => () => {};
 const neverFirstRun = () => false;
 
 /** Chooses between local speech and the desktop companion, and owns the matching settings. */
-export function useSpeechTarget(services: AppServices): SpeechTarget {
+export function useSpeechTarget(services: AppServices, { forceComputer = false }: SpeechTargetOptions = {}): SpeechTarget {
   const { desktop } = services;
   const [capabilities, setCapabilities] = useState<SpeechCapabilities | null>(null);
+  const [isDetected, setIsDetected] = useState(false);
   const [target, setTarget] = useState<SpeakTarget>(() => desktop?.target.load() ?? "computer");
   const [localSettings, setLocalSettings] = useState<SpeechSettings>(() => services.settings.load());
   const [desktopSettings, setDesktopSettings] = useState<DesktopSettings | null>(null);
@@ -59,14 +69,16 @@ export function useSpeechTarget(services: AppServices): SpeechTarget {
     if (!desktop) return;
     let active = true;
     void desktop.detect().then((detected) => {
-      if (active) setCapabilities(detected);
+      if (!active) return;
+      setCapabilities(detected);
+      setIsDetected(true);
     });
     return () => {
       active = false;
     };
   }, [desktop]);
 
-  const isRemote = desktop !== undefined && capabilities !== null && target === "computer";
+  const isRemote = desktop !== undefined && capabilities !== null && (forceComputer || target === "computer");
   const remote = isRemote ? desktop : undefined;
   const supportsDevices = isRemote && capabilities?.supportsDeviceSelection === true;
   const synthesizer = remote?.synthesizer ?? services.synthesizer;
@@ -136,6 +148,7 @@ export function useSpeechTarget(services: AppServices): SpeechTarget {
   };
 
   return {
+    detection: !desktop ? "missing" : !isDetected ? "pending" : capabilities ? "found" : "missing",
     isRemote,
     isDesktopAvailable: desktop !== undefined && capabilities !== null,
     synthesizer,
@@ -146,7 +159,7 @@ export function useSpeechTarget(services: AppServices): SpeechTarget {
     updateSettings,
     voices,
     speakOn:
-      desktop && capabilities
+      desktop && capabilities && !forceComputer
         ? {
             value: target,
             onChange: (next) => {

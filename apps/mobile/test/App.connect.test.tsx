@@ -27,6 +27,7 @@ const connection = {
   port: 4545,
   lanUrls: ["http://192.168.1.20:4545/", "http://10.0.0.5:4545/"],
   overlayUrl: "http://localhost:4545/overlay",
+  dockUrl: "http://127.0.0.1:4545/dock",
 };
 
 function route(request: RecordedRequest) {
@@ -85,6 +86,9 @@ describe("App connect panel", () => {
     await userEvent.click(screen.getByRole("button", { name: "Copy OBS URL" }));
     expect(copied).toEqual(["http://localhost:4545/overlay"]);
     expect(await screen.findByText("Copied!")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Copy dock URL" }));
+    expect(copied).toEqual(["http://localhost:4545/overlay", "http://127.0.0.1:4545/dock"]);
   });
 
   it("is hidden on the phone (page opened through the LAN address)", async () => {

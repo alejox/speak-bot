@@ -26,6 +26,8 @@ export interface ConnectionInfo {
   lanUrls: string[];
   /** Browser Source URL for OBS on the computer. */
   overlayUrl: string;
+  /** Custom Browser Dock URL for OBS: the compact app view. */
+  dockUrl: string;
 }
 
 const DETECT_TIMEOUT_MS = 1500;
@@ -125,7 +127,8 @@ function isConnectionInfo(value: unknown): value is ConnectionInfo {
     typeof candidate.port === "number" &&
     Array.isArray(candidate.lanUrls) &&
     candidate.lanUrls.every((url) => typeof url === "string") &&
-    typeof candidate.overlayUrl === "string"
+    typeof candidate.overlayUrl === "string" &&
+    typeof candidate.dockUrl === "string"
   );
 }
 

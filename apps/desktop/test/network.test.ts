@@ -57,6 +57,7 @@ describe("connectionInfo", () => {
       port: 4546,
       lanUrls: ["http://192.168.1.20:4546/"],
       overlayUrl: "http://localhost:4546/overlay",
+      dockUrl: "http://127.0.0.1:4546/dock",
     });
   });
 });

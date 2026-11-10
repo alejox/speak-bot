@@ -10,6 +10,8 @@ describe("trayStrings", () => {
   it("follows the language saved in the desktop settings", () => {
     expect(trayStrings("en").open).toBe("Open Speak Bot");
     expect(trayStrings("en").startAtLogin).toBe("Start at login");
+    expect(trayStrings("en").copyObsDockUrl).toBe("Copy OBS dock URL");
+    expect(trayStrings("es").copyObsDockUrl).toBe("Copiar URL del dock de OBS");
   });
 
   it("falls back to Spanish for unknown languages", () => {

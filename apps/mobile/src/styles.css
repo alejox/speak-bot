@@ -456,3 +456,74 @@ h3 {
 .connect-status {
   color: var(--muted);
 }
+
+/* OBS Custom Browser Dock: compact, dark, fits a ~300px wide panel. */
+.dock {
+  color-scheme: dark;
+  --bg: #11131a;
+  --surface: #1e2230;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --border: #3a4256;
+  --primary: #3b82f6;
+  --primary-text: #0b1120;
+  --danger: #f87171;
+  min-height: 100vh;
+  padding: 8px;
+  font-size: 15px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.dock-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dock-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dock-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+}
+
+.dock-actions {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 6px;
+}
+
+.dock .button-small {
+  min-height: 40px;
+}
+
+.dock .phrase-board-compact {
+  --phrase-min: 90px;
+  --phrase-height: 52px;
+}
+
+.dock .phrase {
+  font-size: 0.95rem;
+  padding: 6px;
+}
+
+.dock .status {
+  min-height: 1.2em;
+  font-size: 0.9rem;
+}
+
+.dock-message {
+  margin: 0;
+  color: var(--muted);
+}
