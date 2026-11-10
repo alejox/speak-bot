@@ -47,7 +47,7 @@ Desktop app, OBS captions, WebSocket remote mode, virtual mic, cloud TTS.
 - T1 RED: `npm test` → "Test Files 2 failed … Failed to load url ../src". GREEN: 19/19 passing.
 - Writer verification: `npm install` ok (audit: 6 low/moderate build-time issues via vite-plugin-pwa/workbox); `npm test` core 19/19, mobile 24/24; `npm run typecheck` ok; `npm run build` ok (sw.js + manifest, 8 precached files).
 - Parent spot check: `npm test` → core 19 passed, mobile 24 passed.
-- Review assess (base `a2ac715`, committed-only): risk `high`, review_due `high_risk`. RDD off → independent read-only verifier launched (result pending).
+- Review assess (base `a2ac715`, committed-only): risk `high`, review_due `high_risk`. RDD off → independent read-only verifier: PASS, 1 low defect (`crypto.randomUUID` missing over LAN http broke seeding/saving). Fixed test-first with `createId` fallback (RED: module missing; GREEN: tests 19 + 26, typecheck ok, build ok). Nits deferred: duplicate-save race on double tap, focus after delete, Edit button aria-pressed + text change, voices timer cleanup.
 - ~1,270 authored changed lines across T1+T2 (lockfile excluded).
 - Engram mirror: PENDING (auto-mode classifier could not review mem_save).
 
