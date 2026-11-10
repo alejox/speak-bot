@@ -55,7 +55,7 @@ describe("board player in phone-only mode", () => {
 
   it("switches the voice language with its key and shows the current one", async () => {
     const { synthesizer, user } = renderLocalApp();
-    const language = await screen.findByRole("button", { name: /Switch voice language/ });
+    const language = await screen.findByRole("button", { name: /^Voice language/ });
     expect(language).toHaveTextContent("Voice: English");
     await user.click(language);
     expect(language).toHaveTextContent("Voice: Español");

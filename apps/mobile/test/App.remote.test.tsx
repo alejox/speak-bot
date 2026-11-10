@@ -42,11 +42,11 @@ describe("App in Computer mode", () => {
     const { user } = renderRemoteApp({ state });
 
     // The voice and caption commands are both in the Voice space.
-    const language = await screen.findByRole("button", { name: /Switch voice language/ });
+    const language = await screen.findByRole("button", { name: /^Voice language/ });
     await user.click(language);
     await waitFor(() => expect(language).toHaveTextContent("Voice: Español"));
 
-    const captions = await screen.findByRole("button", { name: /Hide or show captions/ });
+    const captions = await screen.findByRole("button", { name: /^Captions/ });
     expect(captions).toHaveAttribute("aria-pressed", "true");
     await user.click(captions);
     await waitFor(() => expect(captions).toHaveAttribute("aria-pressed", "false"));
@@ -89,7 +89,7 @@ describe("App in Computer mode", () => {
     const mic = await screen.findByRole("button", { name: /^Mic/ });
     await waitFor(() => expect(mic).toHaveAttribute("aria-pressed", "true"));
     expect(screen.getByRole("button", { name: "Main" })).toHaveAttribute("aria-pressed", "true");
-    const stream = screen.getByRole("button", { name: "Start or stop stream" });
+    const stream = screen.getByRole("button", { name: "Stream" });
     expect(stream).toHaveAttribute("aria-pressed", "false");
 
     act(() => emit({ type: "obs-state", state: { currentScene: "BRB", mutedInputs: [], streaming: true, recording: false } }));

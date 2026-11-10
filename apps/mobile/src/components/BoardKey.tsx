@@ -1,7 +1,7 @@
 import { contrastTextColor } from "@speed-deck/core";
 import { Check, ChevronLeft, ChevronRight, Unplug, Volume2 } from "lucide-react";
 import { forwardRef, type ButtonHTMLAttributes, type CSSProperties } from "react";
-import type { KeyLiveState, KeyRole } from "../app/key-presentation";
+import { keyLabelLength, type KeyLiveState, type KeyRole } from "../app/key-presentation";
 import { KeyIcon } from "./KeyIcon";
 
 const CUE_SIZE = 16;
@@ -77,7 +77,7 @@ export const BoardKey = forwardRef<HTMLButtonElement, BoardKeyProps>(function Bo
   // A toggle that is on shows a small dot in the corner; the current scene has its tick instead.
   const hasDot = state !== undefined && state !== "scene";
   return (
-    <button ref={ref} type="button" className={classes} aria-pressed={pressed} data-state={state} style={{ ...colors, ...style }} {...button}>
+    <button ref={ref} type="button" className={classes} aria-pressed={pressed} data-state={state} data-label-length={keyLabelLength(label)} style={{ ...colors, ...style }} {...button}>
       {hasDot && <span className="deck-key-dot" aria-hidden="true" />}
       {cue && (
         <span className="deck-key-cue" aria-hidden="true">

@@ -21,7 +21,7 @@ async function openDeck(obsState = idle, status = "connected") {
   const remote = renderRemoteApp({ state });
   await screen.findByRole("button", { name: "Hi" });
   await goTo(remote.user, "Deck");
-  await screen.findByRole("button", { name: /Start or stop stream/ });
+  await screen.findByRole("button", { name: /^Stream/ });
   return remote;
 }
 
@@ -71,34 +71,34 @@ describe("Deck status", () => {
 describe("Deck keys live state", () => {
   it("shows no state cue while everything is off", async () => {
     await openDeck({ ...idle }, "connected");
-    const stream = screen.getByRole("button", { name: "Start or stop stream" });
+    const stream = screen.getByRole("button", { name: "Stream" });
     await waitFor(() => expect(stream).toHaveAttribute("aria-pressed", "false"));
-    expect(screen.getByRole("button", { name: "Start or stop recording" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Record" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("button", { name: "Mic" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("button", { name: "Main" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("names live, recording and muted on the key, with aria-pressed", async () => {
     await openDeck({ currentScene: "Main", mutedInputs: ["Mic"], streaming: true, recording: true });
-    const stream = await screen.findByRole("button", { name: "Start or stop stream LIVE" });
+    const stream = await screen.findByRole("button", { name: "Stream LIVE" });
     expect(stream).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Start or stop recording REC" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Record REC" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Mic Muted" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Main" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("shows captions as on while they are visible", async () => {
     const { emit } = await openDeck();
-    const captions = await screen.findByRole("button", { name: "Hide or show captions On" });
+    const captions = await screen.findByRole("button", { name: "Captions On" });
     expect(captions).toHaveAttribute("aria-pressed", "true");
     act(() => emit({ type: "captions-visibility", visible: false }));
-    expect(screen.getByRole("button", { name: "Hide or show captions" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Captions" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("keeps the reason on a key that is offline", async () => {
     const { emit } = await openDeck();
     act(() => emit({ type: "obs-status", status: "error", code: "connection-lost" }));
-    const stream = screen.getByRole("button", { name: "Start or stop stream" });
+    const stream = screen.getByRole("button", { name: "Stream" });
     expect(stream).toHaveAttribute("aria-disabled", "true");
     expect(stream).toHaveAccessibleDescription("OBS is not connected.");
   });

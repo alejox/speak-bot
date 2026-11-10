@@ -27,6 +27,7 @@ describe("dictionaries", () => {
     const keys = new Set(Object.keys(en));
     for (const definition of Object.values(ACTION_REGISTRY)) {
       expect(keys, definition.labelKey).toContain(definition.labelKey);
+      expect(keys, definition.keyLabelKey).toContain(definition.keyLabelKey);
       expect(keys, definition.descriptionKey).toContain(definition.descriptionKey);
       for (const param of definition.params) expect(keys, param.labelKey).toContain(param.labelKey);
     }

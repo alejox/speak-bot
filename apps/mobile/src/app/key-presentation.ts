@@ -97,10 +97,27 @@ export function keyLabel(key: Key, boards: readonly Board[], t: Translate): stri
     case "nav.goToPage":
       return t("key.pageLabel", { page: action.page });
     case "nav.goToBoard":
-      return boards.find((board) => board.id === action.boardId)?.name ?? t(ACTION_REGISTRY[action.type].labelKey as MessageKey);
+      return boards.find((board) => board.id === action.boardId)?.name ?? t(ACTION_REGISTRY[action.type].keyLabelKey as MessageKey);
     default:
-      return t(ACTION_REGISTRY[action.type].labelKey as MessageKey);
+      // The short key name, not the action's full name from the picker ("Stream", not "Start or stop stream").
+      return t(ACTION_REGISTRY[action.type].keyLabelKey as MessageKey);
   }
+}
+
+/** How long a key's label is, so the styles can step its font down before clamping it. */
+export type KeyLabelLength = "long" | "longer";
+
+/** Labels up to this many characters keep the key's own size. */
+const LONG_LABEL_FROM = 15;
+/** Past this many characters the label gets the smallest size. */
+const LONGER_LABEL_FROM = 29;
+
+/** Undefined for a label that fits at the normal size; counts characters, not UTF-16 units. */
+export function keyLabelLength(label: string): KeyLabelLength | undefined {
+  const length = [...label.trim()].length;
+  if (length >= LONGER_LABEL_FROM) return "longer";
+  if (length >= LONG_LABEL_FROM) return "long";
+  return undefined;
 }
 
 /**

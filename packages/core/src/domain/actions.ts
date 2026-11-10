@@ -63,8 +63,10 @@ export interface ActionDefinition {
   readonly requiresObs: boolean;
   /** Icon id used when a key does not choose one (see `KEY_ICON_IDS`). */
   readonly defaultIcon: string;
-  /** i18n key of the action name. */
+  /** i18n key of the action name, as the action picker and editor show it. */
   readonly labelKey: string;
+  /** i18n key of the short name a key shows when it has no label of its own; it must fit on a key. */
+  readonly keyLabelKey: string;
   /** i18n key of the one-line description shown in the action library. */
   readonly descriptionKey: string;
 }
@@ -92,6 +94,7 @@ function define(
     requiresObs,
     defaultIcon,
     labelKey: `action.${type}`,
+    keyLabelKey: `action.${type}.key`,
     descriptionKey: `action.${type}.description`,
   };
 }

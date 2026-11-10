@@ -42,10 +42,32 @@ describe("BoardKey on state", () => {
   });
 });
 
+describe("BoardKey label length", () => {
+  it("tells the styles how long the label is so long ones can step the font down", () => {
+    render(
+      <>
+        <BoardKey label="Hola" />
+        <BoardKey label="Un momento, por favor" />
+        <BoardKey label="No puedo hablar, pero te escucho" />
+      </>,
+    );
+    expect(screen.getByRole("button", { name: "Hola" })).not.toHaveAttribute("data-label-length");
+    expect(screen.getByRole("button", { name: "Un momento, por favor" })).toHaveAttribute("data-label-length", "long");
+    expect(screen.getByRole("button", { name: "No puedo hablar, pero te escucho" })).toHaveAttribute("data-label-length", "longer");
+  });
+});
+
 describe("deck key styles", () => {
   it("draws no coloured ring or outlined badge for on, live or danger keys", () => {
     expect(deckCss).not.toMatch(/inset 0 0 0 3px/);
     expect(deckCss).not.toMatch(/--key-edge:\s*var\(--color-danger\)/);
     expect(deckCss).not.toMatch(/\.deck-key-state\s*\{/);
+  });
+
+  it("clamps labels at three lines and never breaks inside a word that fits", () => {
+    expect(deckCss).not.toMatch(/word-break:\s*break-all/);
+    expect(deckCss).toMatch(/-webkit-line-clamp:\s*3/);
+    expect(deckCss).toMatch(/data-label-length="long"/);
+    expect(deckCss).toMatch(/data-label-length="longer"/);
   });
 });

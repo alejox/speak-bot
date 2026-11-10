@@ -53,7 +53,7 @@ describe("DockApp", () => {
     expect(within(groups[0]!).getAllByRole("menuitemradio").map((item) => item.textContent)).toEqual(["Talk", "More"]);
     expect(within(groups[1]!).getAllByRole("menuitemradio").map((item) => item.textContent)).toEqual(["Stream"]);
     await user.click(within(groups[1]!).getByRole("menuitemradio", { name: "Stream" }));
-    expect(screen.getByRole("button", { name: "Start or stop stream" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stream" })).toBeInTheDocument();
   });
 
   it("follows a language chosen on the desktop while it is open", async () => {

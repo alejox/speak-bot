@@ -129,19 +129,31 @@
   flex: none;
 }
 
-/* Whole words, balanced over at most two lines, then an ellipsis: a word is never split. */
+/*
+ * Whole words, balanced over at most three lines, then an ellipsis. A word that fits is never split;
+ * only a single word wider than the key may break (overflow-wrap only acts on such a word).
+ */
 .deck-key-text {
   max-width: 100%;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   overflow: hidden;
   text-overflow: ellipsis;
-  overflow-wrap: normal;
+  overflow-wrap: anywhere;
   word-break: normal;
   hyphens: none;
   text-wrap: balance;
+}
+
+/* Long labels step the font down before the clamp cuts them (BoardKey sets data-label-length), never below 12px. */
+.deck-key[data-label-length="long"] .deck-key-text {
+  font-size: max(12px, 0.875em);
+}
+
+.deck-key[data-label-length="longer"] .deck-key-text {
+  font-size: max(12px, 0.75em);
 }
 
 /* A key with its own colour: a soft gradient of it, drifting towards blue. */

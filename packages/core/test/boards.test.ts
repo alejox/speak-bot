@@ -49,6 +49,7 @@ describe("action registry", () => {
       expect(ACTION_CATEGORIES).toContain(definition.category);
       expect(KEY_ICON_IDS).toContain(definition.defaultIcon);
       expect(definition.labelKey).toBe(`action.${type}`);
+      expect(definition.keyLabelKey).toBe(`action.${type}.key`);
       expect(definition.descriptionKey).toBe(`action.${type}.description`);
       expect(type.startsWith("obs.")).toBe(definition.requiresObs);
       expect(definition.runsOn).toBe(type.startsWith("nav.") ? "client" : "server");

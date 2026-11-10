@@ -1,6 +1,6 @@
 import { makeBoard, type Action, type Key } from "@speed-deck/core";
 import { describe, expect, it } from "vitest";
-import { keyLabel, keyRole, keyShownIconId, presentKey, type KeyContext } from "../src/app/key-presentation";
+import { keyLabel, keyLabelLength, keyRole, keyShownIconId, presentKey, type KeyContext } from "../src/app/key-presentation";
 import { translate } from "../src/i18n/messages";
 
 const t = (key: Parameters<typeof translate>[1], params?: Parameters<typeof translate>[2]) => translate("en", key, params);
@@ -69,6 +69,45 @@ describe("keyLabel", () => {
     expect(keyLabel(key({ type: "obs.switchScene", sceneName: "BRB" }), boards, t)).toBe("BRB");
     expect(keyLabel(key({ type: "nav.goToPage", page: 3 }), boards, t)).toBe("Page 3");
     expect(keyLabel(key({ type: "nav.goToBoard", boardId: "games" }), boards, t)).toBe("Games");
+  });
+
+  it("names a key without a label with a short default that fits, never the long action name", () => {
+    const es = (messageKey: Parameters<typeof translate>[1], params?: Parameters<typeof translate>[2]) => translate("es", messageKey, params);
+    const shortNames = [
+      ["obs.toggleStream", "Stream", "Transmitir"],
+      ["obs.toggleRecord", "Record", "Grabar"],
+      ["captions.toggle", "Captions", "Subtítulos"],
+      ["captions.clear", "Clear caption", "Limpiar subtítulo"],
+      ["voice.toggleLanguage", "Voice language", "Idioma de voz"],
+      ["voice.stop", "Stop voice", "Detener voz"],
+      ["voice.repeat", "Repeat", "Repetir"],
+    ] as const;
+    for (const [type, english, spanish] of shortNames) {
+      expect(keyLabel(key({ type }), boards, t), type).toBe(english);
+      expect(keyLabel(key({ type }), boards, es), type).toBe(spanish);
+    }
+  });
+
+  it("keeps a saved label as it is", () => {
+    expect(keyLabel(key({ type: "obs.toggleStream" }, "Start or stop stream"), boards, t)).toBe("Start or stop stream");
+  });
+});
+
+describe("keyLabelLength", () => {
+  it("steps long labels down: up to 14 characters normal, then long, past 28 longer", () => {
+    expect(keyLabelLength("")).toBeUndefined();
+    expect(keyLabelLength("Subtítulos")).toBeUndefined();
+    expect(keyLabelLength("a".repeat(14))).toBeUndefined();
+    expect(keyLabelLength("a".repeat(15))).toBe("long");
+    expect(keyLabelLength("Un momento, por favor")).toBe("long");
+    expect(keyLabelLength("a".repeat(28))).toBe("long");
+    expect(keyLabelLength("a".repeat(29))).toBe("longer");
+    expect(keyLabelLength("No puedo hablar, pero te escucho")).toBe("longer");
+  });
+
+  it("counts characters, not UTF-16 units, and ignores surrounding spaces", () => {
+    expect(keyLabelLength("👋".repeat(14))).toBeUndefined();
+    expect(keyLabelLength(`  ${"a".repeat(14)}  `)).toBeUndefined();
   });
 });
 

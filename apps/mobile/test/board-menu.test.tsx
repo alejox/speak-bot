@@ -177,7 +177,7 @@ describe("board menu", () => {
     dialog = await boardAction(user, "Restore default board");
     expect(within(dialog).getByText("Restore the built-in “Deck” board? Its current keys will be replaced.")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Yes, restore" }));
-    await waitFor(() => expect(within(grid()).getByRole("button", { name: "Start or stop stream" })).toBeInTheDocument());
+    await waitFor(() => expect(within(grid()).getByRole("button", { name: "Stream" })).toBeInTheDocument());
     expect(requests).toContainEqual({ method: "POST", url: "/api/boards/restore-default", body: { language: "en", boardId: "deck" } });
   });
 
