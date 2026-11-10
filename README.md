@@ -1,6 +1,6 @@
 # Speed Deck
 
-Assistive communication and a stream deck in one app, as two separate spaces. **Voz** (Voice) was made for people who cannot speak: type a message or tap a key, and Speed Deck says it for you, on the phone in person or through the computer in streams and calls. **Deck** controls OBS and its captions from the same kind of keys.
+Assistive communication and a stream deck in one app, as two separate spaces. **Voz** (Voice) was made for people who cannot speak: type a message or tap a key, and Speed Deck says it for you, on the phone in person or through the computer in streams and calls. **Deck** controls OBS from the same kind of keys. Caption keys live in **Voz**, next to the voice.
 
 Runs on **macOS, Windows and Linux**. The interface is in **Spanish by default**, with English available.
 
@@ -37,16 +37,19 @@ Speed Deck was called Speak Bot before. The first time it runs, it copies your p
 
 ## Using Speed Deck
 
-The menu has four sections: a side menu on wide screens (the button at its top collapses it to icons only) and a tab bar at the bottom on phones. The app opens on **Voz**.
+The menu is a side menu on wide screens (the button at its top collapses it to icons only) and a tab bar at the bottom on phones. The app opens on **Deck** the first time, then on the section you used last.
 
-| Spanish (default) | English  | What it does                                                         |
-| ----------------- | -------- | -------------------------------------------------------------------- |
-| Voz               | Voice    | Type a message and speak it; recent phrases; your voice boards       |
-| Deck              | Deck     | Your deck boards: OBS and caption keys, with their live state        |
-| Conectar          | Connect  | QR code for the phone; OBS caption and dock URLs (computer only)     |
-| Ajustes           | Settings | Voice and speed, OBS connection, appearance, language                |
+| Spanish (default) | English  | What it does                                                            |
+| ----------------- | -------- | ----------------------------------------------------------------------- |
+| Deck              | Deck     | Your deck boards with OBS keys and their live state                     |
+| Voz               | Voice    | Type a message and speak it; recent phrases; voice and caption keys     |
+| OBS               | OBS      | The OBS connection                                                      |
+| Conectar          | Connect  | QR code for the phone; OBS caption and dock URLs (computer only)        |
+| Ajustes           | Settings | Voice and speed, appearance, language                                   |
 
-Each space keeps its own boards and remembers its own board and page.
+- **Each deck board is its own menu item**, named after the board, so switching boards is one click. On the phone there is one **Deck** tab; switch boards with the board selector at the top.
+- **The OBS item shows the connection by color and shape**: green with a filled dot when connected, amber with a half dot while connecting, red with an empty ring when not connected.
+- Each space keeps its own boards and remembers its own board and page.
 
 Closing the window keeps the app running in the tray or menu bar, so OBS keeps working. Use the tray menu to quit, copy the OBS URLs, or start Speed Deck at login.
 
@@ -55,48 +58,49 @@ Closing the window keeps the app running in the tray or menu bar, so OBS keeps w
 - **Type to speak:** write in the text box and press **Hablar** (or Enter; Shift+Enter adds a line). **Detener** stops the voice.
 - **Frases recientes:** the last 8 texts you spoke from the text box appear as a row under it. Tap one to say it again. They are kept on that device only; **Borrar** clears them.
 - **Guardar** puts the typed text on the first free key of the current voice board.
-- Below, the keys of your voice boards: tap a phrase to say it.
+- Below, the keys of your voice boards: tap a phrase to say it. Caption keys (**Limpiar subtítulo**, **Subtítulos**) are here too.
+- On a wide window, the text box and the recent phrases sit in a panel on the right, next to the keys.
 
 ### Boards and keys
 
 - A **board** is a grid of 5 × 3 keys (3 × 5 on a phone), with as many pages as you need.
-- Every board has a **kind**: a **voice** board holds voice and navigation keys and lives in **Voz**; a **deck** board holds OBS, caption and navigation keys and lives in **Deck**. The action library only offers the actions that fit the board.
-- Speed Deck starts with two boards: **Comunicación** (voice: common phrases plus stop, repeat and voice language) and **Deck** (captions, stream and recording).
+- Every board has a **kind**: a **voice** board holds voice, caption and navigation keys and lives in **Voz**; a **deck** board holds OBS and navigation keys and lives in **Deck**. When you add a key, Speed Deck only offers the actions that fit the board. Caption keys already on a deck board keep working.
+- Speed Deck starts with two boards: **Comunicación** (voice: common phrases plus stop, repeat, voice language and the two caption keys) and **Deck** (stream and recording).
 - Each **key** has an action and, optionally, a label, an icon and a color.
 
-**Boards from older versions** could mix both kinds of keys. The first time they are loaded, a mixed board is split in two automatically: the voice keys stay on the board, and the OBS and caption keys move to a new board named after it with **(Deck)** added. No key is lost and every key keeps its position.
+**Boards from older versions** could mix both kinds of keys. The first time they are loaded, a mixed board is split in two automatically: the voice and caption keys stay on the board, and the OBS keys move to a new board named after it with **(Deck)** added. No key is lost and every key keeps its position.
 
-Keys are edited in **edit mode** only; a normal tap always runs the key, and there is no long-press or right-click editing.
+There is no separate edit mode: a tap always runs a key.
 
-**On a wide window (the computer):** open **Voz** or **Deck** and click **Editar tablero**. The editor shows the boards of that space, in three panes (stacked when the window is narrower):
+| To…                         | Do this                                                                                       |
+| --------------------------- | --------------------------------------------------------------------------------------------- |
+| Add a key                   | Tap **+** after the last key, pick an action. Actions with details ask for them before saving. |
+| Edit or delete a key        | Right-click it, long-press it on a touch screen, or press Shift+F10. Then **Editar** or **Eliminar**. |
+| Move a key                  | Drag it onto another place (mouse), or **Editar → Mover a la posición**.                       |
+| Add a page                  | Go past the last page with the arrow: it becomes **Página nueva**.                            |
+| Create, rename, delete or restore boards | Open the board selector at the top of the space.                                 |
 
-1. **Tableros**: create, rename or delete boards, or restore the default board of that space to its original keys.
-2. **The key grid**: select a key to edit it below. Drag keys to move or swap them, or use **Mover a la posición**.
-3. **Acciones**: the action library, with a search box. Drag an action onto a key, or select a key and click **Asignar**.
-
-In the key editor, set the label, icon, color and the action's details, then click **Guardar**. **Probar** runs the key without saving. **Volver al tablero** closes the editor.
-
-**On the phone:** tap **Editar** next to the board selector, then tap a key or an empty space to open the key editor. Tap **Listo** to leave edit mode.
+**On a wide window**, the key you edit opens in a panel on the right, with a live preview, the action, the color, the name and **Guardar**. In **Deck** the panel stays open: with no key selected it offers **Agregar tecla**. On the phone, the same editor opens as a dialog.
 
 ### Actions
 
 | Category                 | Boards      | Actions                                                                                   |
 | ------------------------ | ----------- | ----------------------------------------------------------------------------------------- |
 | Voz (Voice)              | Voice       | Decir texto, Detener voz, Repetir, Cambiar idioma de la voz                               |
-| Subtítulos (Captions)    | Deck        | Limpiar subtítulo, Ocultar o mostrar subtítulos                                           |
+| Subtítulos (Captions)    | Voice       | Limpiar subtítulo, Ocultar o mostrar subtítulos                                           |
 | Navegación (Navigation)  | Voice, Deck | Página siguiente, Página anterior, Ir a la página, Abrir tablero                          |
 | OBS                      | Deck        | Cambiar de escena, Silenciar o activar audio, Iniciar o detener transmisión, Iniciar o detener grabación, Mostrar u ocultar fuente |
 
 - **Navigation** keys move only the device you press them on, so the phone, the computer and the OBS dock can each show a different board or page.
-- **Deck** keys show live state with words or an icon as well as color: an active stream or recording, a muted input, visible captions, the current scene. The top of **Deck** shows whether the computer and OBS are connected.
-- Deck keys only run through the computer app. When a key can't run right now (no computer, or OBS is not connected), it is shown as unavailable with the reason.
+- A key without its own label shows a short name that fits (**Transmitir**, **Grabar**, **Subtítulos**, **Idioma de voz**). Long labels get a smaller font, up to three lines, and never break inside a word.
+- Toggle keys show when they are on: a soft tint and a small dot in the corner (red while live or recording), plus the state for screen readers. A muted input shows a crossed microphone, the current scene a tick. The icon at the top of **Deck** shows whether the computer and OBS are connected.
+- OBS and caption keys only run through the computer app. When a key can't run right now (no computer, or OBS is not connected), it is shown as unavailable with the reason.
 
 ### Settings
 
-**Ajustes** is organized in four groups:
+**Ajustes** is organized in three groups:
 
 - **Voz**: where to speak and the output device (when the computer app is available), the voice and the speed. The voice list shows the voices of the language Speed Deck speaks; check **Mostrar voces en todos los idiomas** to see every voice, grouped by language. **Probar voz** says a short sentence with the selected voice and speed.
-- **Deck**: the OBS connection (see [Connect OBS](#connect-obs)).
 - **Apariencia**: **Tema** (system, light or dark) and **Tamaño del texto** (normal, large or extra large). Both are saved per device.
 - **Idioma**: the interface language.
 
@@ -104,15 +108,15 @@ In the key editor, set the label, icon, color and the action's details, then cli
 
 In **Conectar**, scan the QR code with the phone (same Wi-Fi). Then, in **Ajustes → Hablar en**, choose **Computadora**: the keys now run on the computer, with its voice, captions and OBS. The first time, allow incoming network connections when your system asks.
 
-With **Este dispositivo**, the phone works on its own: **Voz** works offline, while the keys in **Deck** are shown as unavailable.
+With **Este dispositivo**, the phone works on its own: **Voz** works offline, while OBS and caption keys are shown as unavailable.
 
 ## Connect OBS
 
 Speed Deck controls OBS through the WebSocket server built into OBS 28 and newer.
 
 1. In OBS, open **Tools → WebSocket Server Settings**. Check **Enable WebSocket server**. Note the port (default `4455`) and, if authentication is on, the password (**Show Connect Info**).
-2. In Speed Deck, open **Ajustes → Deck → OBS**. Check **Conectar con OBS** and fill in **Servidor** (`127.0.0.1` when OBS runs on the same computer), **Puerto** and **Contraseña**.
-3. Click **Probar conexión**. The status badge shows whether OBS is connected.
+2. In Speed Deck, open the **OBS** section (**Conexión**). Check **Conectar con OBS** and fill in **Servidor** (`127.0.0.1` when OBS runs on the same computer), **Puerto** and **Contraseña**.
+3. Click **Probar conexión**. The status badge, and the color of the **OBS** menu item, show whether OBS is connected.
 
 Speed Deck reconnects on its own when OBS restarts. The OBS settings can only be changed from the computer that runs Speed Deck, not from the phone. The password is stored on that computer and is never sent back to any device.
 
@@ -143,7 +147,7 @@ Play your boards from inside OBS with a dock. It uses the same boards, voice and
 1. Copy the dock URL from **Conectar** (or from the tray menu). It looks like `http://127.0.0.1:4545/dock`.
 2. In OBS, open **Docks → Custom Browser Docks** (in older versions, **View → Docks → Custom Browser Docks**).
 3. Enter a name (for example `Speed Deck`), paste the URL, and click **Apply**.
-4. Dock the panel wherever you like. It has a text box, a board selector (voice and deck boards, grouped) and the keys. **Editar** turns on edit mode, as on the phone.
+4. Dock the panel wherever you like. It has a text box, a board selector (voice and deck boards, grouped) and the keys. Add and edit keys as in the app: **+**, or right-click a key.
 
 The Speed Deck app must be running. If it starts on a different port (because 4545 was busy), copy the new URL and update the dock.
 
