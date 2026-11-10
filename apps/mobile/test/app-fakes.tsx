@@ -14,6 +14,7 @@ import {
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createLocalBoardStore } from "../src/adapters/board-stores";
+import { DEFAULT_APPEARANCE, type Appearance, type AppearanceStore } from "../src/adapters/local-storage-appearance-store";
 import { LocalStorageBoardRepository } from "../src/adapters/local-storage-board-repository";
 import { DEFAULT_SETTINGS, type SpeechSettings } from "../src/adapters/local-storage-settings-store";
 import type { SpeakTarget } from "../src/adapters/local-storage-speak-target-store";
@@ -56,26 +57,35 @@ export { speakKey };
 /** A board with an id and name, from keys; a voice board unless `kind` says otherwise. */
 export const boardOf = (id: string, name: string, keys: Key[] = [], kind: BoardKind = "voice"): Board => makeBoard(id, name, kind, keys);
 
+/** An appearance store that starts from `initial` and keeps what is saved in memory. */
+export function memoryAppearanceStore(initial: Appearance = DEFAULT_APPEARANCE): AppearanceStore {
+  let current = initial;
+  return { load: () => current, save: (next) => void (current = next) };
+}
+
 export interface LocalSetupOptions {
   /** Boards already on this device; none means a first run (the default board is created). */
   boards?: Board[];
   language?: UiLanguage | null;
   settings?: SpeechSettings;
+  appearance?: Appearance;
 }
 
 /** App services for phone-only mode, with boards in localStorage. */
-export function localServices({ boards, language = "en", settings = DEFAULT_SETTINGS }: LocalSetupOptions = {}) {
+export function localServices({ boards, language = "en", settings = DEFAULT_SETTINGS, appearance: initialAppearance }: LocalSetupOptions = {}) {
   if (boards) localStorage.setItem("speed-deck:boards", JSON.stringify({ version: 1, boards }));
   const synthesizer = new LocalSynthesizer();
   let saved = settings;
   let id = 0;
+  const appearance = memoryAppearanceStore(initialAppearance);
   const services: AppServices = {
     synthesizer,
     boards: createLocalBoardStore(new LocalStorageBoardRepository(localStorage), () => `board-${++id}`),
     settings: { load: () => saved, save: (next) => void (saved = next) },
     language: memoryLanguageStore(language),
+    appearance,
   };
-  return { services, synthesizer, getSettings: () => saved };
+  return { services, synthesizer, appearance, getSettings: () => saved };
 }
 
 export function renderLocalApp(options: LocalSetupOptions = {}) {

@@ -9,6 +9,7 @@ import { createDesktopServices, type AppServices } from "../src/app/composition-
 import { createLocalBoardStore } from "../src/adapters/board-stores";
 import { LocalStorageBoardRepository } from "../src/adapters/local-storage-board-repository";
 import { boardsOf, createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
+import { memoryAppearanceStore } from "./app-fakes";
 import { goTo, memoryLanguageStore } from "./i18n-helpers";
 
 const synthesizer: AppSpeechSynthesizer = {
@@ -51,6 +52,7 @@ function setup({ hostname = "localhost", answer = route } = {}) {
     boards: createLocalBoardStore(new LocalStorageBoardRepository(null), () => "x"),
     settings: { load: () => DEFAULT_SETTINGS, save: () => {} },
     language: memoryLanguageStore("en"),
+    appearance: memoryAppearanceStore(),
     desktop: createDesktopServices({
       fetch,
       createSocket: (url) => new FakeSocket(url),

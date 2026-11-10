@@ -57,9 +57,14 @@ word prediction, switch scanning.
       single column under 720px. No runnable RED exists for layout in jsdom, so the check is measured
       in the browser: editor keys are 139px wide at a 1024px viewport (were unreadable slivers) and
       111px in three panes at 1440px. Mobile test suite green. Review: RDD is off (global), not run.
-- [ ] **T2 Design foundations.** Token layers (colour, spacing, type, radius, elevation, motion), split
-      `styles.css` by area, manual theme switch, text-size setting, contrast and reduced-motion rules.
-      Check: contrast script for every text/background pair; visual pass in light and dark.
+- [x] **T2 Design foundations.** Route: delegated writer. Token layers in `apps/mobile/src/styles/`
+      (nine files behind the `styles.css` entry), light and dark themes, blue accent for Voice and
+      violet for Deck via `data-space`, Appearance settings (theme, text size) stored per device,
+      `prefers-contrast`, `forced-colors` and app-wide reduced motion. Evidence: RED 7 failing then 188
+      mobile tests passing; build ok; computed contrast AA or better for every pair listed by the
+      writer (lowest text pair 4.93:1, UI boundaries 3.2:1 or more); parent re-ran tests and typecheck
+      and viewed Voice in both themes. Not checked: OBS dock, Connect panel, phone key dialog, forced
+      colours. Left as is: PWA manifest colours in `vite.config.ts`.
 - [x] **T3 Board kind in the domain.** Route: delegated writer (core, desktop and mobile files).
       `Board.kind: "voice" | "deck"`; voice allows voice + navigation, deck allows obs + captions +
       navigation; lazy migration in `readStoredBoards` splits a mixed board into `<id>` (voice) and

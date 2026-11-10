@@ -20,6 +20,7 @@ import { I18nProvider, useMessageText, useT } from "../i18n/I18nProvider";
 import type { Message, MessageKey } from "../i18n/messages";
 import type { AppServices } from "./composition-root";
 import { describeRequestError } from "./describe-error";
+import { useAppearance, type AppearancePreference } from "./use-appearance";
 import { useConnection } from "./use-connection";
 import { useSpaceDecks } from "./use-deck";
 import { useLanguagePreference, type LanguagePreference } from "./use-language-preference";
@@ -42,9 +43,10 @@ const SECTION_ICONS: Record<Section, ReactNode> = {
 export function App({ services }: { services: AppServices }) {
   const target = useSpeechTarget(services);
   const preference = useLanguagePreference(services.language, target);
+  const appearance = useAppearance(services.appearance);
   return (
     <I18nProvider language={preference.language}>
-      <AppContent target={target} preference={preference} services={services} />
+      <AppContent target={target} preference={preference} appearance={appearance} services={services} />
     </I18nProvider>
   );
 }
@@ -53,6 +55,7 @@ interface AppContentProps {
   services: AppServices;
   target: SpeechTarget;
   preference: LanguagePreference;
+  appearance: AppearancePreference;
 }
 
 /** One position per space; each starts from the position stored before the app had spaces. */
@@ -69,7 +72,7 @@ function firstFreeSlot(board: Board): number | null {
 }
 
 /** Container: wires the sections to the speech, board and connection hooks. */
-function AppContent({ services, target, preference }: AppContentProps) {
+function AppContent({ services, target, preference, appearance }: AppContentProps) {
   const t = useT();
   const { language } = preference;
   const connection = useConnection(services.desktop?.connection, target.isDesktopAvailable);
@@ -126,7 +129,8 @@ function AppContent({ services, target, preference }: AppContentProps) {
   );
 
   return (
-    <div className={["app", isEditorOpen ? "app-editing" : "", navCollapsed ? "app-nav-collapsed" : ""].filter(Boolean).join(" ")}>
+    // data-space picks the accent colour: each space has its own, and the other sections share the Voice one.
+    <div className={["app", isEditorOpen ? "app-editing" : "", navCollapsed ? "app-nav-collapsed" : ""].filter(Boolean).join(" ")} data-space={space ?? "voice"}>
       <header className="app-header">
         <h1>{t("app.title")}</h1>
       </header>
@@ -225,6 +229,8 @@ function AppContent({ services, target, preference }: AppContentProps) {
               settings={target.settings}
               onChange={target.updateSettings}
               onLanguageChange={preference.setLanguage}
+              appearance={appearance.appearance}
+              onAppearanceChange={appearance.setAppearance}
               speakOn={target.speakOn}
               outputDevice={target.outputDevice}
             >

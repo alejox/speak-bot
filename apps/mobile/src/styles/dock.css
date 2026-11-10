@@ -1,0 +1,113 @@
+/*
+ * OBS Custom Browser Dock: compact, always dark (tokens.css gives .dock the dark theme), fits a panel
+ * about 300px wide. It is a mouse surface inside OBS, so it is the one place where controls are
+ * smaller than the 44px touch target.
+ */
+
+.dock {
+  --size-control: 40px;
+  --size-control-sm: 40px;
+  --text-2xs: 0.625rem;
+  min-height: 100vh;
+  padding: var(--space-2);
+  font-size: var(--text-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.dock-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dock-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dock-input {
+  width: 100%;
+  min-height: var(--size-control);
+  padding: 0 var(--space-3);
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.dock-actions {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-2);
+}
+
+.dock .deck {
+  gap: var(--space-2);
+}
+
+.dock .deck-board-select {
+  max-width: none;
+}
+
+/* Compact deck: 4 columns of smaller keys. */
+.dock .deck-grid,
+.dock .deck-grid-editing {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
+}
+
+.dock .deck-key {
+  gap: 2px;
+  padding: var(--space-1);
+  font-size: var(--text-xs);
+  border-radius: var(--radius-md);
+}
+
+.dock .deck-key .key-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.dock .deck-key-text {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.dock .deck-key-detail {
+  font-size: var(--text-2xs);
+}
+
+.dock .deck-key[aria-pressed="true"]::after {
+  top: var(--space-1);
+  right: var(--space-1);
+  width: 7px;
+  height: 7px;
+}
+
+.dock .deck-key-plus {
+  font-size: var(--text-xl);
+}
+
+.dock .deck-pager {
+  gap: var(--space-2);
+}
+
+.dock .deck-page {
+  min-width: 6em;
+  font-size: var(--text-sm);
+}
+
+.dock .status {
+  min-height: 1.2em;
+  font-size: var(--text-sm);
+}
+
+.dock-message {
+  margin: 0;
+  color: var(--color-text-muted);
+}

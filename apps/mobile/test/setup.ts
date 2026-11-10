@@ -6,6 +6,9 @@ afterEach(() => {
   cleanup();
   // Absent in node-environment tests (e.g. the build check).
   globalThis.localStorage?.clear();
+  // The app marks its appearance on the root element, which outlives a test's render.
+  globalThis.document?.documentElement.removeAttribute("data-theme");
+  globalThis.document?.documentElement.removeAttribute("data-text-size");
 });
 
 // jsdom has no modal dialogs yet: a minimal stand-in for showModal() and close().

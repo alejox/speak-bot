@@ -241,6 +241,15 @@ export const es: Messages = {
   "settings.voice": "Voz",
   "settings.voiceAuto": "Automática (según el idioma)",
   "settings.speed": "Velocidad",
+  "settings.appearance": "Apariencia",
+  "settings.theme": "Tema",
+  "settings.themeSystem": "Según el sistema",
+  "settings.themeLight": "Claro",
+  "settings.themeDark": "Oscuro",
+  "settings.textSize": "Tamaño del texto",
+  "settings.textSizeNormal": "Normal",
+  "settings.textSizeLarge": "Grande",
+  "settings.textSizeExtraLarge": "Muy grande",
 
   "obs.title": "OBS",
   "obs.hint":

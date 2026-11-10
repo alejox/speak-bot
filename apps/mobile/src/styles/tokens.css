@@ -1,0 +1,258 @@
+/*
+ * Design tokens, in two layers:
+ *   1. Primitives: colour ramps. Only this file reads them.
+ *   2. Semantic tokens: what the components use. Colour changes per theme, the rest is fixed.
+ *
+ * Themes: light is the default; dark applies with data-theme="dark" on the root element, or with no
+ * data-theme when the device prefers dark. The dark values are written twice (attribute and media
+ * query) because a selector list cannot span a media query: change both blocks together.
+ * Theme selectors use :where() so every block has the same specificity and later files can override.
+ */
+
+:root {
+  /* ---- Primitives ---- */
+
+  /* Neutral: a cool grey, 0 is white and 1000 is the deepest surface. */
+  --neutral-0: #ffffff;
+  --neutral-50: #f7f8fa;
+  --neutral-100: #f0f2f5;
+  --neutral-200: #e3e6ec;
+  --neutral-300: #cfd4dd;
+  --neutral-400: #a3abb8;
+  --neutral-500: #737c8b;
+  --neutral-600: #596271;
+  --neutral-700: #3d4552;
+  --neutral-800: #2a303b;
+  --neutral-850: #1f242d;
+  --neutral-900: #171b22;
+  --neutral-950: #0f1217;
+  --neutral-1000: #090b0f;
+
+  /* Accents: 600/700 carry white text (light theme), 400/300 carry dark text (dark theme). */
+  --blue-300: #9dbbf9;
+  --blue-400: #7aa2f5;
+  --blue-600: #2456c7;
+  --blue-700: #1b449f;
+  --violet-300: #c5b0fb;
+  --violet-400: #ab8ef6;
+  --violet-600: #6a3fd0;
+  --violet-700: #5531aa;
+
+  /* Status. */
+  --red-400: #f58a80;
+  --red-500: #e5484d;
+  --red-600: #c0312b;
+  --green-400: #5cc98b;
+  --green-600: #18794a;
+  --amber-400: #f2b84b;
+  --amber-600: #a35b00;
+
+  /* ---- Spacing: 4px base ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+
+  /* ---- Radius ---- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+
+  /* ---- Type: sizes in rem so the text-size setting scales the whole interface ---- */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --leading-xs: 1.4;
+  --leading-sm: 1.45;
+  --leading-md: 1.5;
+  --leading-lg: 1.4;
+  --leading-xl: 1.3;
+  --leading-2xl: 1.2;
+  /* Labels that must stay compact (keys, buttons). */
+  --leading-tight: 1.2;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ---- Sizes: nothing interactive is smaller than a 44px touch target ---- */
+  --size-control-sm: max(44px, 2.5rem);
+  --size-control: max(44px, 2.75rem);
+  --size-control-lg: 4rem;
+  --border-width: 1px;
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 2px;
+  --width-content: 960px;
+  --width-deck: 820px;
+
+  /* ---- Motion ---- */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ---- Semantic colour: light theme ---- */
+  color-scheme: light dark;
+  --color-bg: var(--neutral-100);
+  --color-surface: var(--neutral-0);
+  --color-surface-raised: var(--neutral-0);
+  --color-surface-sunken: var(--neutral-200);
+  /* Separators. Decorative: never the only sign of a control's edge. */
+  --color-border: var(--neutral-300);
+  /* Edges of controls: at least 3:1 on every surface. */
+  --color-border-strong: var(--neutral-500);
+  --color-text: var(--neutral-900);
+  --color-text-muted: var(--neutral-600);
+  --color-on-accent: var(--neutral-0);
+  --color-danger: var(--red-600);
+  --color-success: var(--green-600);
+  --color-warning: var(--amber-600);
+  --color-focus: var(--amber-600);
+  --color-backdrop: rgb(15 18 23 / 0.5);
+  /* One accent per space; --color-accent is chosen from these at the end of this file. */
+  --accent-voice: var(--blue-600);
+  --accent-voice-hover: var(--blue-700);
+  --accent-deck: var(--violet-600);
+  --accent-deck-hover: var(--violet-700);
+
+  /* Elevation: soft and short. */
+  --shadow-1: 0 1px 2px rgb(15 18 23 / 0.08);
+  --shadow-2: 0 2px 8px rgb(15 18 23 / 0.1), 0 1px 2px rgb(15 18 23 / 0.06);
+  --shadow-3: 0 16px 40px rgb(15 18 23 / 0.2), 0 2px 6px rgb(15 18 23 / 0.08);
+
+  /* Deck keys: raised tiles on a sunken tray. A key may still carry its own colour. */
+  --deck-bg: var(--color-surface-sunken);
+  --key-bg: var(--neutral-0);
+  --key-bg-active: var(--neutral-100);
+  --key-text: var(--neutral-900);
+  --key-border: var(--neutral-500);
+  --key-empty: var(--neutral-600);
+  --key-shadow: inset 0 -2px 0 rgb(15 18 23 / 0.1);
+  /* Pressing a key that has its own colour: the background cannot change, so the whole key does. */
+  --key-press-filter: brightness(0.94);
+  /* A toggle that is on: ring and dot. */
+  --key-on: var(--color-warning);
+  --key-live: var(--red-500);
+}
+
+:root:where([data-theme="light"]) {
+  color-scheme: light;
+}
+
+/* ---- Semantic colour: dark theme (keep the two blocks below identical) ---- */
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --color-bg: var(--neutral-950);
+    --color-surface: var(--neutral-900);
+    --color-surface-raised: var(--neutral-850);
+    --color-surface-sunken: var(--neutral-1000);
+    --color-border: var(--neutral-800);
+    --color-border-strong: var(--neutral-500);
+    --color-text: var(--neutral-50);
+    --color-text-muted: var(--neutral-400);
+    --color-on-accent: var(--neutral-950);
+    --color-danger: var(--red-400);
+    --color-success: var(--green-400);
+    --color-warning: var(--amber-400);
+    --color-focus: var(--amber-400);
+    --color-backdrop: rgb(0 0 0 / 0.65);
+    --accent-voice: var(--blue-400);
+    --accent-voice-hover: var(--blue-300);
+    --accent-deck: var(--violet-400);
+    --accent-deck-hover: var(--violet-300);
+    /* Layers read by lightness in the dark; shadows only help a little. */
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-2: 0 2px 8px rgb(0 0 0 / 0.45);
+    --shadow-3: 0 16px 40px rgb(0 0 0 / 0.6);
+    --deck-bg: var(--color-surface-sunken);
+    --key-bg: var(--neutral-800);
+    --key-bg-active: var(--neutral-700);
+    --key-text: var(--neutral-50);
+    --key-border: var(--neutral-600);
+    --key-empty: var(--neutral-400);
+    --key-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.35);
+    --key-press-filter: brightness(1.2);
+    --key-on: var(--color-warning);
+  }
+}
+
+/* The OBS dock sits inside OBS, which is dark: it takes the dark theme whatever the app uses. */
+:root:where([data-theme="dark"]),
+.dock {
+  color-scheme: dark;
+  --color-bg: var(--neutral-950);
+  --color-surface: var(--neutral-900);
+  --color-surface-raised: var(--neutral-850);
+  --color-surface-sunken: var(--neutral-1000);
+  --color-border: var(--neutral-800);
+  --color-border-strong: var(--neutral-500);
+  --color-text: var(--neutral-50);
+  --color-text-muted: var(--neutral-400);
+  --color-on-accent: var(--neutral-950);
+  --color-danger: var(--red-400);
+  --color-success: var(--green-400);
+  --color-warning: var(--amber-400);
+  --color-focus: var(--amber-400);
+  --color-backdrop: rgb(0 0 0 / 0.65);
+  --accent-voice: var(--blue-400);
+  --accent-voice-hover: var(--blue-300);
+  --accent-deck: var(--violet-400);
+  --accent-deck-hover: var(--violet-300);
+  /* Layers read by lightness in the dark; shadows only help a little. */
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-2: 0 2px 8px rgb(0 0 0 / 0.45);
+  --shadow-3: 0 16px 40px rgb(0 0 0 / 0.6);
+  --deck-bg: var(--color-surface-sunken);
+  --key-bg: var(--neutral-800);
+  --key-bg-active: var(--neutral-700);
+  --key-text: var(--neutral-50);
+  --key-border: var(--neutral-600);
+  --key-empty: var(--neutral-400);
+  --key-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.35);
+  --key-press-filter: brightness(1.2);
+  --key-on: var(--color-warning);
+}
+
+/*
+ * Space accent. The element that wraps a space sets data-space; everything inside reads --color-accent.
+ * Voice is blue and Deck is violet; anything outside a space (and the dock) uses the Voice accent.
+ * Declared on the wrapper itself so it picks up the theme's accent values.
+ */
+:root,
+[data-space="voice"],
+.dock {
+  --color-accent: var(--accent-voice);
+  --color-accent-hover: var(--accent-voice-hover);
+}
+
+[data-space="deck"] {
+  --color-accent: var(--accent-deck);
+  --color-accent-hover: var(--accent-deck-hover);
+}
+
+/*
+ * Text size (Settings > Appearance). Percentages keep the browser's own font-size setting in play:
+ * with the usual 16px default these are 18px, 20px and 23px.
+ */
+:root {
+  font-size: 112.5%;
+}
+
+:root[data-text-size="large"] {
+  font-size: 125%;
+}
+
+:root[data-text-size="extra-large"] {
+  font-size: 143.75%;
+}

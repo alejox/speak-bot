@@ -1,15 +1,26 @@
 import { UI_LANGUAGES, type AudioDevice, type UiLanguage, type Voice } from "@speed-deck/core";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
+import { TEXT_SIZES, THEME_PREFERENCES, type Appearance, type TextSize, type ThemePreference } from "../adapters/local-storage-appearance-store";
 import { MAX_RATE, MIN_RATE, type SpeechSettings } from "../adapters/local-storage-settings-store";
 import type { SpeakTarget } from "../adapters/local-storage-speak-target-store";
 import { useLanguage, useT } from "../i18n/I18nProvider";
-import { LANGUAGE_NAMES } from "../i18n/messages";
+import { LANGUAGE_NAMES, type MessageKey } from "../i18n/messages";
+
+const THEME_LABELS: Record<ThemePreference, MessageKey> = { system: "settings.themeSystem", light: "settings.themeLight", dark: "settings.themeDark" };
+const TEXT_SIZE_LABELS: Record<TextSize, MessageKey> = {
+  normal: "settings.textSizeNormal",
+  large: "settings.textSizeLarge",
+  "extra-large": "settings.textSizeExtraLarge",
+};
 
 interface SettingsPanelProps {
   voices: Voice[];
   settings: SpeechSettings;
   onChange: (settings: SpeechSettings) => void;
   onLanguageChange: (language: UiLanguage) => void;
+  /** Theme and text size of this device. */
+  appearance: Appearance;
+  onAppearanceChange: (appearance: Appearance) => void;
   /** Shown only when a desktop computer is available. */
   speakOn?: { value: SpeakTarget; onChange: (target: SpeakTarget) => void } | null;
   /** Shown only when speaking on a computer that can choose its output device. */
@@ -18,8 +29,19 @@ interface SettingsPanelProps {
   children?: ReactNode;
 }
 
-export function SettingsPanel({ voices, settings, onChange, onLanguageChange, speakOn, outputDevice, children }: SettingsPanelProps) {
+export function SettingsPanel({
+  voices,
+  settings,
+  onChange,
+  onLanguageChange,
+  appearance,
+  onAppearanceChange,
+  speakOn,
+  outputDevice,
+  children,
+}: SettingsPanelProps) {
   const t = useT();
+  const appearanceTitleId = useId();
   const language = useLanguage();
   return (
     <div className="settings">
@@ -83,6 +105,30 @@ export function SettingsPanel({ voices, settings, onChange, onLanguageChange, sp
           onChange={(event) => onChange({ ...settings, rate: Number(event.target.value) })}
         />
       </label>
+
+      <div className="settings-group" role="group" aria-labelledby={appearanceTitleId}>
+        <h3 id={appearanceTitleId}>{t("settings.appearance")}</h3>
+        <label className="field">
+          <span>{t("settings.theme")}</span>
+          <select value={appearance.theme} onChange={(event) => onAppearanceChange({ ...appearance, theme: event.target.value as ThemePreference })}>
+            {THEME_PREFERENCES.map((theme) => (
+              <option key={theme} value={theme}>
+                {t(THEME_LABELS[theme])}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>{t("settings.textSize")}</span>
+          <select value={appearance.textSize} onChange={(event) => onAppearanceChange({ ...appearance, textSize: event.target.value as TextSize })}>
+            {TEXT_SIZES.map((size) => (
+              <option key={size} value={size}>
+                {t(TEXT_SIZE_LABELS[size])}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       {children}
     </div>
