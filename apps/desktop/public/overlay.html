@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Speak Bot captions</title>
+    <!--
+      OBS Browser Source overlay. Query params:
+        size      font size in px (default 48)
+        position  bottom | top | center (default bottom)
+        hold      ms the caption stays after speech ends (default 4000)
+        color     text color (default #ffffff)
+        bg        caption box background (default rgba(0, 0, 0, 0.6))
+      Example: /overlay?size=56&position=top&hold=6000&color=%23ffeb3b
+    -->
+    <style>
+      :root {
+        --caption-size: 48px;
+        --caption-color: #ffffff;
+        --caption-bg: rgba(0, 0, 0, 0.6);
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+      }
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        padding: 4vh 4vw;
+        box-sizing: border-box;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      body.position-top {
+        align-items: flex-start;
+      }
+      body.position-center {
+        align-items: center;
+      }
+      #caption {
+        max-width: 90vw;
+        padding: 0.3em 0.6em;
+        border-radius: 0.3em;
+        background: var(--caption-bg);
+        color: var(--caption-color);
+        font-size: var(--caption-size);
+        font-weight: 600;
+        line-height: 1.25;
+        text-align: center;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+        opacity: 0;
+        transition: opacity 400ms ease;
+      }
+      #caption.visible {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="caption" role="status" aria-live="polite"></div>
+    <script>
+      (function () {
+        "use strict";
+        var params = new URLSearchParams(window.location.search);
+        var caption = document.getElementById("caption");
+
+        function numberParam(name, fallback, min, max) {
+          var value = Number(params.get(name));
+          return params.has(name) && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+        }
+
+        var size = numberParam("size", 48, 8, 400);
+        var hold = numberParam("hold", 4000, 0, 600000);
+        var position = params.get("position");
+        var color = params.get("color");
+        var bg = params.get("bg");
+
+        caption.style.setProperty("--caption-size", size + "px");
+        // The browser ignores invalid CSS values here, so params cannot inject other styles.
+        if (color) caption.style.setProperty("--caption-color", color);
+        if (bg) caption.style.setProperty("--caption-bg", bg);
+        if (position === "top" || position === "center") document.body.classList.add("position-" + position);
+
+        var hideTimer = null;
+        function scheduleHide() {
+          clearTimeout(hideTimer);
+          hideTimer = setTimeout(function () {
+            caption.classList.remove("visible");
+          }, hold);
+        }
+
+        function handle(event) {
+          if (!event || typeof event.type !== "string") return;
+          if (event.type === "caption" && typeof event.text === "string") {
+            caption.textContent = event.text;
+            caption.classList.add("visible");
+            // Fallback in case the "end" event never arrives.
+            scheduleHide();
+          } else if (event.type === "speaking" && event.state === "start") {
+            clearTimeout(hideTimer);
+          } else if (event.type === "speaking" && event.state === "end") {
+            scheduleHide();
+          }
+        }
+
+        var retryDelay = 500;
+        function connect() {
+          var protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+          var socket = new WebSocket(protocol + "//" + window.location.host + "/ws");
+          socket.onopen = function () {
+            retryDelay = 500;
+          };
+          socket.onmessage = function (message) {
+            try {
+              handle(JSON.parse(message.data));
+            } catch (error) {
+              // Ignore malformed messages.
+            }
+          };
+          socket.onclose = function () {
+            setTimeout(connect, retryDelay);
+            retryDelay = Math.min(retryDelay * 2, 10000);
+          };
+        }
+        connect();
+      })();
+    </script>
+  </body>
+</html>
