@@ -97,7 +97,7 @@ describe("App connect panel", () => {
 
   it("is hidden when no desktop serves the page (e.g. GitHub Pages)", async () => {
     const { requests } = setup({ answer: () => undefined });
-    await screen.findByRole("link", { name: "Board" });
+    await screen.findByRole("link", { name: "Voice" });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(screen.queryByRole("heading", { name: "Connect your phone" })).not.toBeInTheDocument();
     expect(requests.some((request) => request.url === "/api/connection")).toBe(false);

@@ -73,9 +73,15 @@ word prediction, switch scanning.
       disallowed keys instead of splitting them out; name/id truncation can cut a surrogate pair.
       Known limit, accepted: a user with more than 25 mixed legacy boards ends above the 50-board
       limit and must delete boards before creating new ones (no data loss).
-- [ ] **T4 Two spaces in the navigation.** "Voice" (home) and "Deck" as top-level spaces, each listing
-      only its own boards; action library and key editor filtered by board kind. Update navigation and
-      i18n tests.
+- [x] **T4 Two spaces in the navigation.** Route: delegated writer. Sections are now Voice (home,
+      composer above the voice boards), Deck, Connect and Settings; each space lists, edits, creates
+      and restores only boards of its kind and remembers its own board and page. The Speak section and
+      QuickKeys are gone. Also closes the T3 follow-ups: a kinded board with refused keys is split
+      (`<id>-deck` or `<id>-voice`) instead of losing them, and truncation is surrogate-safe.
+      Evidence: core RED 4 then 128 passing; mobile RED 40 then 169 passing; parent re-run of
+      typecheck, core and mobile suites green; Voice and Deck screens checked in the browser
+      (standalone, Spanish). Not checked: with the computer app connected, the OBS dock optgroups.
+      Commits: T3 13c8a69; T4 recorded in git log (`fix(core)` split hardening, `feat(mobile)` spaces).
 - [ ] **T5 Voice space.** Composer always on screen above the phrase grid, colour-coded phrase
       categories, recent phrases, large targets, explicit locked edit mode instead of long-press.
 - [ ] **T6 Deck space.** Keys show live state (on air, recording, muted, active scene), connection

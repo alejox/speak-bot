@@ -2,11 +2,13 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useT } from "../i18n/I18nProvider";
 
 interface RestoreDefaultsProps {
+  /** Name of the built-in board that would be restored, for the confirmation. */
+  boardName: string;
   onRestore: () => Promise<void>;
 }
 
-/** Puts back the built-in Communication board, after an inline two-step confirmation (never a browser dialog). */
-export function RestoreDefaults({ onRestore }: RestoreDefaultsProps) {
+/** Puts back a built-in board, after an inline two-step confirmation (never a browser dialog). */
+export function RestoreDefaults({ boardName, onRestore }: RestoreDefaultsProps) {
   const t = useT();
   const [isConfirming, setIsConfirming] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
@@ -40,7 +42,7 @@ export function RestoreDefaults({ onRestore }: RestoreDefaultsProps) {
 
   return (
     <div className="restore-confirm" role="group" aria-labelledby={promptId}>
-      <p id={promptId}>{t("boards.restoreConfirm")}</p>
+      <p id={promptId}>{t("boards.restoreConfirm", { name: boardName })}</p>
       <div className="restore-actions">
         <button type="button" className="button button-small button-danger" onClick={confirm} disabled={isBusy}>
           {t("boards.restoreYes")}

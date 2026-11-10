@@ -68,7 +68,8 @@ describe("App language", () => {
     renderLocalApp({ language: null });
     expect(await screen.findByRole("button", { name: "Hola" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Tablero" })).toHaveDisplayValue(DEFAULT_BOARD_NAMES.es);
-    expect(screen.getByRole("link", { name: "Tablero" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Voz" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Deck" })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe("es");
   });
 
@@ -83,7 +84,7 @@ describe("App language", () => {
     await goTo(user, "Ajustes");
     await user.selectOptions(screen.getByRole("combobox", { name: "Idioma / Language" }), "en");
     expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
-    await goTo(user, "Speak");
+    await goTo(user, "Voice");
     expect(screen.getByRole("button", { name: "Speak" })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe("en");
     expect(services.language.load()).toBe("en");
@@ -93,11 +94,11 @@ describe("App language", () => {
     const { synthesizer, user } = renderLocalApp({ language: null });
     await goTo(user, "Ajustes");
     await screen.findByRole("option", { name: "Mónica (es-ES)" });
-    await goTo(user, "Hablar");
+    await goTo(user, "Voz");
     await user.type(screen.getByLabelText("Texto para decir"), "Hola{Enter}");
     await goTo(user, "Ajustes");
     await user.selectOptions(screen.getByRole("combobox", { name: "Idioma / Language" }), "en");
-    await goTo(user, "Speak");
+    await goTo(user, "Voice");
     await user.type(screen.getByLabelText("Text to speak"), "Hi{Enter}");
     expect(synthesizer.spoken.map((entry) => entry.options?.voiceId)).toEqual(["monica", "alex"]);
   });

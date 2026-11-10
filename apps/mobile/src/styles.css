@@ -262,9 +262,19 @@ h2 {
   color: var(--danger);
 }
 
+/* The composer sits above the voice board and shares its width. */
 .composer {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  max-width: 820px;
+}
+
+/* A space without boards: the explanation and the way out of it. */
+.space-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 12px;
 }
 
@@ -351,7 +361,6 @@ h4 {
 
 /* Deck keys: dark rounded squares in a fixed grid, in both color schemes; a key may have its own color. */
 .deck,
-.quick-keys,
 .board-editor {
   --key-bg: #1f2433;
   --key-bg-active: #2d3550;
@@ -361,8 +370,7 @@ h4 {
   --deck-bg: #0d1017;
 }
 
-.deck,
-.quick-keys {
+.deck {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -423,8 +431,7 @@ h4 {
   }
 }
 
-.deck-grid li,
-.quick-grid li {
+.deck-grid li {
   display: flex;
   min-width: 0;
 }
@@ -577,27 +584,6 @@ button.deck-key-empty {
   min-width: 8em;
   text-align: center;
   color: var(--muted);
-}
-
-.quick-grid {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 96px));
-  gap: 8px;
-}
-
-.deck-key-small {
-  gap: 2px;
-  padding: 6px;
-  font-size: 0.8rem;
-  border-radius: 12px;
-}
-
-.deck-key-small .deck-key-text {
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
 }
 
 /* Form bits shared by the key editor, the board list and the settings. */

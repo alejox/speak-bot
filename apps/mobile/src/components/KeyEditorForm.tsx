@@ -30,6 +30,7 @@ export interface KeyEditorFormProps {
   assignedType?: ActionType;
   /** Kind of the board the key is on; only the actions it allows are offered. */
   boardKind: BoardKind;
+  /** Every board; a key that opens a board is offered the ones of `boardKind`. */
   boards: readonly Board[];
   obs: ObsServices | null;
   /** Resolves true when saved. */
@@ -109,6 +110,9 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
     });
   };
 
+  // A key opens boards of its own space. A target saved before spaces stays, so editing the key does not lose it.
+  const savedTargetId = existing?.action.type === "nav.goToBoard" ? existing.action.boardId : undefined;
+  const targetBoards = boards.filter((board) => board.kind === boardKind || board.id === savedTargetId);
   const hexInvalid = draft.color !== "" && !isHexColor(draft.color);
   const number = slot + 1;
 
@@ -146,7 +150,7 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
           actionType={draft.actionType}
           values={draft.params}
           onChange={(params) => update({ params })}
-          boards={boards}
+          boards={targetBoards}
           obs={obs}
           invalidField={error?.field}
         />

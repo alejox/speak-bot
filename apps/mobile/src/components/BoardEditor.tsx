@@ -5,6 +5,9 @@ import {
   isActionType,
   keysOnPage,
   KEYS_PER_PAGE,
+  DEFAULT_BOARD_NAMES,
+  DEFAULT_DECK_BOARD_ID,
+  DEFAULT_DECK_BOARD_NAMES,
   MAX_BOARD_PAGES,
   type Action,
   type ActionType,
@@ -27,6 +30,8 @@ const SLOT_DRAG_TYPE = "application/x-speed-deck-slot";
 
 interface BoardEditorProps {
   boards: Boards;
+  /** The space's boards and its position among them: the editor lists, creates and restores boards of their kind. */
+  spaceBoards: readonly Board[];
   navigation: BoardNavigation;
   context: KeyContext;
   obs: ObsServices | null;
@@ -47,11 +52,11 @@ interface Assignment {
 }
 
 /**
- * The desktop board editor: boards on the left, the key grid with pages in the middle, the action
+ * The desktop board editor of one space: its boards on the left, the key grid with pages in the middle, the action
  * library and the key editor on the right. Drag and drop always has a keyboard alternative: select a key,
  * then "Assign" an action or "Move" the key.
  */
-export function BoardEditor({ boards: boardsState, navigation, context, obs, language, onTest, statusText, report }: BoardEditorProps) {
+export function BoardEditor({ boards: boardsState, spaceBoards, navigation, context, obs, language, onTest, statusText, report }: BoardEditorProps) {
   const t = useT();
   const gridLabelId = useId();
   const { boards, change } = boardsState;
@@ -125,13 +130,14 @@ export function BoardEditor({ boards: boardsState, navigation, context, obs, lan
   return (
     <div className="board-editor">
       <BoardList
-        boards={boards}
+        boards={spaceBoards}
+        canDelete={boards.length > 1}
+        defaultBoardName={(board.kind === "deck" ? DEFAULT_DECK_BOARD_NAMES : DEFAULT_BOARD_NAMES)[language]}
         selectedId={board.id}
         onSelect={selectBoard}
         onCreate={() =>
           change(
-            // New boards are voice boards until each space creates its own kind.
-            (store) => store.create(t("boards.defaultName", { number: boards.length + 1 }), "voice"),
+            (store) => store.create(t("boards.defaultName", { number: boards.length + 1 }), board.kind),
             (created) => ({ key: "boards.created", params: { name: created.name } }),
           )
         }
@@ -149,7 +155,11 @@ export function BoardEditor({ boards: boardsState, navigation, context, obs, lan
           )) === true
         }
         onRestore={async () => {
-          const restored = await change((store) => store.restoreDefault(language), () => ({ key: "boards.restored" }));
+          // Without a board id the store restores the built-in voice board.
+          const restored = await change(
+            (store) => store.restoreDefault(language, board.kind === "deck" ? DEFAULT_DECK_BOARD_ID : undefined),
+            (fresh) => ({ key: "boards.restored", params: { name: fresh.name } }),
+          );
           if (restored) selectBoard(restored.id);
         }}
       />

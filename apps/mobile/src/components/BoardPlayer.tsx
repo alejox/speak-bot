@@ -1,4 +1,4 @@
-import { boardPageCount, keysOnPage, KEYS_PER_PAGE, type Action, type Board, type Key } from "@speed-deck/core";
+import { BOARD_KINDS, boardPageCount, keysOnPage, KEYS_PER_PAGE, type Action, type Board, type Key } from "@speed-deck/core";
 import { useEffect, useId, useRef, type MouseEvent, type ReactNode } from "react";
 import type { BoardNavigation } from "../app/use-boards";
 import { keyIconId, keyLabel, presentKey, type KeyContext } from "../app/key-presentation";
@@ -11,7 +11,10 @@ export const LONG_PRESS_MS = 500;
 const LONG_PRESS_CLICK_WINDOW_MS = 1500;
 
 interface BoardPlayerProps {
+  /** The boards the selector offers; `context.boards` holds every board, for keys that open one. */
   boards: readonly Board[];
+  /** Groups the selector's boards by kind, for a player that lists both kinds (the OBS dock). */
+  groupByKind?: boolean;
   navigation: BoardNavigation;
   context: KeyContext;
   /** Runs a key's action; called synchronously inside the tap. */
@@ -27,7 +30,7 @@ interface BoardPlayerProps {
 }
 
 /** Plays a board: board selector, a page of keys and the pager. Keys show live OBS and captions state. */
-export function BoardPlayer({ boards, navigation, context, onRun, onEditKey, isEditing = false, toolbar, variant = "full" }: BoardPlayerProps) {
+export function BoardPlayer({ boards, groupByKind = false, navigation, context, onRun, onEditKey, isEditing = false, toolbar, variant = "full" }: BoardPlayerProps) {
   const t = useT();
   const selectId = useId();
   const reasonPrefix = useId();
@@ -66,6 +69,14 @@ export function BoardPlayer({ boards, navigation, context, onRun, onEditKey, isE
   };
   const cancelLongPress = () => clearTimeout(pressTimer.current);
 
+  const boardOptions = (candidates: readonly Board[]) =>
+    candidates.map((candidate) => (
+      <option key={candidate.id} value={candidate.id}>
+        {candidate.name}
+      </option>
+    ));
+  const boardGroups = BOARD_KINDS.map((kind) => ({ kind, boards: boards.filter((candidate) => candidate.kind === kind) })).filter((group) => group.boards.length > 0);
+
   return (
     <section className={`deck deck-${variant}`} aria-label={board.name}>
       <div className="deck-header">
@@ -78,11 +89,13 @@ export function BoardPlayer({ boards, navigation, context, onRun, onEditKey, isE
           value={board.id}
           onChange={(event) => navigation.go({ boardId: event.target.value, page: 0 })}
         >
-          {boards.map((candidate) => (
-            <option key={candidate.id} value={candidate.id}>
-              {candidate.name}
-            </option>
-          ))}
+          {groupByKind
+            ? boardGroups.map((group) => (
+                <optgroup key={group.kind} label={t(`nav.${group.kind}`)}>
+                  {boardOptions(group.boards)}
+                </optgroup>
+              ))
+            : boardOptions(boards)}
         </select>
         {toolbar}
       </div>
@@ -112,7 +125,7 @@ export function BoardPlayer({ boards, navigation, context, onRun, onEditKey, isE
               </li>
             );
           }
-          const label = keyLabel(key, boards, t);
+          const label = keyLabel(key, context.boards, t);
           const presentation = presentKey(key.action, context);
           const disabled = presentation.disabledReason !== undefined;
           const reasonId = `${reasonPrefix}-${slot}`;

@@ -17,21 +17,18 @@ type BoardKeyProps = BoardKeyView &
   Omit<ButtonHTMLAttributes<HTMLButtonElement>, "color"> & {
     /** Highlighted as the key being edited. */
     selected?: boolean;
-    size?: "normal" | "small";
   };
 
 /** A deck key: icon, label and color. Text is black or white, whichever reads better on the key color. */
 export const BoardKey = forwardRef<HTMLButtonElement, BoardKeyProps>(function BoardKey(
-  { label, iconId, color, pressed, detail, selected = false, size = "normal", className, style, ...button },
+  { label, iconId, color, pressed, detail, selected = false, className, style, ...button },
   ref,
 ) {
   const colors: CSSProperties | undefined = color ? { background: color, color: contrastTextColor(color), borderColor: color } : undefined;
-  const classes = ["deck-key", size === "small" ? "deck-key-small" : "", selected ? "deck-key-selected" : "", className ?? ""]
-    .filter(Boolean)
-    .join(" ");
+  const classes = ["deck-key", selected ? "deck-key-selected" : "", className ?? ""].filter(Boolean).join(" ");
   return (
     <button ref={ref} type="button" className={classes} aria-pressed={pressed} style={{ ...colors, ...style }} {...button}>
-      <KeyIcon id={iconId} size={size === "small" ? 20 : 28} />
+      <KeyIcon id={iconId} size={28} />
       <span className="deck-key-text">{label}</span>
       {detail && <span className="deck-key-detail">{detail}</span>}
     </button>

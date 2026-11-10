@@ -6,15 +6,18 @@ export const es: Messages = {
   "app.speechUnsupported": "Este navegador no permite la síntesis de voz. Prueba con Chrome o Safari.",
 
   "nav.label": "Secciones",
-  "nav.board": "Tablero",
-  "nav.speak": "Hablar",
+  "nav.voice": "Voz",
+  "nav.deck": "Deck",
   "nav.connect": "Conectar",
   "nav.settings": "Ajustes",
   "nav.collapse": "Contraer menú",
   "nav.expand": "Expandir menú",
 
-  "speak.quickKeys": "Teclas rápidas",
-  "speak.noQuickKeys": "El tablero actual aún no tiene teclas que digan un texto.",
+  "space.empty": "Aún no hay tableros aquí.",
+  "deck.needsComputer":
+    "Las teclas del Deck controlan OBS mediante la app de Speed Deck para computadora. Abre Speed Deck desde esa app para usarlas.",
+  "deck.computerNotChosen":
+    "Las teclas del Deck controlan OBS mediante la app de Speed Deck para computadora. Para usarlas, elige «Computadora» en «Hablar en», dentro de Ajustes.",
 
   "composer.region": "Escribe para hablar",
   "composer.textLabel": "Texto para decir",
@@ -53,14 +56,14 @@ export const es: Messages = {
   "boards.deleteYes": "Sí, eliminar",
   "boards.deleteNo": "No, conservarlo",
   "boards.lastBoard": "No puedes eliminar el único tablero.",
-  "boards.restore": "Restaurar «Comunicación»",
-  "boards.restoreConfirm": "¿Restaurar el tablero Comunicación predeterminado? Se reemplazarán sus teclas actuales.",
+  "boards.restore": "Restaurar tablero predeterminado",
+  "boards.restoreConfirm": "¿Restaurar el tablero predeterminado «{name}»? Se reemplazarán sus teclas actuales.",
   "boards.restoreYes": "Sí, restaurar",
   "boards.restoreNo": "Cancelar",
   "boards.created": "Se creó el tablero «{name}».",
   "boards.renamed": "El tablero ahora se llama «{name}».",
   "boards.deleted": "Se eliminó «{name}».",
-  "boards.restored": "Se restauró el tablero Comunicación.",
+  "boards.restored": "Se restauró el tablero «{name}».",
 
   "editor.title": "Editor de tableros",
   "editor.addPage": "Página nueva",

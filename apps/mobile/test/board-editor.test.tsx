@@ -26,7 +26,9 @@ const library = () => screen.getByRole("region", { name: "Actions" });
 const keyEditor = () => screen.getByRole("region", { name: /^Key \d+/ });
 const deckBoard = () => boardOf("stream", "Stream", [], "deck");
 
-async function openEditor(user: { click: (element: Element) => Promise<void> }) {
+/** Opens the editor of a space: Voice (where the app starts) unless `space` names another. */
+async function openEditor(user: { click: (element: Element) => Promise<void> }, space?: "Deck") {
+  if (space) await user.click(screen.getByRole("link", { name: space }));
   await user.click(await screen.findByRole("button", { name: "Edit board" }));
   return screen.getByRole("heading", { name: "Board editor" });
 }
@@ -54,7 +56,9 @@ describe("board editor on wide screens", () => {
     expect(offered()).toEqual(["Voice", "Navigation"]);
     expect(within(library()).queryByText("Switch scene")).not.toBeInTheDocument();
 
-    await user.click(within(screen.getByRole("region", { name: "Boards" })).getByRole("button", { name: "Stream" }));
+    expect(within(screen.getByRole("region", { name: "Boards" })).queryByRole("button", { name: "Stream" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: "Deck" }));
+    expect(within(screen.getByRole("region", { name: "Boards" })).queryByRole("button", { name: "Talk" })).not.toBeInTheDocument();
     expect(within(library()).getAllByRole("region").map((group) => group.getAttribute("aria-label"))).toEqual(["Captions", "Navigation", "OBS"]);
     expect(within(library()).queryByText("Speak text")).not.toBeInTheDocument();
     await user.click(within(grid()).getByRole("button", { name: "Add a key at position 1" }));
@@ -64,13 +68,12 @@ describe("board editor on wide screens", () => {
   it("ignores an action dropped on a board whose kind does not allow it", async () => {
     const state = desktopState({ boards: [boardOf("talk", "Talk"), deckBoard()] });
     const { requests, user } = renderRemoteApp({ state });
-    await openEditor(user);
-    await user.click(within(screen.getByRole("region", { name: "Boards" })).getByRole("button", { name: "Stream" }));
+    await openEditor(user, "Deck");
     const item = within(library()).getByText("Start or stop stream").closest("li")!;
     const transfer = dataTransfer();
     fireEvent(item, Object.assign(createEvent.dragStart(item), { dataTransfer: transfer }));
 
-    await user.click(within(screen.getByRole("region", { name: "Boards" })).getByRole("button", { name: "Talk" }));
+    await user.click(screen.getByRole("link", { name: "Voice" }));
     const target = within(grid()).getByRole("button", { name: "Add a key at position 1" });
     fireEvent(target, Object.assign(createEvent.drop(target), { dataTransfer: transfer }));
     expect(within(grid()).getByRole("button", { name: "Add a key at position 1" })).toBeInTheDocument();
@@ -79,7 +82,7 @@ describe("board editor on wide screens", () => {
 
   it("filters the library with search", async () => {
     const { user } = renderRemoteApp({ state: desktopState({ boards: [deckBoard()] }) });
-    await openEditor(user);
+    await openEditor(user, "Deck");
     await user.type(within(library()).getByRole("searchbox", { name: "Search actions" }), "scene");
     const names = within(library()).getAllByRole("listitem").map((item) => item.textContent);
     expect(names).toContainEqual(expect.stringContaining("Switch scene"));
@@ -124,7 +127,7 @@ describe("board editor on wide screens", () => {
   it("drags an action with parameters onto an empty key, then saves it from the key editor", async () => {
     const state = desktopState({ boards: [boardOf("main", "Main", [], "deck")] });
     const { requests, user } = renderRemoteApp({ state });
-    await openEditor(user);
+    await openEditor(user, "Deck");
     const item = within(library()).getByText("Switch scene").closest("li")!;
     drag(item, within(grid()).getByRole("button", { name: "Add a key at position 3" }));
 
@@ -147,7 +150,7 @@ describe("board editor on wide screens", () => {
   it("falls back to typing OBS names when OBS is not connected", async () => {
     const state = desktopState({ boards: [boardOf("main", "Main", [], "deck")], scenes: null });
     const { user } = renderRemoteApp({ state });
-    await openEditor(user);
+    await openEditor(user, "Deck");
     await user.click(within(grid()).getByRole("button", { name: "Add a key at position 1" }));
     await user.selectOptions(within(keyEditor()).getByRole("combobox", { name: "Action" }), "Switch scene");
     const scene = within(keyEditor()).getByRole("textbox", { name: "Scene" });
@@ -259,13 +262,36 @@ describe("board editor on wide screens", () => {
     const state = desktopState({ boards: [boardOf("main", "Main")] });
     const { requests, user } = renderRemoteApp({ state });
     await openEditor(user);
-    await user.click(screen.getByRole("button", { name: "Restore “Communication”" }));
+    await user.click(screen.getByRole("button", { name: "Restore default board" }));
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(writes(requests)).toEqual([]);
-    await user.click(screen.getByRole("button", { name: "Restore “Communication”" }));
+    await user.click(screen.getByRole("button", { name: "Restore default board" }));
     await user.click(screen.getByRole("button", { name: "Yes, restore" }));
     await waitFor(() => expect(within(grid()).getByRole("button", { name: "Edit key 1: Hello" })).toBeInTheDocument());
     expect(requests).toContainEqual({ method: "POST", url: "/api/boards/restore-default", body: { language: "en" } });
+  });
+
+  it("creates deck boards and restores the built-in deck board from the Deck space", async () => {
+    const state = desktopState({ boards: [boardOf("talk", "Talk"), deckBoard()] });
+    const { requests, user } = renderRemoteApp({ state });
+    await openEditor(user, "Deck");
+    const boards = screen.getByRole("region", { name: "Boards" });
+    await user.click(within(boards).getByRole("button", { name: "New board" }));
+    await within(boards).findByRole("textbox", { name: "New name for Board 3" });
+    expect(requests).toContainEqual({ method: "POST", url: "/api/boards", body: { name: "Board 3", kind: "deck" } });
+
+    await user.click(screen.getByRole("button", { name: "Restore default board" }));
+    expect(screen.getByText("Restore the built-in “Deck” board? Its current keys will be replaced.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Yes, restore" }));
+    await waitFor(() => expect(within(grid()).getByRole("button", { name: "Edit key 1: Clear caption" })).toBeInTheDocument());
+    expect(requests).toContainEqual({ method: "POST", url: "/api/boards/restore-default", body: { language: "en", boardId: "deck" } });
+  });
+
+  it("lets a space delete its only board while the other space still has one", async () => {
+    const state = desktopState({ boards: [boardOf("talk", "Talk"), deckBoard()] });
+    const { user } = renderRemoteApp({ state });
+    await openEditor(user);
+    expect(screen.getByRole("button", { name: "Delete Talk" })).not.toHaveAttribute("aria-disabled");
   });
 
   it("tests the draft action from the editor and goes back to the player", async () => {

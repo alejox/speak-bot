@@ -65,6 +65,7 @@ function DockContent({ target }: { target: SpeechTarget }) {
       <BoardPlayer
         variant="dock"
         boards={deck.boards.boards}
+        groupByKind
         navigation={deck.navigation}
         context={deck.context}
         onRun={deck.run}

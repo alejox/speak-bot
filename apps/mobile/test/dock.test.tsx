@@ -41,6 +41,20 @@ describe("DockApp", () => {
     expect(localStorage.getItem("speed-deck:board-position")).toBeNull();
   });
 
+  it("offers every board in one selector, grouped by kind", async () => {
+    const state = desktopState({
+      boards: [boardOf("talk", "Talk", [speakKey(0, "Hi")]), boardOf("stream", "Stream", [{ slot: 0, action: { type: "obs.toggleStream" } }], "deck"), boardOf("more", "More")],
+    });
+    const { user } = renderDock({ state });
+    const select = await screen.findByRole("combobox", { name: "Board" });
+    const groups = within(select).getAllByRole("group");
+    expect(groups.map((group) => group.getAttribute("label"))).toEqual(["Voice", "Deck"]);
+    expect(within(groups[0]!).getAllByRole("option").map((option) => option.textContent)).toEqual(["Talk", "More"]);
+    expect(within(groups[1]!).getAllByRole("option").map((option) => option.textContent)).toEqual(["Stream"]);
+    await user.selectOptions(select, "Stream");
+    expect(screen.getByRole("button", { name: "Start or stop stream" })).toBeInTheDocument();
+  });
+
   it("follows a language chosen on the desktop while it is open", async () => {
     const { emit } = renderDock({ language: null });
     expect(await screen.findByRole("textbox", { name: "Text to speak" })).toBeInTheDocument();

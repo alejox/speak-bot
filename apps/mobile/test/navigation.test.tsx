@@ -6,18 +6,19 @@ import { renderLocalApp } from "./app-fakes";
 import { goTo } from "./i18n-helpers";
 
 describe("navigation", () => {
-  it("starts on the board and switches sections, marking the current one", async () => {
+  it("starts in Voice and switches sections, marking the current one", async () => {
     const { user } = renderLocalApp();
     const nav = screen.getByRole("navigation", { name: "Sections" });
-    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Board", "Speak", "Settings"]);
-    expect(within(nav).getByRole("link", { name: "Board" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Voice", "Deck", "Settings"]);
+    expect(within(nav).getByRole("link", { name: "Voice" })).toHaveAttribute("aria-current", "page");
     expect(await screen.findByRole("button", { name: "Hello" })).toBeInTheDocument();
-
-    await goTo(user, "Speak");
-    expect(within(nav).getByRole("link", { name: "Speak" })).toHaveAttribute("aria-current", "page");
-    expect(within(nav).getByRole("link", { name: "Board" })).not.toHaveAttribute("aria-current");
-    expect(screen.getByRole("heading", { level: 2, name: "Speak" })).toHaveFocus();
     expect(screen.getByLabelText("Text to speak")).toBeInTheDocument();
+
+    await goTo(user, "Deck");
+    expect(within(nav).getByRole("link", { name: "Deck" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Voice" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("heading", { level: 2, name: "Deck" })).toHaveFocus();
+    expect(screen.queryByLabelText("Text to speak")).not.toBeInTheDocument();
   });
 
   it("works with the keyboard", async () => {
@@ -38,10 +39,17 @@ describe("navigation", () => {
     expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
   });
 
-  it("opens the board when an older version remembered the Phrases section", () => {
-    localStorage.setItem(SECTION_STORAGE_KEY, JSON.stringify("phrases"));
+  it.each(["board", "speak", "phrases"])("opens Voice when an older version remembered the %s section", (stored) => {
+    localStorage.setItem(SECTION_STORAGE_KEY, JSON.stringify(stored));
     renderLocalApp();
-    expect(screen.getByRole("link", { name: "Board" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Voice" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("heading", { level: 2, name: "Voice" })).toBeInTheDocument();
+  });
+
+  it("remembers the Deck space", () => {
+    localStorage.setItem(SECTION_STORAGE_KEY, JSON.stringify("deck"));
+    renderLocalApp();
+    expect(screen.getByRole("link", { name: "Deck" })).toHaveAttribute("aria-current", "page");
   });
 
   it("collapses the menu to icons, keeping names, and remembers it", async () => {
@@ -51,9 +59,9 @@ describe("navigation", () => {
     await user.click(toggle);
     expect(screen.getByRole("button", { name: "Expand menu" })).toHaveAttribute("aria-expanded", "false");
     const nav = screen.getByRole("navigation", { name: "Sections" });
-    const board = within(nav).getByRole("link", { name: "Board" });
-    expect(board).toHaveAttribute("title", "Board");
-    expect(board).toHaveAttribute("aria-current", "page");
+    const voice = within(nav).getByRole("link", { name: "Voice" });
+    expect(voice).toHaveAttribute("title", "Voice");
+    expect(voice).toHaveAttribute("aria-current", "page");
     expect(JSON.parse(localStorage.getItem(NAV_COLLAPSED_STORAGE_KEY) ?? "null")).toBe(true);
 
     view.unmount();

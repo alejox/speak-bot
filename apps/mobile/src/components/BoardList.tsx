@@ -4,7 +4,12 @@ import { useT } from "../i18n/I18nProvider";
 import { RestoreDefaults } from "./RestoreDefaults";
 
 interface BoardListProps {
+  /** The boards of the space being edited. */
   boards: readonly Board[];
+  /** False when the user has a single board in all, which cannot be deleted. */
+  canDelete: boolean;
+  /** Name of the built-in board "Restore default board" puts back. */
+  defaultBoardName: string;
   selectedId: string;
   onSelect: (boardId: string) => void;
   /** Resolves with the new board, or undefined when it failed. */
@@ -15,13 +20,13 @@ interface BoardListProps {
 }
 
 /** The boards pane of the editor: pick, create, rename inline, delete after an inline confirmation, restore the default. */
-export function BoardList({ boards, selectedId, onSelect, onCreate, onRename, onDelete, onRestore }: BoardListProps) {
+export function BoardList({ boards, canDelete, defaultBoardName, selectedId, onSelect, onCreate, onRename, onDelete, onRestore }: BoardListProps) {
   const t = useT();
   const headingId = useId();
   const lastBoardHint = useId();
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const isLast = boards.length <= 1;
+  const isLast = !canDelete;
 
   const create = async () => {
     const board = await onCreate();
@@ -96,7 +101,7 @@ export function BoardList({ boards, selectedId, onSelect, onCreate, onRename, on
         <button type="button" className="button button-small button-primary" onClick={() => void create()}>
           {t("boards.create")}
         </button>
-        <RestoreDefaults onRestore={onRestore} />
+        <RestoreDefaults boardName={defaultBoardName} onRestore={onRestore} />
       </div>
     </section>
   );

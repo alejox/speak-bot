@@ -26,7 +26,8 @@ describe("board player in phone-only mode", () => {
   });
 
   it("disables caption keys without the desktop and says why", async () => {
-    renderLocalApp({ boards: [buildDefaultDeckBoard("en")] });
+    const { user } = renderLocalApp({ boards: [buildDefaultDeckBoard("en")] });
+    await user.click(screen.getByRole("link", { name: "Deck" }));
     const clear = await screen.findByRole("button", { name: "Clear caption" });
     expect(clear).toHaveAttribute("aria-disabled", "true");
     expect(clear).toHaveAccessibleDescription("Needs the computer app.");
@@ -192,22 +193,19 @@ describe("key editing on the phone", () => {
   });
 });
 
-describe("Speak section", () => {
-  it("offers the first five speak keys of the current board and saves typed text on a free key", async () => {
+describe("Voice space composer", () => {
+  it("saves typed text on the first free key of the current voice board, shown on the same screen", async () => {
     const { synthesizer, user } = renderLocalApp({
-      boards: [boardOf("main", "Main", [speakKey(0, "One"), { slot: 1, action: { type: "voice.stop" } }, speakKey(2, "Two"), speakKey(3, "3"), speakKey(4, "4"), speakKey(5, "5"), speakKey(6, "6")])],
+      boards: [boardOf("main", "Main", [speakKey(0, "One"), { slot: 1, action: { type: "voice.stop" } }, speakKey(3, "Two")]), boardOf("stream", "Stream", [], "deck")],
     });
-    await screen.findByRole("button", { name: "One" });
-    await user.click(screen.getByRole("link", { name: "Speak" }));
-    const quick = screen.getByRole("region", { name: "Quick keys" });
-    expect(within(quick).getAllByRole("button").map((button) => button.textContent)).toEqual(["One", "Two", "3", "4", "5"]);
-    fireEvent.click(within(quick).getByRole("button", { name: "Two" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Two" }));
     expect(synthesizer.texts).toEqual(["Two"]);
 
     await user.click(screen.getByRole("button", { name: "Save as key" }));
     expect(screen.getByRole("status")).toHaveTextContent("Type something to save it on a key.");
     await user.type(screen.getByRole("textbox", { name: "Text to speak" }), "See you");
     await user.click(screen.getByRole("button", { name: "Save as key" }));
-    expect(await screen.findByText("Saved on key 8.")).toBeInTheDocument();
+    expect(await screen.findByText("Saved on key 3.")).toBeInTheDocument();
+    expect(within(grid()).getByRole("button", { name: "See you" })).toBeInTheDocument();
   });
 });
