@@ -76,4 +76,33 @@ describe("LocalStorageBoardRepository", () => {
     await prepareLocalBoards(memory, "es");
     expect(await memory.list()).toHaveLength(2);
   });
+
+  it("moves caption keys stored on deck boards to the communication board once", async () => {
+    const voice = { id: DEFAULT_BOARD_ID, name: "Comunicación", kind: "voice", columns: 5, rows: 3, keys: [{ slot: 0, action: { type: "voice.speak", text: "Hola" } }] };
+    const deck = {
+      id: DEFAULT_DECK_BOARD_ID,
+      name: "Deck",
+      kind: "deck",
+      columns: 5,
+      rows: 3,
+      keys: [
+        { slot: 0, action: { type: "obs.toggleStream" } },
+        { slot: 2, color: "#112233", action: { type: "captions.clear" } },
+        { slot: 3, action: { type: "captions.toggle" } },
+      ],
+    };
+    localStorage.setItem(BOARDS_STORAGE_KEY, JSON.stringify({ version: 1, boards: [voice, deck] }));
+
+    expect(await prepareLocalBoards(new LocalStorageBoardRepository(localStorage), "es")).toBe(false);
+    const stored = JSON.parse(localStorage.getItem(BOARDS_STORAGE_KEY)!);
+    expect(stored.boards[1].keys).toEqual([{ slot: 0, action: { type: "obs.toggleStream" } }]);
+    expect(stored.boards[0].keys.slice(1)).toEqual([
+      { slot: 2, color: "#112233", action: { type: "captions.clear" } },
+      { slot: 3, action: { type: "captions.toggle" } },
+    ]);
+
+    const written = localStorage.getItem(BOARDS_STORAGE_KEY);
+    await prepareLocalBoards(new LocalStorageBoardRepository(localStorage), "es");
+    expect(localStorage.getItem(BOARDS_STORAGE_KEY)).toBe(written);
+  });
 });

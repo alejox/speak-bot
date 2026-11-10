@@ -1,6 +1,7 @@
 import {
   assignMissingSlots,
   initializeBoards,
+  moveCaptionKeysToVoiceBoards,
   readStoredBoards,
   type Board,
   type BoardChange,
@@ -60,9 +61,12 @@ export class LocalStorageBoardRepository implements BoardRepository {
 /**
  * Makes sure this device has boards: the phrases saved by older versions become the communication
  * board, otherwise the default one in `language` is created, and the default deck board follows it.
- * Resolves true when it created them. Boards stored before boards had a kind need no step here:
- * `readStoredBoards` gives them one on every read, and the next change stores the result.
+ * Resolves true when it created them. Caption keys stored on deck boards by earlier versions then
+ * move to Voice (see `moveCaptionKeysToVoice`), stored once. Boards stored before boards had a kind
+ * need no step here: `readStoredBoards` gives them one on every read, and the next change stores the result.
  */
-export function prepareLocalBoards(repository: LocalStorageBoardRepository, language: UiLanguage): Promise<boolean> {
-  return initializeBoards({ repository }, { language, legacyPhrases: repository.legacyPhrases() });
+export async function prepareLocalBoards(repository: LocalStorageBoardRepository, language: UiLanguage): Promise<boolean> {
+  const created = await initializeBoards({ repository }, { language, legacyPhrases: repository.legacyPhrases() });
+  await moveCaptionKeysToVoiceBoards({ repository }, { language });
+  return created;
 }

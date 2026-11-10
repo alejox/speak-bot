@@ -1,4 +1,14 @@
-import { assignMissingSlots, createKey, initializeBoards, type BoardRepository, type Phrase, type StoredPhrase, type UiLanguage } from "@speed-deck/core";
+import {
+  assignMissingSlots,
+  createKey,
+  initializeBoards,
+  moveCaptionKeysToVoiceBoards,
+  type BoardRepository,
+  type CaptionMigrationReport,
+  type Phrase,
+  type StoredPhrase,
+  type UiLanguage,
+} from "@speed-deck/core";
 import { rename } from "node:fs/promises";
 import { readJsonFile } from "./json-file";
 
@@ -10,20 +20,32 @@ export type PrepareBoardsResult = "unchanged" | "migrated" | "created-default";
  * `<file>.migrated.bak`. A new install gets the default communication board in `language`. Either
  * way the default deck board follows it. Boards stored before boards had a kind are not handled
  * here: `readStoredBoards` gives them one on every read, and the next change stores the result.
- * Phrases a key cannot hold (e.g. text over the speech limit) are skipped and counted in `log`,
+ * Caption keys stored on deck boards by earlier versions move to Voice (see `moveCaptionKeysToVoice`),
+ * stored once and described in `log`. Phrases a key cannot hold (e.g. text over the speech limit) are skipped and counted in `log`,
  * so an old file never stops the desktop from starting.
  */
 export async function prepareBoards(
   repository: BoardRepository,
   { legacyPhrasesFile, language, log = () => {} }: { legacyPhrasesFile: string; language: UiLanguage; log?: (message: string) => void },
 ): Promise<PrepareBoardsResult> {
-  if ((await repository.list()).length > 0) return "unchanged";
+  if ((await repository.list()).length > 0) {
+    logCaptionMigration(await moveCaptionKeysToVoiceBoards({ repository }, { language }), log);
+    return "unchanged";
+  }
   const legacyPhrases = await readLegacyPhrases(legacyPhrasesFile, log);
   const created = await initializeBoards({ repository }, { language, legacyPhrases });
   if (!created) return "unchanged";
   if (legacyPhrases === null) return "created-default";
   await rename(legacyPhrasesFile, `${legacyPhrasesFile}.migrated.bak`);
   return "migrated";
+}
+
+function logCaptionMigration({ moved, dropped, kept, createdBoardId }: CaptionMigrationReport, log: (message: string) => void): void {
+  const keys = (count: number) => `${count} caption key${count === 1 ? "" : "s"}`;
+  if (createdBoardId !== null) log(`Created the communication board (${createdBoardId}) to hold the caption keys.`);
+  if (moved.length > 0) log(`Moved ${keys(moved.length)} from deck boards to Voice (${moved[0]!.toBoardId}).`);
+  if (dropped.length > 0) log(`Removed ${keys(dropped.length)} from deck boards: Voice already has them.`);
+  if (kept.length > 0) log(`Kept ${keys(kept.length)} on deck boards: no Voice board has room for them.`);
 }
 
 /** Phrases from an older phrases file (slots assigned when missing), or null when there is no readable file. */

@@ -89,6 +89,13 @@ export {
   DEFAULT_DECK_BOARD_ID,
   DEFAULT_DECK_BOARD_NAMES,
 } from "./domain/default-board";
+export {
+  moveCaptionKeysToVoice,
+  type CaptionMigrationReport,
+  type DroppedCaptionKey,
+  type KeptCaptionKey,
+  type MovedCaptionKey,
+} from "./domain/caption-migration";
 export type { BoardChange, BoardRepository } from "./ports/board-repository";
 export {
   ObsRequestError,
@@ -109,6 +116,7 @@ export {
   deleteBoard,
   initializeBoards,
   listBoards,
+  moveCaptionKeysToVoiceBoards,
   moveKey,
   renameBoard,
   restoreDefaultBoard,

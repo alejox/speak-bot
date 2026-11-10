@@ -15,6 +15,7 @@ import {
   type Board,
   type Key,
 } from "../domain/board";
+import { moveCaptionKeysToVoice, type CaptionMigrationReport } from "../domain/caption-migration";
 import { boardFromPhrases, buildDefaultBoard, buildDefaultDeckBoard, DEFAULT_BOARD_ID, DEFAULT_DECK_BOARD_ID } from "../domain/default-board";
 import { SlotOccupiedError, type Phrase } from "../domain/phrase";
 import type { BoardRepository } from "../ports/board-repository";
@@ -42,6 +43,21 @@ export async function initializeBoards(
     if (boards.length > 0) return { result: false };
     const voice = legacyPhrases ? boardFromPhrases(legacyPhrases, language) : buildDefaultBoard(language);
     return { boards: [voice, buildDefaultDeckBoard(language)], result: true };
+  });
+}
+
+/**
+ * Moves the caption keys stored on deck boards to a voice board (see `moveCaptionKeysToVoice`) and
+ * stores the result, only when something moved. Run it when boards are loaded, after
+ * `initializeBoards`; running it again stores nothing.
+ */
+export async function moveCaptionKeysToVoiceBoards(
+  { repository }: Pick<BoardDependencies, "repository">,
+  { language }: { language: UiLanguage },
+): Promise<CaptionMigrationReport> {
+  return repository.update((boards) => {
+    const { boards: next, report } = moveCaptionKeysToVoice(boards, language);
+    return report.changed ? { boards: next, result: report } : { result: report };
   });
 }
 

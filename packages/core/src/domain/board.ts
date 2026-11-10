@@ -30,10 +30,11 @@ const ALLOWED_CATEGORIES: Readonly<Record<BoardKind, readonly ActionCategory[]>>
 };
 
 /**
- * Categories a kind no longer offers but still accepts, so keys saved there earlier keep loading and
- * working: captions belonged to deck boards before they moved to Voice.
+ * Categories a kind no longer allows but still reads from storage, so boards saved by earlier versions
+ * load unchanged until `moveCaptionKeysToVoice` moves those keys: captions belonged to deck boards
+ * before they moved to Voice. Only `readStoredBoards` uses this; editing never accepts them.
  */
-const GRANDFATHERED_CATEGORIES: Readonly<Record<BoardKind, readonly ActionCategory[]>> = {
+const STORED_ONLY_CATEGORIES: Readonly<Record<BoardKind, readonly ActionCategory[]>> = {
   voice: [],
   deck: ["captions"],
 };
@@ -52,13 +53,14 @@ export function allowedActionCategories(kind: BoardKind): readonly ActionCategor
   return ALLOWED_CATEGORIES[kind];
 }
 
-/**
- * Whether a key with an action of `actionType` may sit on a board of `kind`: the categories it offers,
- * plus the ones it still accepts from earlier versions (caption keys on deck boards).
- */
+/** Whether a key with an action of `actionType` may sit on a board of `kind`: one of the categories it offers. */
 export function isActionAllowedOnBoard(kind: BoardKind, actionType: ActionType): boolean {
-  const { category } = ACTION_REGISTRY[actionType];
-  return ALLOWED_CATEGORIES[kind].includes(category) || GRANDFATHERED_CATEGORIES[kind].includes(category);
+  return ALLOWED_CATEGORIES[kind].includes(ACTION_REGISTRY[actionType].category);
+}
+
+/** Whether a stored key with an action of `actionType` is read as is on a board of `kind` (see `STORED_ONLY_CATEGORIES`). */
+function isActionReadOnBoard(kind: BoardKind, actionType: ActionType): boolean {
+  return isActionAllowedOnBoard(kind, actionType) || STORED_ONLY_CATEGORIES[kind].includes(ACTION_REGISTRY[actionType].category);
 }
 
 /** Throws `InvalidBoardError` when a board of `kind` may not hold an action of `actionType`. */
@@ -239,8 +241,9 @@ interface StoredBoard {
  * so are invalid keys and keys whose slot an earlier key already uses. Board ids stay unique.
  *
  * Boards stored before boards had a kind get one from their keys, and a board holding keys its kind
- * does not allow is split in two (see `boardsOfStoredBoard`), so no valid key is ever lost. Reading
- * the result again changes nothing.
+ * does not allow is split in two (see `boardsOfStoredBoard`), so no valid key is ever lost. Caption
+ * keys stored on deck boards are read as they are, so loading never fails before
+ * `moveCaptionKeysToVoice` moves them. Reading the result again changes nothing.
  */
 export function readStoredBoards(value: unknown): Board[] {
   if (!Array.isArray(value)) return [];
@@ -281,16 +284,23 @@ const SPLIT_SUFFIXES: Readonly<Record<BoardKind, { readonly id: string; readonly
  */
 function boardsOfStoredBoard(board: StoredBoard, takenIds: Set<string>): Board[] {
   const kind = board.kind ?? kindOfLegacyKeys(board.keys);
-  const moved = board.keys.filter((key) => !isActionAllowedOnBoard(kind, key.action.type));
-  if (moved.length === 0) return [makeBoard(board.id, board.name, kind, board.keys)];
-  const kept = board.keys.filter((key) => isActionAllowedOnBoard(kind, key.action.type));
+  const moved = board.keys.filter((key) => !isActionReadOnBoard(kind, key.action.type));
+  if (moved.length === 0) return [makeStoredBoard(board.id, board.name, kind, board.keys)];
+  const kept = board.keys.filter((key) => isActionReadOnBoard(kind, key.action.type));
   // Every action is allowed on at least one kind, so the other kind takes what this one refuses.
   const otherKind: BoardKind = kind === "voice" ? "deck" : "voice";
   const suffixes = SPLIT_SUFFIXES[otherKind];
   const splitId = freeSplitId(board.id, suffixes.id, takenIds);
   takenIds.add(splitId);
   const splitName = `${truncate(board.name, MAX_BOARD_NAME_LENGTH - suffixes.name.length).trimEnd()}${suffixes.name}`;
-  return [makeBoard(board.id, board.name, kind, kept), makeBoard(splitId, splitName, otherKind, moved)];
+  return [makeStoredBoard(board.id, board.name, kind, kept), makeBoard(splitId, splitName, otherKind, moved)];
+}
+
+/** Like `makeBoard`, but also keeps the keys a kind only reads from storage (see `STORED_ONLY_CATEGORIES`). */
+function makeStoredBoard(id: string, name: string, kind: BoardKind, keys: readonly Key[]): Board {
+  const allowed = keys.filter((key) => isActionAllowedOnBoard(kind, key.action.type));
+  const board = makeBoard(id, name, kind, allowed);
+  return allowed.length === keys.length ? board : { ...board, keys: sortKeys(keys) };
 }
 
 function kindOfLegacyKeys(keys: readonly Key[]): BoardKind {

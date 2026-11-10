@@ -1,4 +1,4 @@
-import { makeBoard, MAX_BOARD_PAGES, type Key } from "@speed-deck/core";
+import { makeBoard, MAX_BOARD_PAGES, type Board, type Key } from "@speed-deck/core";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { boardOf, desktopState, renderLocalApp, renderRemoteApp, speakKey, writes } from "./app-fakes";
@@ -34,9 +34,11 @@ describe("editing in the player, without a board editor", () => {
     expect(within(dialog).queryByRole("button", { name: "Clear caption" })).not.toBeInTheDocument();
   });
 
-  it("keeps a caption key saved on a deck board working, and edits it offering only deck actions", async () => {
+  it("keeps a caption key a deck board still holds working, and edits it offering only deck actions", async () => {
+    // Stored by an earlier version and left there because no Voice board had room for it.
     const captions: Key = { slot: 0, action: { type: "captions.clear" } };
-    const state = desktopState({ boards: [boardOf("talk", "Talk"), boardOf("stream", "Stream", [captions], "deck")] });
+    const stream: Board = { ...boardOf("stream", "Stream", [], "deck"), keys: [captions] };
+    const state = desktopState({ boards: [boardOf("talk", "Talk"), stream] });
     const { requests, user } = renderRemoteApp({ state });
     await goTo(user, "Deck");
     const key = await within(grid()).findByRole("button", { name: "Clear caption" });
@@ -51,9 +53,6 @@ describe("editing in the player, without a board editor", () => {
     expect(action).toHaveDisplayValue("Clear caption");
     expect(within(action).queryByRole("option", { name: "Hide or show captions" })).not.toBeInTheDocument();
     expect(within(action).getAllByRole("group").map((group) => group.getAttribute("label"))).toEqual(["Navigation", "OBS"]);
-    await user.type(within(dialog).getByRole("textbox", { name: "Label (optional)" }), "Wipe");
-    await user.click(within(dialog).getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(within(grid()).getByRole("button", { name: "Wipe" })).toBeInTheDocument());
   });
 
   it("adds an OBS key with its scene, or a typed one when OBS is not connected", async () => {

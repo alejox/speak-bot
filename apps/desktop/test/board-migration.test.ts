@@ -84,4 +84,38 @@ describe("prepareBoards", () => {
     expect(texts.join("")).not.toContain("xxxx");
     expect(logs.join("\n")).toContain("Skipped 1 saved phrase");
   });
+
+  it("moves caption keys stored on deck boards to the communication board and stores the result once", async () => {
+    const voice = { id: DEFAULT_BOARD_ID, name: "Comunicación", kind: "voice", columns: 5, rows: 3, keys: [{ slot: 2, action: { type: "voice.speak", text: "Hola" } }] };
+    const deck = {
+      id: "deck",
+      name: "Deck",
+      kind: "deck",
+      columns: 5,
+      rows: 3,
+      keys: [
+        { slot: 0, action: { type: "obs.toggleStream" } },
+        { slot: 2, label: "Borrar", action: { type: "captions.clear" } },
+        { slot: 3, action: { type: "captions.toggle" } },
+      ],
+    };
+    await writeFile(join(dir, "boards.json"), JSON.stringify({ version: 1, boards: [voice, deck] }));
+    const logs: string[] = [];
+
+    expect(await prepareBoards(repository, { legacyPhrasesFile: legacyFile, language: "es", log: (message) => logs.push(message) })).toBe("unchanged");
+    const stored = JSON.parse(await readFile(join(dir, "boards.json"), "utf8"));
+    expect(stored.boards[1].keys).toEqual([{ slot: 0, action: { type: "obs.toggleStream" } }]);
+    expect(stored.boards[0].keys).toEqual([
+      { slot: 2, action: { type: "voice.speak", text: "Hola" } },
+      { slot: 3, action: { type: "captions.toggle" } },
+      { slot: 12, label: "Borrar", action: { type: "captions.clear" } },
+    ]);
+    expect(logs.join("\n")).toContain("Moved 2 caption keys from deck boards to Voice");
+
+    const written = await readFile(join(dir, "boards.json"), "utf8");
+    logs.length = 0;
+    expect(await prepareBoards(repository, { legacyPhrasesFile: legacyFile, language: "es", log: (message) => logs.push(message) })).toBe("unchanged");
+    expect(await readFile(join(dir, "boards.json"), "utf8")).toBe(written);
+    expect(logs).toEqual([]);
+  });
 });

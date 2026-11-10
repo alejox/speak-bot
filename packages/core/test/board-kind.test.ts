@@ -40,15 +40,13 @@ describe("board kinds", () => {
     expect(allowedActionCategories("deck")).toEqual(["navigation", "obs"]);
   });
 
-  it("allows every action on the kinds that list its category, and keeps the caption keys deck boards already hold", () => {
+  it("allows every action only on the kinds that list its category", () => {
     for (const type of ACTION_TYPES) {
       const { category } = ACTION_REGISTRY[type];
       expect(isActionAllowedOnBoard("voice", type)).toBe(category !== "obs");
-      // Captions moved to Voice; deck boards still accept them so the keys saved there keep working.
-      expect(isActionAllowedOnBoard("deck", type)).toBe(category !== "voice");
+      // Captions belong to Voice; caption keys stored on deck boards are moved by moveCaptionKeysToVoice.
+      expect(isActionAllowedOnBoard("deck", type)).toBe(category === "navigation" || category === "obs");
     }
-    const grandfathered = makeBoard("d", "Stream", "deck", [{ slot: 0, action: { type: "captions.clear" } }]);
-    expect(readStoredBoards([grandfathered])).toEqual([grandfathered]);
   });
 
   it("makes a board of a kind and rejects keys the kind does not allow", () => {
@@ -83,9 +81,9 @@ describe("board kind in the use cases", () => {
     await setKey(repository, "v", { slot: 1, action: { type: "nav.nextPage" } });
     await setKey(repository, "v", { slot: 2, action: { type: "captions.clear" } });
     await setKey(repository, "d", { slot: 0, action: scene("Main") });
-    await setKey(repository, "d", { slot: 1, action: { type: "captions.toggle" } });
+    await expect(setKey(repository, "d", { slot: 1, action: { type: "captions.toggle" } })).rejects.toThrow(InvalidBoardError);
     await setKey(repository, "d", { slot: 2, action: { type: "nav.goToBoard", boardId: "v" } });
-    expect((await listBoards(repository)).map((b) => b.keys.length)).toEqual([3, 3]);
+    expect((await listBoards(repository)).map((b) => b.keys.length)).toEqual([3, 2]);
   });
 });
 

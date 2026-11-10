@@ -64,11 +64,13 @@ Closing the window keeps the app running in the tray or menu bar, so OBS keeps w
 ### Boards and keys
 
 - A **board** is a grid of 5 × 3 keys (3 × 5 on a phone), with as many pages as you need.
-- Every board has a **kind**: a **voice** board holds voice, caption and navigation keys and lives in **Voz**; a **deck** board holds OBS and navigation keys and lives in **Deck**. When you add a key, Speed Deck only offers the actions that fit the board. Caption keys already on a deck board keep working.
+- Every board has a **kind**: a **voice** board holds voice, caption and navigation keys and lives in **Voz**; a **deck** board holds OBS and navigation keys and lives in **Deck**. When you add a key, Speed Deck only offers the actions that fit the board.
 - Speed Deck starts with two boards: **Comunicación** (voice: common phrases plus stop, repeat, voice language and the two caption keys) and **Deck** (stream and recording).
 - Each **key** has an action and, optionally, a label, an icon and a color.
 
 **Boards from older versions** could mix both kinds of keys. The first time they are loaded, a mixed board is split in two automatically: the voice and caption keys stay on the board, and the OBS keys move to a new board named after it with **(Deck)** added. No key is lost and every key keeps its position.
+
+Caption keys that older versions put on a deck board move to **Comunicación** (or your first voice board) the first time the boards are loaded, keeping their label, icon and colour: in their own position when it is free, otherwise next to the voice keys in the last row, otherwise on the next free position or a new page. If that board already has the same caption key, the copy on the deck board is removed. Without any voice board, **Comunicación** is created with its caption keys.
 
 There is no separate edit mode: a tap always runs a key.
 

@@ -9,9 +9,10 @@ const deckKeys: Key[] = [
   { slot: 1, action: { type: "obs.toggleRecord" } },
   { slot: 2, action: { type: "obs.toggleMute", inputName: "Mic" } },
   { slot: 3, action: { type: "obs.switchScene", sceneName: "Main" } },
-  { slot: 4, action: { type: "captions.toggle" } },
 ];
-const boards = () => [boardOf("talk", "Talk", [speakKey(0, "Hi")]), boardOf("stream", "Stream", deckKeys, "deck")];
+// Caption keys belong to Voice boards.
+const captionsKey: Key = { slot: 1, action: { type: "captions.toggle" } };
+const boards = () => [boardOf("talk", "Talk", [speakKey(0, "Hi"), captionsKey]), boardOf("stream", "Stream", deckKeys, "deck")];
 const idle: ObsState = { currentScene: "BRB", mutedInputs: [], streaming: false, recording: false };
 const statusPill = () => screen.getByRole("group", { name: "Deck status" });
 
@@ -87,8 +88,9 @@ describe("Deck keys live state", () => {
     expect(screen.getByRole("button", { name: "Main" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("shows captions as on while they are visible", async () => {
-    const { emit } = await openDeck();
+  it("shows captions as on while they are visible, on the Voice board", async () => {
+    const state = desktopState({ boards: boards() });
+    const { emit } = renderRemoteApp({ state });
     const captions = await screen.findByRole("button", { name: "Captions On" });
     expect(captions).toHaveAttribute("aria-pressed", "true");
     act(() => emit({ type: "captions-visibility", visible: false }));

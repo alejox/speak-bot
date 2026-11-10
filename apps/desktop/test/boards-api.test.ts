@@ -141,8 +141,8 @@ describe("boards and actions API", () => {
     expect((await send(`/api/boards/${DEFAULT_BOARD_ID}/keys/20`, "PUT", { action: { type: "captions.clear" } })).status).toBe(200);
     expect((await send(`/api/boards/${DEFAULT_DECK_BOARD_ID}/keys/20`, "PUT", { action: { type: "voice.stop" } })).status).toBe(400);
     expect((await send(`/api/boards/${DEFAULT_DECK_BOARD_ID}/keys/20`, "PUT", scene)).status).toBe(200);
-    // Caption keys saved on deck boards before captions moved to Voice still save (e.g. a new label).
-    expect((await send(`/api/boards/${DEFAULT_DECK_BOARD_ID}/keys/21`, "PUT", { label: "CC", action: { type: "captions.toggle" } })).status).toBe(200);
+    // Captions belong to Voice: a deck board refuses them (stored ones are moved at startup).
+    expect((await send(`/api/boards/${DEFAULT_DECK_BOARD_ID}/keys/21`, "PUT", { label: "CC", action: { type: "captions.toggle" } })).status).toBe(400);
   });
 
   it("restores the default deck board on its own", async () => {
