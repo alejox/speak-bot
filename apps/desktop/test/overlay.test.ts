@@ -16,4 +16,11 @@ describe("overlay.html", () => {
     expect(html).toContain('CSS.supports("color"');
     for (const param of ["size", "position", "hold", "color", "bg"]) expect(html).toContain(`"${param}"`);
   });
+
+  it("declares Spanish as the document language", async () => {
+    const html = await readFile(OVERLAY_FILE, "utf8");
+
+    expect(html).toContain('<html lang="es">');
+    expect(html).toContain("<title>Subtítulos de Speak Bot</title>");
+  });
 });
