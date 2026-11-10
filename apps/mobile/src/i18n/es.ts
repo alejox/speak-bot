@@ -75,6 +75,10 @@ export const es: Messages = {
 
   "board.addPage": "Página nueva",
   "inspector.label": "Tecla {number}",
+  "inspector.empty.title": "Nueva tecla",
+  "inspector.empty.hint": "Agrega una tecla, o haz clic derecho sobre una tecla para editarla.",
+  "inspector.empty.add": "Agregar tecla",
+  "inspector.empty.pageFull": "Esta página está llena. Ve a otra página para agregar una tecla.",
   "keyMenu.label": "Tecla {number}: {label}",
   "keyMenu.options": "Opciones de la tecla {number}",
   "keyMenu.edit": "Editar",

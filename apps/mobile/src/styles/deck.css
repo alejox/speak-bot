@@ -388,10 +388,13 @@
   transform: translateX(-50%);
 }
 
-/* Wide screens with a key in the inspector: the deck and the panel side by side. */
+/*
+ * Wide screens with the inspector: the deck and a fixed-width panel side by side. In the Deck the panel
+ * is always there (empty when no key is selected), so the keys shrink to fit instead of moving.
+ */
 .deck-layout-inspecting {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: var(--space-6);
   align-items: start;
 }

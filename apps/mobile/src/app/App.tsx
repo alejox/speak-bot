@@ -14,6 +14,7 @@ import { ConnectPanel } from "../components/ConnectPanel";
 import { DeckStatus } from "../components/DeckStatus";
 import { ActionPickerDialog, KeyEditorDialog } from "../components/KeyEditorDialog";
 import { KeyInspector } from "../components/KeyInspector";
+import { KeyInspectorEmpty } from "../components/KeyInspectorEmpty";
 import { ObsSettings } from "../components/ObsSettings";
 import { RecentPhrases } from "../components/RecentPhrases";
 import { SectionView } from "../components/SectionView";
@@ -97,6 +98,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const isWide = useMediaQuery(INSPECTOR_QUERY);
   const [pickerSlot, setPickerSlot] = useState<number | null>(null);
   const [inspected, setInspected] = useState<Inspected | null>(null);
+  // The slot the player's + targets on the page on screen; the empty inspector adds there too.
+  const [addSlot, setAddSlot] = useState<number | null>(null);
   const [storedSection, setSection] = useSection();
   const [navCollapsed, setNavCollapsed] = useNavCollapsed();
   const [navigated, setNavigated] = useState(false);
@@ -119,6 +122,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const inspectedKey = inspected && board?.id === inspected.boardId ? board.keys.find((key) => key.slot === inspected.slot) : undefined;
   // The panel only shows while its key (or the action chosen for its slot) is still on the board on screen.
   const inspection = isWide && inspected && board?.id === inspected.boardId && (inspectedKey || inspected.assignedType) ? inspected : null;
+  // In the Deck the panel always keeps its place on wide screens, so selecting a key never moves the grid.
+  const reservesPanel = isWide && space === "deck" && board !== null;
 
   const openKey = (slot: number) => {
     if (!isWide || !board) return setDialogSlot(slot);
@@ -234,7 +239,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   </button>
                 </div>
               )}
-              <div className={inspection ? "deck-layout deck-layout-inspecting" : "deck-layout"}>
+              <div className={inspection || reservesPanel ? "deck-layout deck-layout-inspecting" : "deck-layout"}>
                 <BoardPlayer
                   navigation={deck.navigation}
                   context={deck.context}
@@ -242,6 +247,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   isSpeaking={speech.isSpeaking}
                   onEditKey={openKey}
                   selectedSlot={inspection?.slot ?? null}
+                  onAddSlotChange={setAddSlot}
                   onDeleteKey={deck.clearKey}
                   onMoveKey={deck.moveKey}
                   toolbar={
@@ -280,6 +286,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                     onClose={() => setInspected(null)}
                   />
                 )}
+                {!inspection && reservesPanel && <KeyInspectorEmpty addSlot={addSlot} onAdd={setPickerSlot} />}
               </div>
             </>
           </SectionView>

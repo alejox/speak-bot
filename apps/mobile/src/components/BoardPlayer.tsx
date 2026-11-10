@@ -17,6 +17,12 @@ const LONG_PRESS_SLOP = 10;
 /** Dragging keys needs a mouse or trackpad; a long touch opens the key menu instead. */
 const FINE_POINTER_QUERY = "(pointer: fine)";
 
+/** Where a page offers its one +: right after the last key, or in the first gap when the last space is taken; -1 when full. */
+function addIndexOnPage(keys: readonly (Key | undefined)[]): number {
+  const lastKeyIndex = keys.reduce((last, key, index) => (key ? index : last), -1);
+  return lastKeyIndex < keys.length - 1 ? lastKeyIndex + 1 : keys.findIndex((key) => !key);
+}
+
 interface BoardPlayerProps {
   navigation: BoardNavigation;
   context: KeyContext;
@@ -32,6 +38,8 @@ interface BoardPlayerProps {
   onMoveKey?: (from: number, to: number) => Promise<boolean>;
   /** The key being edited in the inspector, drawn as selected. */
   selectedSlot?: number | null;
+  /** Told the slot the page on screen offers for a new key (its +), or null when that page is full. */
+  onAddSlotChange?: (slot: number | null) => void;
   /** The deck's header: the board pill and its menu. */
   toolbar?: ReactNode;
   /** "dock" is the compact layout for the OBS dock. */
@@ -48,6 +56,7 @@ export function BoardPlayer({
   onDeleteKey,
   onMoveKey,
   selectedSlot = null,
+  onAddSlotChange,
   toolbar,
   variant = "full",
 }: BoardPlayerProps) {
@@ -68,6 +77,19 @@ export function BoardPlayer({
   // An empty page opened past the last one; it becomes a real page once a key is added there.
   const [newPage, setNewPage] = useState<{ boardId: string; page: number } | null>(null);
 
+  const { board, position } = navigation;
+  const pageCount = board ? boardPageCount(board) : 1;
+  const showsNewPage = canEdit && board !== null && newPage?.boardId === board.id && newPage.page === pageCount;
+  const page = showsNewPage ? pageCount : (position?.page ?? 0);
+  const keys = board ? keysOnPage(board, page) : [];
+  // One + per page; others (the inspector's Add key) add at the same slot.
+  const plusIndex = addIndexOnPage(keys);
+  const addSlot = board && plusIndex >= 0 ? page * KEYS_PER_PAGE + plusIndex : null;
+
+  useEffect(() => {
+    onAddSlotChange?.(addSlot);
+  }, [addSlot, onAddSlotChange]);
+
   useEffect(() => {
     if (!isSpeaking) setSpoken(null);
   }, [isSpeaking]);
@@ -80,16 +102,8 @@ export function BoardPlayer({
 
   useEffect(() => () => cancelLongPress(), []);
 
-  const { board, position } = navigation;
   if (!board || !position) return null;
 
-  const pageCount = boardPageCount(board);
-  const showsNewPage = canEdit && newPage?.boardId === board.id && newPage.page === pageCount;
-  const page = showsNewPage ? pageCount : position.page;
-  const keys = keysOnPage(board, page);
-  // One + per page: right after the last key, or in the first gap when the last space is taken.
-  const lastKeyIndex = keys.reduce((last, key, index) => (key ? index : last), -1);
-  const plusIndex = lastKeyIndex < keys.length - 1 ? lastKeyIndex + 1 : keys.findIndex((key) => !key);
   const shownPageCount = Math.max(pageCount, page + 1);
   // Past the last page, "next" opens a new one for editors, up to the board limit.
   const opensNewPage = canEdit && page >= shownPageCount - 1 && shownPageCount < MAX_BOARD_PAGES;

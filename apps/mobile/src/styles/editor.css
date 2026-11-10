@@ -381,6 +381,19 @@
   overflow-wrap: normal;
 }
 
+/* No key selected: a faint tile with a +, like an empty space on the deck. */
+.inspector-preview-empty {
+  color: var(--key-empty);
+  background-color: var(--color-bg);
+  box-shadow: none;
+}
+
+.inspector-hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
 .inspector-title {
   margin: 0;
   font-size: var(--text-xl);

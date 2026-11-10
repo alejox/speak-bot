@@ -1,6 +1,8 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { KEYS_PER_PAGE, type Key } from "@speed-deck/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { boardOf, desktopState, renderLocalApp, renderRemoteApp, setWideScreen, speakKey } from "./app-fakes";
+import { goTo } from "./i18n-helpers";
 
 const grid = () => screen.getByRole("list", { name: /^Keys of/ });
 const inspector = () => screen.getByRole("complementary", { name: /^Key \d+/ });
@@ -65,5 +67,51 @@ describe("key inspector on wide screens", () => {
     await user.click(within(panel).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(within(grid()).getByRole("button", { name: "Page 2" })).toBeInTheDocument());
     expect(screen.getByRole("status")).toHaveTextContent("Key saved.");
+  });
+});
+
+const sceneKey = (slot: number, sceneName: string): Key => ({ slot, action: { type: "obs.switchScene", sceneName } });
+const emptyPanel = () => screen.getByRole("complementary", { name: "New key" });
+
+describe("empty key inspector in the Deck on wide screens", () => {
+  afterEach(() => setWideScreen(false));
+
+  it("keeps the panel open with nothing selected and adds a key from it", async () => {
+    setWideScreen(true);
+    const { user } = renderLocalApp({ boards: [boardOf("stream", "Stream", [sceneKey(0, "Main")], "deck")] });
+    await goTo(user, "Deck");
+    await screen.findByRole("button", { name: "Main" });
+    const panel = emptyPanel();
+    expect(within(panel).getByRole("heading", { name: "New key" })).toBeInTheDocument();
+    expect(panel).toHaveTextContent("Add a key, or right-click a key to edit it.");
+    await user.click(within(panel).getByRole("button", { name: "Add key" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Add key 2" })).getByRole("button", { name: "Start or stop stream" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(inspector()).toHaveAccessibleName("Key 2");
+    expect(within(inspector()).getByRole("combobox", { name: "Action" })).toHaveDisplayValue("Start or stop stream");
+    expect(screen.queryByRole("complementary", { name: "New key" })).not.toBeInTheDocument();
+    expect(grid().querySelector(".deck-key-selected")).not.toBeNull();
+
+    await user.click(within(inspector()).getByRole("button", { name: "Close" }));
+    expect(emptyPanel()).toBeInTheDocument();
+  });
+
+  it("disables Add key when the page on screen is full", async () => {
+    setWideScreen(true);
+    const keys = Array.from({ length: KEYS_PER_PAGE }, (_, slot) => sceneKey(slot, `Scene ${slot + 1}`));
+    const { user } = renderLocalApp({ boards: [boardOf("stream", "Stream", keys, "deck")] });
+    await goTo(user, "Deck");
+    await screen.findByRole("button", { name: "Scene 1" });
+    const add = within(emptyPanel()).getByRole("button", { name: "Add key" });
+    expect(add).toBeDisabled();
+    expect(add).toHaveAccessibleDescription("This page is full. Go to another page to add a key.");
+  });
+
+  it("shows no panel on narrow screens", async () => {
+    setWideScreen(false);
+    const { user } = renderLocalApp({ boards: [boardOf("stream", "Stream", [sceneKey(0, "Main")], "deck")] });
+    await goTo(user, "Deck");
+    await screen.findByRole("button", { name: "Main" });
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
   });
 });
