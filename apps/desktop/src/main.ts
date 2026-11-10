@@ -21,7 +21,14 @@ async function main(): Promise<void> {
   if (!(await repository.exists())) await seedDefaultPhrases(phraseDeps);
 
   const pageHandler = createPageHandler({ mobileDistDir: MOBILE_DIST_DIR, overlayFile: OVERLAY_FILE });
-  const server = createDesktopServer({ ...phraseDeps, settings, synthesizer, log, pageHandler });
+  const server = createDesktopServer({
+    ...phraseDeps,
+    settings,
+    synthesizer,
+    log,
+    pageHandler,
+    allowedHosts: config.allowedHosts,
+  });
   await server.listen(config.port, config.host);
 
   const { engine, supportsDeviceSelection } = synthesizer.capabilities;

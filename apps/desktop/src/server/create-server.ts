@@ -1,10 +1,12 @@
 import type { PhraseRepository, ServerEvent } from "@speak-bot/core";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { hostname as osHostname } from "node:os";
 import type { JsonFileSettingsStore } from "../adapters/json-file-settings-store";
 import type { DesktopSpeechSynthesizer } from "../adapters/tts/process-speech-synthesizer";
 import { createApiHandler } from "./api";
 import { EventHub } from "./event-hub";
 import { requestPathname, sendJson } from "./http-utils";
+import { createRequestGuard } from "./request-guard";
 
 export interface DesktopServerDependencies {
   repository: PhraseRepository;
@@ -13,6 +15,10 @@ export interface DesktopServerDependencies {
   generateId: () => string;
   now: () => number;
   log?: (message: string) => void;
+  /** Extra trusted Host names besides loopback, IP literals and this machine's name. */
+  allowedHosts?: readonly string[];
+  /** This machine's name; defaults to os.hostname(). */
+  hostname?: string;
   /** Handles every non-API GET (static files, overlay). Returns false when it did not respond. */
   pageHandler?: (request: IncomingMessage, response: ServerResponse, pathname: string) => Promise<boolean>;
 }
@@ -25,11 +31,16 @@ export interface DesktopServer {
 }
 
 export function createDesktopServer(deps: DesktopServerDependencies): DesktopServer {
-  const hub = new EventHub();
+  const isAllowedRequest = createRequestGuard({ hostname: deps.hostname ?? osHostname(), allowedHosts: deps.allowedHosts });
+  const hub = new EventHub(isAllowedRequest);
   const handleApi = createApiHandler({ ...deps, broadcast: (event) => hub.broadcast(event) });
 
   const httpServer = createServer((request, response) => {
     void (async () => {
+      if (!isAllowedRequest(request)) {
+        sendJson(response, 403, { error: "Forbidden host or origin." });
+        return;
+      }
       const pathname = requestPathname(request);
       if (pathname === null) {
         sendJson(response, 400, { error: "Bad request." });

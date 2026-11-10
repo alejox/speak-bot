@@ -8,6 +8,8 @@ export interface DesktopConfig {
   dataDir: string;
   /** Used until the user saves settings from the app. */
   defaults: DesktopSettings;
+  /** Extra trusted Host names (lowercase), for users who reach the server through a custom DNS name. */
+  allowedHosts: string[];
 }
 
 export interface ConfigSources {
@@ -21,7 +23,8 @@ export const DEFAULT_PORT = 4545;
 
 /**
  * Reads configuration from CLI flags (`--port 4545` or `--port=4545`) and SPEAK_BOT_* env vars.
- * Flags win over env vars. Supported: port, host, data-dir, voice, device, rate.
+ * Flags win over env vars. Supported: port, host, data-dir, voice, device, rate,
+ * allowed-host (SPEAK_BOT_ALLOWED_HOSTS, comma-separated).
  */
 export function loadConfig({ argv, env, platform, homeDir }: ConfigSources): DesktopConfig {
   const flags = parseFlags(argv);
@@ -44,6 +47,10 @@ export function loadConfig({ argv, env, platform, homeDir }: ConfigSources): Des
       rate,
       deviceId: pick("device", "SPEAK_BOT_DEVICE") ?? "",
     },
+    allowedHosts: (pick("allowed-host", "SPEAK_BOT_ALLOWED_HOSTS") ?? "")
+      .split(",")
+      .map((host) => host.trim().toLowerCase())
+      .filter((host) => host !== ""),
   };
 }
 

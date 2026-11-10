@@ -11,7 +11,18 @@ describe("loadConfig", () => {
       host: "0.0.0.0",
       dataDir: posix.join("/home/me", "Library", "Application Support", "speak-bot"),
       defaults: { voiceId: "", rate: 1, deviceId: "" },
+      allowedHosts: [],
     });
+  });
+
+  it("reads extra allowed hosts as a comma-separated list", () => {
+    expect(loadConfig({ ...base, env: { SPEAK_BOT_ALLOWED_HOSTS: " Speak.Example.com, ,obs.lan " } }).allowedHosts).toEqual([
+      "speak.example.com",
+      "obs.lan",
+    ]);
+    expect(
+      loadConfig({ ...base, env: { SPEAK_BOT_ALLOWED_HOSTS: "a.lan" }, argv: ["--allowed-host", "b.lan"] }).allowedHosts,
+    ).toEqual(["b.lan"]);
   });
 
   it("reads env vars and lets CLI flags win", () => {
@@ -27,6 +38,7 @@ describe("loadConfig", () => {
       host: "127.0.0.1",
       dataDir: "/data",
       defaults: { voiceId: "Alex", rate: 1.5, deviceId: "BlackHole 2ch" },
+      allowedHosts: [],
     });
   });
 
