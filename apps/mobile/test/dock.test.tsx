@@ -127,8 +127,9 @@ describe("DockApp", () => {
     // With live events the dock waits for the desktop's "end", so Stop stays enabled meanwhile.
     for (const socket of FakeSocket.instances) socket.open();
     await user.type(screen.getByRole("textbox", { name: "Texto para decir" }), "Un texto largo");
-    await user.click(screen.getByRole("button", { name: "Hablar" }));
-    await user.click(screen.getByRole("button", { name: "Detener" }));
+    const composer = screen.getByRole("form", { name: "Escribe para hablar" });
+    await user.click(within(composer).getByRole("button", { name: "Hablar" }));
+    await user.click(within(composer).getByRole("button", { name: "Detener" }));
 
     expect(requests).toContainEqual(expect.objectContaining({ method: "POST", url: "/api/stop" }));
   });

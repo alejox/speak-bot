@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_UI_LANGUAGE, isServerEvent, isUiLanguage, MAX_SPEAK_TEXT_LENGTH, UI_LANGUAGES, type ServerEvent } from "../src/protocol";
+import {
+  DEFAULT_UI_LANGUAGE,
+  isServerEvent,
+  isUiLanguage,
+  MAX_SPEAK_TEXT_LENGTH,
+  UI_LANGUAGES,
+  voiceLanguageOf,
+  type ServerEvent,
+} from "../src/protocol";
 
 describe("isServerEvent", () => {
   it("accepts every known event shape", () => {
@@ -12,6 +20,9 @@ describe("isServerEvent", () => {
       { type: "speak-error", message: "espeak-ng is not installed", at: 5 },
       { type: "speak-error", message: "espeak-ng is not installed", code: "engine-unavailable", at: 6 },
       { type: "speak-error", message: "exit code 1", code: "speech-failed", at: 7 },
+      { type: "caption-clear", at: 8 },
+      { type: "captions-visibility", visible: false, at: 9 },
+      { type: "captions-visibility", visible: true, at: 10 },
     ];
     for (const event of events) expect(isServerEvent(event)).toBe(true);
   });
@@ -25,6 +36,9 @@ describe("isServerEvent", () => {
     expect(isServerEvent({ type: "phrases-changed" })).toBe(false);
     expect(isServerEvent({ type: "speak-error", at: 1 })).toBe(false);
     expect(isServerEvent({ type: "speak-error", message: "x", code: 3, at: 1 })).toBe(false);
+    expect(isServerEvent({ type: "caption-clear" })).toBe(false);
+    expect(isServerEvent({ type: "captions-visibility", at: 1 })).toBe(false);
+    expect(isServerEvent({ type: "captions-visibility", visible: "no", at: 1 })).toBe(false);
   });
 
   it("exposes the maximum speakable text length", () => {
@@ -44,5 +58,12 @@ describe("UI languages", () => {
     expect(isUiLanguage("fr")).toBe(false);
     expect(isUiLanguage("ES")).toBe(false);
     expect(isUiLanguage(undefined)).toBe(false);
+  });
+});
+
+describe("voiceLanguageOf", () => {
+  it("uses the chosen voice language, or the interface language when none was chosen", () => {
+    expect(voiceLanguageOf({ language: "es" })).toBe("es");
+    expect(voiceLanguageOf({ language: "es", voiceLanguage: "en" })).toBe("en");
   });
 });

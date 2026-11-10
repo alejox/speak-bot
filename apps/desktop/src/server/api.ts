@@ -10,6 +10,7 @@ import {
   PhraseNotFoundError,
   SlotOccupiedError,
   updatePhrase,
+  voiceLanguageOf,
   type PhraseChanges,
   MAX_SPEAK_TEXT_LENGTH,
   pickVoiceForLanguage,
@@ -58,6 +59,8 @@ export function createApiHandler(deps: ApiDependencies) {
   const listInterfaces = deps.networkInterfaces ?? osNetworkInterfaces;
   // Only the latest utterance may report "end", so a cancelled one never hides a newer caption.
   let speechRequest = 0;
+  // What POST /api/repeat says again; kept in memory only, so nothing spoken is written to disk.
+  let lastSpokenText: string | undefined;
   // Listing system voices spawns a process, so a non-empty list is kept for the server's lifetime.
   let cachedVoices: Promise<Voice[]> | undefined;
   const listVoices = (): Promise<Voice[]> => {
@@ -119,23 +122,27 @@ export function createApiHandler(deps: ApiDependencies) {
     "POST /api/speak": async (request, response) => {
       const body = asObject(await readJsonBody(request));
       const { text, phraseId } = await resolveSpeakText(body, repository);
-      const options = await speakOptions(body, settings, listVoices);
-
-      const current = ++speechRequest;
-      broadcast(phraseId ? { type: "caption", text, phraseId, at: now() } : { type: "caption", text, at: now() });
-      broadcast({ type: "speaking", state: "start", at: now() });
-      synthesizer
-        .speak(text, options)
-        .catch((error: unknown) => {
-          const message = error instanceof Error ? error.message : String(error);
-          log(`Speech failed: ${message}`);
-          const code: SpeakErrorCode = error instanceof SpeechEngineUnavailableError ? "engine-unavailable" : "speech-failed";
-          if (current === speechRequest) broadcast({ type: "speak-error", message, code, at: now() });
-        })
-        .finally(() => {
-          if (current === speechRequest) broadcast({ type: "speaking", state: "end", at: now() });
-        });
+      startSpeech(text, phraseId, await speakOptions(body, settings, listVoices));
       sendJson(response, 202, { ok: true });
+    },
+
+    /** Says the last spoken text again with the saved settings. */
+    "POST /api/repeat": async (request, response) => {
+      // Required JSON body: like /api/speak, it must not be triggerable by a plain cross-site form.
+      asObject(await readJsonBody(request));
+      if (lastSpokenText === undefined) {
+        sendJson(response, 404, { error: "Nothing has been spoken yet.", code: "nothing-to-repeat" });
+        return;
+      }
+      startSpeech(lastSpokenText, undefined, await speakOptions({}, settings, listVoices));
+      sendJson(response, 202, { ok: true });
+    },
+
+    /** Hides the current OBS caption right away. */
+    "POST /api/captions/clear": async (request, response) => {
+      asObject(await readJsonBody(request));
+      broadcast({ type: "caption-clear", at: now() });
+      sendJson(response, 200, { ok: true });
     },
 
     "POST /api/stop": async (_request, response) => {
@@ -158,11 +165,33 @@ export function createApiHandler(deps: ApiDependencies) {
     },
 
     "PUT /api/settings": async (request, response) => {
-      const updated = await settings.update(await readJsonBody(request));
+      const patch = await readJsonBody(request);
+      const updated = await settings.update(patch);
+      if (typeof (patch as { captionsVisible?: unknown }).captionsVisible === "boolean") {
+        broadcast({ type: "captions-visibility", visible: updated.captionsVisible, at: now() });
+      }
       deps.onSettingsChanged?.(updated);
       sendJson(response, 200, updated);
     },
   };
+
+  function startSpeech(text: string, phraseId: string | undefined, options: DesktopSpeakOptions): void {
+    const current = ++speechRequest;
+    lastSpokenText = text;
+    broadcast(phraseId ? { type: "caption", text, phraseId, at: now() } : { type: "caption", text, at: now() });
+    broadcast({ type: "speaking", state: "start", at: now() });
+    synthesizer
+      .speak(text, options)
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        log(`Speech failed: ${message}`);
+        const code: SpeakErrorCode = error instanceof SpeechEngineUnavailableError ? "engine-unavailable" : "speech-failed";
+        if (current === speechRequest) broadcast({ type: "speak-error", message, code, at: now() });
+      })
+      .finally(() => {
+        if (current === speechRequest) broadcast({ type: "speaking", state: "end", at: now() });
+      });
+  }
 
   return async function handleApi(request: IncomingMessage, response: ServerResponse, pathname: string): Promise<boolean> {
     if (pathname !== "/api" && !pathname.startsWith("/api/")) return false;
@@ -250,8 +279,9 @@ async function resolveSpeakText(
 }
 
 /**
- * Request overrides win; otherwise the saved desktop settings apply. Without any chosen voice,
- * a voice speaking the interface language is used so Spanish text is not read by an English voice.
+ * Request overrides win; otherwise the saved desktop settings apply. Without any chosen voice, a voice
+ * speaking the voice language (by default the interface language) is used, so Spanish text is not
+ * read by an English voice.
  */
 async function speakOptions(
   body: Record<string, unknown>,
@@ -266,7 +296,7 @@ async function speakOptions(
 
   const saved = await settings.load();
   const options: DesktopSpeakOptions = {};
-  const voice = voiceId || saved.voiceId || pickVoiceForLanguage(await listVoices(), saved.language)?.id;
+  const voice = voiceId || saved.voiceId || pickVoiceForLanguage(await listVoices(), voiceLanguageOf(saved))?.id;
   if (voice) options.voiceId = voice;
   options.rate = rate ?? saved.rate;
   if (saved.deviceId) options.deviceId = saved.deviceId;

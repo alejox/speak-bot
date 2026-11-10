@@ -94,6 +94,16 @@ export class DesktopApiClient {
     await this.request("POST", "/api/stop", {});
   }
 
+  /** Says the last spoken text again; rejects with code "nothing-to-repeat" when there is none. */
+  async repeat(): Promise<void> {
+    await this.request("POST", "/api/repeat", {});
+  }
+
+  /** Hides the current OBS caption right away. */
+  async clearCaption(): Promise<void> {
+    await this.request("POST", "/api/captions/clear", {});
+  }
+
   listVoices(): Promise<Voice[]> {
     return this.request("GET", "/api/voices") as Promise<Voice[]>;
   }

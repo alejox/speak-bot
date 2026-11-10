@@ -1,5 +1,6 @@
 import {
   isUiLanguage,
+  voiceLanguageOf,
   type AudioDevice,
   type DesktopSettings,
   type PhraseDependencies,
@@ -46,6 +47,15 @@ export interface SpeechTarget {
   desktopLanguage: UiLanguage | null;
   /** Saves the interface language on the desktop (no-op unless speaking on the desktop). */
   saveDesktopLanguage: (language: UiLanguage) => void;
+  /** Desktop-only actions; null when speaking on this device. */
+  remoteActions: { repeat: () => Promise<void>; clearCaption: () => Promise<void> } | null;
+  /** Whether OBS captions are shown; null unless speaking on the desktop and loaded. */
+  captionsVisible: boolean | null;
+  setCaptionsVisible: (visible: boolean) => void;
+  /** Language of the automatic voice, or null to follow the interface language of this device. */
+  voiceLanguage: UiLanguage | null;
+  /** Chooses the automatic voice language and drops an explicitly chosen voice. */
+  setVoiceLanguage: (language: UiLanguage) => void;
   /** Last error from talking to the desktop, if any. */
   error: MessageKey | null;
 }
@@ -96,6 +106,13 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
   }, [remote]);
 
   useEffect(() => {
+    if (!remote) return;
+    return remote.onCaptionsVisibilityChanged((visible) =>
+      setDesktopSettings((current) => (current ? { ...current, captionsVisible: visible } : current)),
+    );
+  }, [remote]);
+
+  useEffect(() => {
     if (!remote || !supportsDevices) return;
     let active = true;
     remote.listDevices().then(
@@ -135,6 +152,11 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
     ? { voiceId: desktopSettings?.voiceId ?? "", rate: desktopSettings?.rate ?? 1 }
     : localSettings;
 
+  const saveLocalSettings = (next: SpeechSettings) => {
+    setLocalSettings(next);
+    services.settings.save(next);
+  };
+
   const updateSettings = (next: SpeechSettings) => {
     if (isRemote) {
       const patch: Partial<DesktopSettings> = {};
@@ -143,8 +165,7 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
       saveDesktopSettings(patch);
       return;
     }
-    setLocalSettings(next);
-    services.settings.save(next);
+    saveLocalSettings(next);
   };
 
   return {
@@ -178,6 +199,18 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
     onPhrasesChanged: remote ? remote.onPhrasesChanged : noSubscription,
     desktopLanguage: isRemote && isUiLanguage(desktopSettings?.language) ? desktopSettings.language : null,
     saveDesktopLanguage: (language) => saveDesktopSettings({ language }),
+    remoteActions: remote ? { repeat: remote.repeat, clearCaption: remote.clearCaption } : null,
+    captionsVisible: isRemote && typeof desktopSettings?.captionsVisible === "boolean" ? desktopSettings.captionsVisible : null,
+    setCaptionsVisible: (captionsVisible) => saveDesktopSettings({ captionsVisible }),
+    voiceLanguage: isRemote
+      ? desktopSettings
+        ? voiceLanguageOf(desktopSettings)
+        : null
+      : (localSettings.voiceLanguage ?? null),
+    setVoiceLanguage: (voiceLanguage) => {
+      if (isRemote) saveDesktopSettings({ voiceLanguage, voiceId: "" });
+      else saveLocalSettings({ ...localSettings, voiceLanguage, voiceId: "" });
+    },
     error,
   };
 }

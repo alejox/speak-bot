@@ -58,7 +58,7 @@ describe("desktop HTTP API", () => {
     let id = 0;
     server = createDesktopServer({
       repository: new JsonFilePhraseRepository(join(dir, "phrases.json")),
-      settings: new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es" }),
+      settings: new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true }),
       synthesizer,
       generateId: () => `id-${++id}`,
       now: () => 1000 + id,
@@ -190,7 +190,7 @@ describe("desktop HTTP API", () => {
 
   it("assigns slots 0..n-1 when restoring the defaults", async () => {
     await post("/api/phrases", { text: "Mine", slot: 40 });
-    const restored = (await (await post("/api/phrases/restore", { language: "es" })).json()) as Phrase[];
+    const restored = (await (await post("/api/phrases/restore", { language: "es", captionsVisible: true })).json()) as Phrase[];
     expect(restored.map((p) => p.slot)).toEqual(DEFAULT_PHRASES_BY_LANGUAGE.es.map((_, index) => index));
   });
 
@@ -282,13 +282,13 @@ describe("desktop HTTP API", () => {
     ]);
     expect(await (await fetch(`${baseUrl}/api/devices`)).json()).toEqual([{ id: "BlackHole 2ch", name: "BlackHole 2ch" }]);
 
-    expect(await (await fetch(`${baseUrl}/api/settings`)).json()).toEqual({ voiceId: "", rate: 1, deviceId: "", language: "es" });
+    expect(await (await fetch(`${baseUrl}/api/settings`)).json()).toEqual({ voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true });
     const updated = await post("/api/settings", { deviceId: "BlackHole 2ch" }, "PUT");
-    expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch", language: "es" });
+    expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch", language: "es", captionsVisible: true });
     expect((await post("/api/settings", { rate: "fast" }, "PUT")).status).toBe(400);
 
-    const reopened = new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es" });
-    expect(await reopened.load()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch", language: "es" });
+    const reopened = new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true });
+    expect(await reopened.load()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch", language: "es", captionsVisible: true });
   });
 
   it("returns 404 JSON for unknown API routes", async () => {
@@ -301,9 +301,9 @@ describe("desktop HTTP API", () => {
     expect((await post("/api/settings", { language: "fr" }, "PUT")).status).toBe(400);
     expect((await post("/api/settings", { language: 1 }, "PUT")).status).toBe(400);
 
-    const updated = await post("/api/settings", { language: "en" }, "PUT");
-    expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "", language: "en" });
-    expect(settingsChanges).toEqual([{ voiceId: "", rate: 1, deviceId: "", language: "en" }]);
+    const updated = await post("/api/settings", { language: "en", captionsVisible: true }, "PUT");
+    expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true });
+    expect(settingsChanges).toEqual([{ voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true }]);
   });
 
   it("uses a voice matching the interface language when no voice is chosen, listing voices once", async () => {
@@ -314,7 +314,7 @@ describe("desktop HTTP API", () => {
 
     await post("/api/speak", { text: "Hola" });
     synthesizer.finishCurrent();
-    await post("/api/settings", { language: "en" }, "PUT");
+    await post("/api/settings", { language: "en", captionsVisible: true }, "PUT");
     await post("/api/speak", { text: "Hello" });
     synthesizer.finishCurrent();
     await post("/api/settings", { voiceId: "Chosen" }, "PUT");
@@ -328,7 +328,7 @@ describe("desktop HTTP API", () => {
     await post("/api/phrases", { text: "Mine" });
     const client = await connect();
 
-    const response = await post("/api/phrases/restore", { language: "es" });
+    const response = await post("/api/phrases/restore", { language: "es", captionsVisible: true });
     expect(response.status).toBe(200);
     const restored = (await response.json()) as Phrase[];
     expect(restored.map((p) => p.text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
@@ -337,7 +337,7 @@ describe("desktop HTTP API", () => {
     expect((await client.next(1))[0]).toMatchObject({ type: "phrases-changed" });
     client.close();
 
-    await post("/api/phrases/restore", { language: "en" });
+    await post("/api/phrases/restore", { language: "en", captionsVisible: true });
     const english = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
     expect(english.map((p) => p.text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.en]);
   });
@@ -346,8 +346,8 @@ describe("desktop HTTP API", () => {
     await post("/api/phrases", { text: "Mine" });
 
     const responses = await Promise.all([
-      post("/api/phrases/restore", { language: "es" }),
-      post("/api/phrases/restore", { language: "es" }),
+      post("/api/phrases/restore", { language: "es", captionsVisible: true }),
+      post("/api/phrases/restore", { language: "es", captionsVisible: true }),
     ]);
 
     expect(responses.map((response) => response.status)).toEqual([200, 200]);
@@ -364,7 +364,7 @@ describe("desktop HTTP API", () => {
       expect(response.status).toBe(400);
       expect(await response.json()).toHaveProperty("error");
     }
-    const plain = await fetch(`${baseUrl}/api/phrases/restore`, { method: "POST", body: JSON.stringify({ language: "es" }) });
+    const plain = await fetch(`${baseUrl}/api/phrases/restore`, { method: "POST", body: JSON.stringify({ language: "es", captionsVisible: true }) });
     expect(plain.status).toBe(415);
 
     const listed = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
@@ -374,6 +374,73 @@ describe("desktop HTTP API", () => {
   it("still deletes a phrase whose id is \"restore\"", async () => {
     await post("/api/phrases", { id: "restore", text: "Odd id" });
     expect((await fetch(`${baseUrl}/api/phrases/restore`, { method: "DELETE" })).status).toBe(204);
+  });
+
+  it("repeats the last spoken text with the saved settings, or explains that nothing was said", async () => {
+    const nothing = await post("/api/repeat", {});
+    expect(nothing.status).toBe(404);
+    expect(await nothing.json()).toEqual({ error: expect.any(String), code: "nothing-to-repeat" });
+    expect(synthesizer.spoken).toEqual([]);
+
+    const phrase = (await (await post("/api/phrases", { text: "Thank you" })).json()) as Phrase;
+    await post("/api/speak", { phraseId: phrase.id, rate: 0.8 });
+    synthesizer.finishCurrent();
+    const client = await connect();
+
+    const repeated = await post("/api/repeat", {});
+    expect(repeated.status).toBe(202);
+    expect(synthesizer.spoken.map((entry) => entry.text)).toEqual(["Thank you", "Thank you"]);
+    expect(synthesizer.spoken[1]!.options).toEqual({ voiceId: undefined, rate: 1 });
+    expect((await client.next(2)).map((e) => e.type)).toEqual(["caption", "speaking"]);
+    client.close();
+
+    const plain = await fetch(`${baseUrl}/api/repeat`, { method: "POST", body: "{}" });
+    expect(plain.status).toBe(415);
+  });
+
+  it("clears the OBS caption", async () => {
+    const client = await connect();
+
+    const response = await post("/api/captions/clear", {});
+    expect(response.status).toBe(200);
+    expect((await client.next(1))[0]).toEqual({ type: "caption-clear", at: expect.any(Number) });
+    client.close();
+
+    const plain = await fetch(`${baseUrl}/api/captions/clear`, { method: "POST" });
+    expect(plain.status).toBe(415);
+    expect((await fetch(`${baseUrl}/api/captions/clear`)).status).toBe(404);
+  });
+
+  it("hides and shows captions, persisting the choice and telling the overlay", async () => {
+    const client = await connect();
+
+    const hidden = await post("/api/settings", { captionsVisible: false }, "PUT");
+    expect(await hidden.json()).toMatchObject({ captionsVisible: false });
+    await post("/api/settings", { captionsVisible: true }, "PUT");
+    await post("/api/settings", { rate: 1.5 }, "PUT");
+    expect((await post("/api/settings", { captionsVisible: "no" }, "PUT")).status).toBe(400);
+
+    expect(await (await fetch(`${baseUrl}/api/settings`)).json()).toMatchObject({ captionsVisible: true, rate: 1.5 });
+    const events = await client.next(2);
+    expect(events).toEqual([
+      { type: "captions-visibility", visible: false, at: expect.any(Number) },
+      { type: "captions-visibility", visible: true, at: expect.any(Number) },
+    ]);
+    client.close();
+  });
+
+  it("picks the automatic voice for the chosen voice language", async () => {
+    synthesizer.voices = [
+      { id: "Alex", name: "Alex", lang: "en_US", isDefault: false },
+      { id: "Monica", name: "Monica", lang: "es_ES", isDefault: false },
+    ];
+    expect((await post("/api/settings", { voiceLanguage: "fr" }, "PUT")).status).toBe(400);
+
+    const updated = await post("/api/settings", { voiceLanguage: "en", voiceId: "" }, "PUT");
+    expect(await updated.json()).toMatchObject({ language: "es", voiceLanguage: "en" });
+    await post("/api/speak", { text: "Hello" });
+
+    expect(synthesizer.spoken[0]!.options?.voiceId).toBe("Alex");
   });
 
   it("tells clients why speech failed with an error code", async () => {

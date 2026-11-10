@@ -34,6 +34,12 @@ export interface DesktopServices {
   saveSettings(patch: Partial<DesktopSettings>): Promise<DesktopSettings>;
   /** Notifies when phrases change on the desktop (e.g. edited from another device). */
   onPhrasesChanged(listener: () => void): () => void;
+  /** Says the last spoken text again on the desktop. */
+  repeat(): Promise<void>;
+  /** Hides the current OBS caption. */
+  clearCaption(): Promise<void>;
+  /** Notifies when OBS captions are turned on or off from any device. */
+  onCaptionsVisibilityChanged(listener: (visible: boolean) => void): () => void;
   target: SpeakTargetStore;
   /** Present only when this page is open on the desktop computer itself (localhost). */
   connection?: ConnectionServices;
@@ -86,6 +92,12 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
     onPhrasesChanged: (listener) =>
       events.subscribe((event) => {
         if (event.type === "phrases-changed") listener();
+      }),
+    repeat: () => api.repeat(),
+    clearCaption: () => api.clearCaption(),
+    onCaptionsVisibilityChanged: (listener) =>
+      events.subscribe((event) => {
+        if (event.type === "captions-visibility") listener(event.visible);
       }),
     target: options.targetStore ?? new LocalStorageSpeakTargetStore(),
     connection: isLocalHostname(location.hostname ?? "")

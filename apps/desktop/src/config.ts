@@ -47,6 +47,7 @@ export function loadConfig({ argv, env, platform, homeDir }: ConfigSources): Des
       rate,
       deviceId: pick("device", "SPEAK_BOT_DEVICE") ?? "",
       language: DEFAULT_UI_LANGUAGE,
+      captionsVisible: true,
     },
     allowedHosts: (pick("allowed-host", "SPEAK_BOT_ALLOWED_HOSTS") ?? "")
       .split(",")

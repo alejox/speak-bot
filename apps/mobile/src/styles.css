@@ -424,6 +424,58 @@ h3 {
   line-clamp: 3;
 }
 
+/* Actions deck: fixed keys with an icon and a label. */
+.deck-actions {
+  margin-top: 8px;
+}
+
+.action-grid {
+  list-style: none;
+  margin: 0;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  max-width: 820px;
+  background: #0d1017;
+  border-radius: calc(var(--radius) + 6px);
+}
+
+@container (max-width: 520px) {
+  .action-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.action-grid li {
+  display: flex;
+  min-width: 0;
+}
+
+.action-key {
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.action-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.action-key[aria-pressed="true"] {
+  border-color: var(--focus);
+}
+
+.action-key:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.action-label {
+  overflow-wrap: anywhere;
+}
+
 /* Editor dialog. */
 .phrase-editor {
   width: min(520px, calc(100vw - 32px));
@@ -673,6 +725,21 @@ h3 {
 
 .dock .deck-key-plus {
   font-size: 1.5rem;
+}
+
+.dock .action-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  padding: 6px;
+}
+
+.dock .action-key {
+  gap: 2px;
+  font-size: 0.72rem;
+}
+
+.dock .action-icon {
+  font-size: 1.1rem;
 }
 
 .dock .status {

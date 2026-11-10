@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { ActionDeck } from "../components/ActionDeck";
 import { DockComposer } from "../components/DockComposer";
 import { PhraseDeck } from "../components/PhraseDeck";
 import { I18nProvider, useLanguage, useMessageText, useT } from "../i18n/I18nProvider";
 import type { Message } from "../i18n/messages";
 import type { AppServices } from "./composition-root";
+import { useDeckActions } from "./use-deck-actions";
 import { useLanguagePreference } from "./use-language-preference";
 import { usePhraseBook } from "./use-phrase-book";
 import { useSpeech } from "./use-speech";
@@ -41,6 +43,7 @@ function DockContent({ target }: { target: SpeechTarget }) {
   const statusText = useMessageText(status);
   const speech = useSpeech(target, language, setStatus);
   const book = usePhraseBook(target, language, setStatus);
+  const actions = useDeckActions(target, speech, setStatus);
   const [text, setText] = useState("");
 
   return (
@@ -66,6 +69,7 @@ function DockContent({ target }: { target: SpeechTarget }) {
         onEdit={book.edit}
         onDelete={book.remove}
       />
+      <ActionDeck title={t("actions.title")} actions={actions} />
     </main>
   );
 }

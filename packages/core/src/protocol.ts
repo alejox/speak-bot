@@ -53,7 +53,26 @@ export interface SpeakErrorEvent {
   readonly at: number;
 }
 
-export type ServerEvent = CaptionEvent | SpeakingEvent | PhrasesChangedEvent | SpeakErrorEvent;
+/** Hide the current caption right away (POST /api/captions/clear). */
+export interface CaptionClearEvent {
+  readonly type: "caption-clear";
+  readonly at: number;
+}
+
+/** Captions were turned on or off (`captionsVisible` in the desktop settings). */
+export interface CaptionsVisibilityEvent {
+  readonly type: "captions-visibility";
+  readonly visible: boolean;
+  readonly at: number;
+}
+
+export type ServerEvent =
+  | CaptionEvent
+  | SpeakingEvent
+  | PhrasesChangedEvent
+  | SpeakErrorEvent
+  | CaptionClearEvent
+  | CaptionsVisibilityEvent;
 
 export function isServerEvent(value: unknown): value is ServerEvent {
   if (typeof value !== "object" || value === null) return false;
@@ -68,6 +87,10 @@ export function isServerEvent(value: unknown): value is ServerEvent {
       return true;
     case "speak-error":
       return typeof event.message === "string" && (event.code === undefined || typeof event.code === "string");
+    case "caption-clear":
+      return true;
+    case "captions-visibility":
+      return typeof event.visible === "boolean";
     default:
       return false;
   }
@@ -147,12 +170,21 @@ export interface DesktopSettings {
   rate: number;
   /** Empty string means the system default output device. */
   deviceId: string;
-  /** Interface language; also picks the default voice and the first-run phrases. */
+  /** Interface language; also picks the first-run phrases and, unless `voiceLanguage` is set, the default voice. */
   language: UiLanguage;
+  /** False hides the OBS captions until turned back on. */
+  captionsVisible: boolean;
+  /** Language of the automatic voice; when absent it follows `language`. */
+  voiceLanguage?: UiLanguage;
+}
+
+/** The language the automatic voice should speak. */
+export function voiceLanguageOf(settings: { language: UiLanguage; voiceLanguage?: UiLanguage }): UiLanguage {
+  return settings.voiceLanguage ?? settings.language;
 }
 
 /** Machine-readable reasons a request failed, so clients can explain them in their own language. */
-export type ApiErrorCode = "slot-occupied" | "phrase-not-found";
+export type ApiErrorCode = "slot-occupied" | "phrase-not-found" | "nothing-to-repeat";
 
 export interface ErrorResponse {
   /** Technical detail in English. */

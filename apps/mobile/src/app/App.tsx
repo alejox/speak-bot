@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ActionDeck } from "../components/ActionDeck";
 import { Composer } from "../components/Composer";
 import { ConnectPanel } from "../components/ConnectPanel";
 import { PhraseDeck } from "../components/PhraseDeck";
@@ -10,6 +11,7 @@ import { I18nProvider, useMessageText, useT } from "../i18n/I18nProvider";
 import type { Message } from "../i18n/messages";
 import type { AppServices } from "./composition-root";
 import { useConnection } from "./use-connection";
+import { useDeckActions } from "./use-deck-actions";
 import { useLanguagePreference, type LanguagePreference } from "./use-language-preference";
 import { usePhraseBook } from "./use-phrase-book";
 import { useSection, type Section } from "./use-section";
@@ -46,6 +48,7 @@ function AppContent({ services, target, preference }: AppContentProps) {
   const statusText = useMessageText(status);
   const speech = useSpeech(target, language, setStatus);
   const book = usePhraseBook(target, language, setStatus);
+  const actions = useDeckActions(target, speech, setStatus);
   const [storedSection, setSection] = useSection();
   const [navigated, setNavigated] = useState(false);
   const [text, setText] = useState("");
@@ -106,6 +109,7 @@ function AppContent({ services, target, preference }: AppContentProps) {
               onDelete={book.remove}
               onRestore={book.restoreDefaults}
             />
+            <ActionDeck title={t("actions.title")} actions={actions} />
           </SectionView>
         )}
 

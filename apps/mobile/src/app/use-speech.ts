@@ -10,33 +10,51 @@ export interface Speech {
   isSpeaking: boolean;
   speak: (text: string) => void;
   stop: () => void;
+  /** Says the last spoken text again (on the desktop, the last text it spoke from any device). */
+  repeat: () => void;
 }
 
 /** Speaking and stopping on the current target, reporting failures as localized messages. */
 export function useSpeech(
-  target: Pick<SpeechTarget, "synthesizer" | "settings" | "isRemote" | "voices">,
+  target: Pick<SpeechTarget, "synthesizer" | "settings" | "isRemote" | "voices" | "voiceLanguage" | "remoteActions">,
   language: UiLanguage,
   report: (message: Message | null) => void,
 ): Speech {
   const { synthesizer, settings } = target;
   const [isSpeaking, setIsSpeaking] = useState(false);
   const speechRequest = useRef(0);
+  // Only this device's speech; the desktop remembers its own last text.
+  const lastText = useRef<string | null>(null);
 
   // The desktop picks its own voice for the language; on this device it is picked here.
-  const voiceId = settings.voiceId || (target.isRemote ? undefined : pickVoiceForLanguage(target.voices, language)?.id);
+  const voiceLanguage = target.voiceLanguage ?? language;
+  const voiceId = settings.voiceId || (target.isRemote ? undefined : pickVoiceForLanguage(target.voices, voiceLanguage)?.id);
+
+  // Must not await before speakText: mobile browsers only allow speech inside the tap handler.
+  const speak = (text: string) => {
+    const request = ++speechRequest.current;
+    if (text.trim() !== "") lastText.current = text;
+    report(null);
+    setIsSpeaking(true);
+    speakText(synthesizer, text, { voiceId: voiceId || undefined, rate: settings.rate })
+      .catch((error: unknown) => report(describeSpeechError(error)))
+      .finally(() => {
+        if (request === speechRequest.current) setIsSpeaking(false);
+      });
+  };
 
   return {
     isSpeaking,
-    // Must not await before speakText: mobile browsers only allow speech inside the tap handler.
-    speak: (text) => {
-      const request = ++speechRequest.current;
-      report(null);
-      setIsSpeaking(true);
-      speakText(synthesizer, text, { voiceId: voiceId || undefined, rate: settings.rate })
-        .catch((error: unknown) => report(describeSpeechError(error)))
-        .finally(() => {
-          if (request === speechRequest.current) setIsSpeaking(false);
-        });
+    speak,
+    repeat: () => {
+      if (target.remoteActions) {
+        report(null);
+        target.remoteActions.repeat().catch((error: unknown) => report(describeSpeechError(error)));
+      } else if (lastText.current === null) {
+        report({ key: "error.nothingToRepeat" });
+      } else {
+        speak(lastText.current);
+      }
     },
     stop: () => {
       speechRequest.current += 1;
@@ -55,6 +73,8 @@ export function describeSpeechError(error: unknown): Message {
       ? { key: "error.engineUnavailable", params: { detail: error.message } }
       : { key: "error.desktopSpeechFailed" };
   }
-  if (error instanceof DesktopRequestError) return { key: "error.desktopRequestFailed" };
+  if (error instanceof DesktopRequestError) {
+    return error.code === "nothing-to-repeat" ? { key: "error.nothingToRepeat" } : { key: "error.desktopRequestFailed" };
+  }
   return { key: "error.speechFailed" };
 }
