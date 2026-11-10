@@ -289,11 +289,15 @@
   line-height: 1;
 }
 
-/* Any other empty space is blank: it only keeps the grid's shape and takes dropped keys. */
+/*
+ * Any other empty space is a faint tile, like an unassigned key on a hardware deck: it keeps the
+ * grid readable when keys sit far from the top, and takes dropped keys. No border, no +.
+ */
 .deck-key-blank {
   width: 100%;
   aspect-ratio: 1;
   border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--key-bg) 40%, transparent);
 }
 
 .deck-key-selected {
