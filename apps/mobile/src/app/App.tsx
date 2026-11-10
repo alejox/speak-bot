@@ -23,6 +23,7 @@ import { I18nProvider, useMessageText, useT } from "../i18n/I18nProvider";
 import type { Message, MessageKey } from "../i18n/messages";
 import type { AppServices } from "./composition-root";
 import { describeRequestError } from "./describe-error";
+import { isDesktopShell } from "./desktop-shell";
 import { useAppearance, type AppearancePreference } from "./use-appearance";
 import { useConnection } from "./use-connection";
 import { useSpaceDecks } from "./use-deck";
@@ -45,7 +46,7 @@ const SECTION_ICONS: Record<Section, ReactNode> = {
 
 /** Container: chooses the speech target and interface language, then renders the app in that language. */
 export function App({ services }: { services: AppServices }) {
-  const target = useSpeechTarget(services);
+  const target = useSpeechTarget(services, { forceComputer: isDesktopShell(navigator.userAgent) });
   const preference = useLanguagePreference(services.language, target);
   const appearance = useAppearance(services.appearance);
   return (
