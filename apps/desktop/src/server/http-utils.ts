@@ -61,3 +61,12 @@ export function asObject(value: unknown): Record<string, unknown> {
   }
   return value as Record<string, unknown>;
 }
+
+/** The request pathname, or null when the request target is not a valid URL. Never throws. */
+export function requestPathname(request: IncomingMessage): string | null {
+  try {
+    return new URL(request.url ?? "/", "http://localhost").pathname;
+  } catch {
+    return null;
+  }
+}

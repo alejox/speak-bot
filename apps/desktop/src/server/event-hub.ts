@@ -1,6 +1,7 @@
 import type { ServerEvent } from "@speak-bot/core";
 import type { Server } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
+import { requestPathname } from "./http-utils";
 
 export const EVENTS_PATH = "/ws";
 
@@ -10,8 +11,8 @@ export class EventHub {
 
   attach(server: Server): void {
     server.on("upgrade", (request, socket, head) => {
-      const path = new URL(request.url ?? "/", "http://localhost").pathname;
-      if (path !== EVENTS_PATH) {
+      // Upgrade listeners must never throw: an uncaught error here would kill the process.
+      if (requestPathname(request) !== EVENTS_PATH) {
         socket.destroy();
         return;
       }

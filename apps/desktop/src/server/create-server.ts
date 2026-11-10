@@ -4,7 +4,7 @@ import type { JsonFileSettingsStore } from "../adapters/json-file-settings-store
 import type { DesktopSpeechSynthesizer } from "../adapters/tts/process-speech-synthesizer";
 import { createApiHandler } from "./api";
 import { EventHub } from "./event-hub";
-import { sendJson } from "./http-utils";
+import { requestPathname, sendJson } from "./http-utils";
 
 export interface DesktopServerDependencies {
   repository: PhraseRepository;
@@ -30,10 +30,8 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
 
   const httpServer = createServer((request, response) => {
     void (async () => {
-      let pathname: string;
-      try {
-        pathname = new URL(request.url ?? "/", "http://localhost").pathname;
-      } catch {
+      const pathname = requestPathname(request);
+      if (pathname === null) {
         sendJson(response, 400, { error: "Bad request." });
         return;
       }
