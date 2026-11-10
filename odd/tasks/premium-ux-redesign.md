@@ -103,9 +103,24 @@ word prediction, switch scanning.
       into T7); nothing that needs the computer app or OBS was seen in a browser (live states,
       connected pills, dock); the speaking highlight can stick to the wrong key if a remote key request
       fails and the next speech comes from the composer.
-- [ ] **T7 Settings.** Voice picker filtered by language with preview, sections for Voice, Deck and
-      Appearance; OBS settings move under Deck.
-- [ ] **T8 Dock and docs.** Align the OBS dock with the new tokens, refresh README and screenshots.
+- [x] **T7 Settings.** Route: delegated writer (with T8). Groups Voice, Deck, Appearance, Language;
+      voice picker filtered to the speech language with a show-all toggle, cleaned names and a
+      preview button; speed slider with value and range hints (and a real accessible name, which it
+      lacked in browsers). Also fixes the carried-over clip: at 375x667 with recent phrases the first
+      key row now ends at 581px against a tab bar at 596px (writer measurement).
+- [x] **T8 Dock and docs.** Dock styles moved onto tokens; PWA manifest colours aligned; README
+      describes the two spaces, board kinds, the split of old boards, edit mode and settings. No
+      screenshots were added (none existed).
+      Evidence T7+T8: RED 21 failing then 237 mobile tests passing. Parent final run 2026-11-10:
+      typecheck clean; core 128, desktop 156, electron 16, mobile 237 tests passing; mobile build ok;
+      Settings viewed in the browser. Not seen in a browser by anyone: the dock with keys, OBS
+      settings inside the Deck group, live key states, forced colours, the installed PWA.
+
+## Status at close (2026-11-10)
+
+All eight tasks are implemented and committed on `feat/premium-ux-redesign` (not pushed, no PR).
+Everything that needs the computer app or OBS is covered by tests only and still needs a manual pass
+with the desktop app and OBS running. Open decision 2 (computer actions) is untouched.
 
 ## Delivery
 
