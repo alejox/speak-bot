@@ -36,6 +36,12 @@ End users never touch a terminal. The phone app is a hosted, installable PWA. Th
 - RDD: off (global).
 
 ## Progress / Evidence
+- Writer: T1 `e7a86b2`, T2 `c6988a0`, T3 `1d5fdcf`; RED→GREEN observed. Packaged `--dir` app launched on macOS: port fallback, health, connection, overlay and single-instance lock OK.
+- T4 inline `32244a7` (README install guide, unsigned warnings, release process).
+- Assess: risk high → independent verifier PASS with 1 medium (macOS 0.0.0.0 bind hides a 127.0.0.1 port conflict, so the window loaded another app) and 2 low findings. Scoped correction, test-first: `c890ff9` port ownership via instanceId and window on 127.0.0.1; `0f3260a` `/api/connection` loopback-only; `8b79cde` macOS template tray icon. Packaged smoke with a conflicting 127.0.0.1 server fell back to the next port, verified by its instanceId.
+- Parent spot check: `npm test` → 22, 87, 8, 61 passed.
+- Not verified for real: window and tray UI visually, macOS hidden start at login, dmg/NSIS/AppImage/deb builds, release and pages workflows on GitHub.
+- Deferred nits: no `will-redirect` guard; `--hidden` second instance still shows the window; non-semver tags break the release.
 
 ## Next step
 T1–T3 writer.
