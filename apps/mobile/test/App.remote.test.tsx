@@ -122,10 +122,9 @@ describe("App in Computer mode", () => {
     const state = desktopState({ boards: [boardOf("main", "Main", [speakKey(0, "Hello")])] });
     const { requests, user } = renderRemoteApp({ state });
     await screen.findByRole("button", { name: "Hello" });
-    await user.click(screen.getByRole("button", { name: "Edit" }));
     await user.click(screen.getByRole("button", { name: "Add a key at position 2" }));
     const dialog = screen.getByRole("dialog");
-    await user.selectOptions(within(dialog).getByRole("combobox", { name: "Action" }), "Speak text");
+    await user.click(within(dialog).getByRole("button", { name: "Speak text" }));
     await user.type(within(dialog).getByRole("textbox", { name: "Text to say" }), "Thanks");
     // Another device fills the key meanwhile.
     state.boards = [boardOf("main", "Main", [speakKey(0, "Hello"), speakKey(1, "Theirs")])];

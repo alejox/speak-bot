@@ -82,33 +82,134 @@
   font-family: var(--font-mono);
 }
 
-.key-editor-dialog {
+/* Modals (native <dialog>): one surface, a title row with a quiet close button, then the content. */
+.modal {
   width: min(560px, calc(100vw - var(--space-6)));
   max-height: calc(100dvh - var(--space-6));
   padding: 0;
   color: var(--color-text);
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: none;
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-3);
 }
 
-.key-editor-dialog::backdrop {
+.modal::backdrop {
   background: var(--color-backdrop);
 }
 
-.key-editor-dialog .key-editor {
-  padding: var(--space-4);
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) 0 var(--space-4);
 }
 
-.key-editor-title {
+.modal-title {
   margin: 0;
   font-size: var(--text-lg);
   line-height: var(--leading-lg);
 }
 
-.key-editor-dialog .status {
+.modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--size-control-sm);
+  height: var(--size-control-sm);
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  color: var(--color-text);
+  background: var(--color-surface-sunken);
+}
+
+.modal-status {
   min-height: 0;
+  margin: 0;
+  padding: 0 var(--space-4);
+}
+
+.modal-body {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+/* The add-key dialog's first step: actions as tiles, grouped by category. */
+.action-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.action-picker-heading {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.action-picker-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: var(--space-2);
+}
+
+.action-picker-grid li {
+  display: flex;
+}
+
+.action-tile {
+  width: 100%;
+  min-height: 5.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-tight);
+  text-align: center;
+  color: var(--color-text);
+  background: var(--color-surface-sunken);
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+}
+
+.action-tile:hover {
+  background: var(--color-border);
+}
+
+.action-tile .key-icon {
+  color: var(--color-text-muted);
+}
+
+/* The add dialog's second step names the chosen action instead of offering a selector. */
+.key-editor-action {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.key-editor-action p {
+  margin: 0;
+}
+
+.key-editor-action-name {
+  font-weight: var(--weight-semibold);
 }
 
 .app-editing .app-main {

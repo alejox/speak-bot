@@ -113,22 +113,45 @@ describe("key editing on the phone", () => {
     expect(key).toHaveStyle({ background: "#16a34a" });
   });
 
-  it("adds a key on an empty space with an action from the grouped list", async () => {
+  it("adds a key from the + on an empty space: an action without parameters is saved at once", async () => {
     const { user } = renderLocalApp({ boards: [boardOf("main", "Main", [speakKey(0, "Hello")])] });
     await screen.findByRole("button", { name: "Hello" });
-    await user.click(screen.getByRole("button", { name: "Edit" }));
     await user.click(screen.getByRole("button", { name: "Add a key at position 2" }));
-    const dialog = screen.getByRole("dialog", { name: "Edit key 2" });
-    await user.click(within(dialog).getByRole("button", { name: "Save" }));
-    expect(within(dialog).getByRole("alert")).toHaveTextContent("Choose an action for the key.");
-    await user.selectOptions(within(dialog).getByRole("combobox", { name: "Action" }), "Go to page");
+    const dialog = screen.getByRole("dialog", { name: "Add key 2" });
+    expect(within(dialog).getAllByRole("region").map((group) => group.getAttribute("aria-label"))).toEqual(["Voice", "Navigation"]);
+    await user.click(within(dialog).getByRole("button", { name: "Stop voice" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(within(grid()).getByRole("button", { name: "Stop voice" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Key saved.");
+  });
+
+  it("asks for the details of an action with parameters in the same modal, and goes back to the actions", async () => {
+    const { user } = renderLocalApp({ boards: [boardOf("main", "Main", [speakKey(0, "Hello")])] });
+    await screen.findByRole("button", { name: "Hello" });
+    await user.click(screen.getByRole("button", { name: "Add a key at position 2" }));
+    const dialog = screen.getByRole("dialog", { name: "Add key 2" });
+    await user.type(within(dialog).getByRole("searchbox", { name: "Search actions" }), "page");
+    expect(within(dialog).queryByRole("button", { name: "Speak text" })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Go to page" }));
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
     expect(within(dialog).getByRole("alert")).toHaveTextContent("Fill in “Page”.");
+    await user.click(within(dialog).getByRole("button", { name: "Back" }));
+    expect(within(dialog).getByRole("button", { name: "Go to page" })).toHaveFocus();
+    await user.click(within(dialog).getByRole("button", { name: "Go to page" }));
     await user.type(within(dialog).getByRole("spinbutton", { name: "Page" }), "2");
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    await user.click(screen.getByRole("button", { name: "Done" }));
-    expect(screen.getByRole("button", { name: "Page 2" })).toBeInTheDocument();
+    expect(within(grid()).getByRole("button", { name: "Page 2" })).toBeInTheDocument();
+  });
+
+  it("closes the add dialog with Escape and returns focus to the +", async () => {
+    const { user } = renderLocalApp({ boards: [boardOf("main", "Main", [speakKey(0, "Hello")])] });
+    await screen.findByRole("button", { name: "Hello" });
+    const plus = screen.getByRole("button", { name: "Add a key at position 3" });
+    await user.click(plus);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(plus).toHaveFocus();
   });
 
   it("tests a speak key from the editor synchronously, without saving", async () => {

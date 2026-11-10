@@ -249,6 +249,7 @@
 .field textarea,
 .board-rename input,
 .library-search,
+.action-picker-search,
 .deck-board-select {
   width: 100%;
   min-height: var(--size-control-sm);

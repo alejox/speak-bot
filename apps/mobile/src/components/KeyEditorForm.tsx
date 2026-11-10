@@ -35,20 +35,24 @@ export interface KeyEditorFormProps {
   obs: ObsServices | null;
   /** Resolves true when saved. */
   onSave: (key: KeyInput) => Promise<boolean>;
-  /** Resolves true when deleted. */
-  onDelete: () => Promise<boolean>;
+  /** Resolves true when deleted; without it the form offers no Delete (the key menu does). */
+  onDelete?: () => Promise<boolean>;
   /** Runs the draft action right away; called synchronously inside the tap. */
   onTest: (action: Action) => void;
   /** Moves the key to another 0-based slot; resolves true when moved. */
   onMove?: (to: number) => Promise<boolean>;
   /** Shown as a Cancel button (the phone dialog). */
   onCancel?: () => void;
+  /** Text of the Cancel button; "Cancel" when absent. */
+  cancelLabel?: string;
+  /** The action was chosen before (the add dialog): show it as text instead of a selector. */
+  fixedAction?: boolean;
   /** Rendered first inside the form (e.g. the dialog title). */
   heading?: ReactNode;
 }
 
 /** Edits one key: action and its parameters, label, icon and color; tests, saves, moves and deletes it. */
-export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards, obs, onSave, onDelete, onTest, onMove, onCancel, heading }: KeyEditorFormProps) {
+export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards, obs, onSave, onDelete, onTest, onMove, onCancel, cancelLabel, fixedAction = false, heading }: KeyEditorFormProps) {
   const t = useT();
   const ids = { action: useId(), label: useId(), labelHint: useId(), hex: useId(), move: useId(), confirm: useId(), error: useId() };
   const form = useRef<HTMLFormElement>(null);
@@ -103,6 +107,7 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
   };
 
   const confirmDelete = () => {
+    if (!onDelete) return;
     setIsBusy(true);
     void onDelete().then((deleted) => {
       setIsBusy(false);
@@ -120,30 +125,40 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
     <form ref={form} className="key-editor" onSubmit={submit} noValidate aria-describedby={error ? ids.error : undefined}>
       {heading}
 
-      <div className="field">
-        <label htmlFor={ids.action}>{t("editor.action")}</label>
-        <select
-          id={ids.action}
-          value={draft.actionType}
-          aria-invalid={error?.field === "action" || undefined}
-          onChange={(event) => {
-            const actionType = event.target.value as ActionType | "";
-            update({ actionType, params: actionType && existing?.action.type === actionType ? draftOf(existing).params : {} });
-          }}
-        >
-          <option value="">{t("editor.chooseAction")}</option>
-          {allowedActionCategories(boardKind).map((category) => (
-            <optgroup key={category} label={t(`category.${category}`)}>
-              {ACTION_TYPES.filter((type) => ACTION_REGISTRY[type].category === category).map((type) => (
-                <option key={type} value={type}>
-                  {t(ACTION_REGISTRY[type].labelKey as MessageKey)}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        {draft.actionType && <p className="field-hint">{t(ACTION_REGISTRY[draft.actionType].descriptionKey as MessageKey)}</p>}
-      </div>
+      {fixedAction && draft.actionType ? (
+        <div className="key-editor-action">
+          <KeyIcon id={ACTION_REGISTRY[draft.actionType].defaultIcon} size={24} />
+          <div>
+            <p className="key-editor-action-name">{t(ACTION_REGISTRY[draft.actionType].labelKey as MessageKey)}</p>
+            <p className="field-hint">{t(ACTION_REGISTRY[draft.actionType].descriptionKey as MessageKey)}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="field">
+          <label htmlFor={ids.action}>{t("editor.action")}</label>
+          <select
+            id={ids.action}
+            value={draft.actionType}
+            aria-invalid={error?.field === "action" || undefined}
+            onChange={(event) => {
+              const actionType = event.target.value as ActionType | "";
+              update({ actionType, params: actionType && existing?.action.type === actionType ? draftOf(existing).params : {} });
+            }}
+          >
+            <option value="">{t("editor.chooseAction")}</option>
+            {allowedActionCategories(boardKind).map((category) => (
+              <optgroup key={category} label={t(`category.${category}`)}>
+                {ACTION_TYPES.filter((type) => ACTION_REGISTRY[type].category === category).map((type) => (
+                  <option key={type} value={type}>
+                    {t(ACTION_REGISTRY[type].labelKey as MessageKey)}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          {draft.actionType && <p className="field-hint">{t(ACTION_REGISTRY[draft.actionType].descriptionKey as MessageKey)}</p>}
+        </div>
+      )}
 
       {draft.actionType && (
         <ActionParamsFields
@@ -245,14 +260,14 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
           <button type="button" className="button button-small" onClick={test}>
             {t("editor.test")}
           </button>
-          {existing && (
+          {existing && onDelete && (
             <button type="button" className="button button-small button-danger" onClick={() => setIsConfirmingDelete(true)}>
               {t("editor.delete")}
             </button>
           )}
           {onCancel && (
             <button type="button" className="button button-small" onClick={onCancel}>
-              {t("editor.cancel")}
+              {cancelLabel ?? t("editor.cancel")}
             </button>
           )}
         </div>

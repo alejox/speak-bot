@@ -1,59 +1,77 @@
-import { useEffect, useId, useRef, type KeyboardEvent, type SyntheticEvent } from "react";
+import { ACTION_REGISTRY, type ActionType } from "@speed-deck/core";
+import { useEffect, useRef, useState } from "react";
+import { draftOf, draftToKey } from "../app/key-draft";
 import { useT } from "../i18n/I18nProvider";
+import { ActionPicker } from "./ActionPicker";
 import { KeyEditorForm, type KeyEditorFormProps } from "./KeyEditorForm";
+import { focusInitial, ModalDialog } from "./ModalDialog";
 
-type KeyEditorDialogProps = Omit<KeyEditorFormProps, "onCancel" | "heading"> & {
+type KeyEditorDialogProps = Omit<KeyEditorFormProps, "onCancel" | "heading" | "assignedType" | "fixedAction" | "cancelLabel"> & {
   onClose: () => void;
-  /** The current status message; the page behind a modal is inert, so the dialog repeats it in its own live region. */
+  /** The current status message, repeated in the dialog's own live region. */
   statusText?: string;
 };
 
 /**
- * The key editor as a modal (phones and the OBS dock, from edit mode): native <dialog> with showModal
- * (focus trap, Escape closes). Focus goes back to whatever opened it.
+ * The key dialog. On an empty slot it adds a key in two steps: pick an action (one without parameters
+ * is saved right away), then fill in its details. On a key it edits the key.
  */
-export function KeyEditorDialog({ onClose, statusText = "", ...form }: KeyEditorDialogProps) {
+export function KeyEditorDialog({ onClose, statusText, ...form }: KeyEditorDialogProps) {
   const t = useT();
-  const titleId = useId();
-  const dialog = useRef<HTMLDialogElement>(null);
+  const number = form.slot + 1;
+  return (
+    <ModalDialog
+      className="key-editor-dialog"
+      title={form.existing ? t("editor.dialogTitle", { number }) : t("editor.addTitle", { number })}
+      onClose={onClose}
+      statusText={statusText}
+    >
+      {form.existing ? <KeyEditorForm {...form} onCancel={onClose} /> : <AddKeySteps {...form} />}
+    </ModalDialog>
+  );
+}
 
+type AddKeyStepsProps = Omit<KeyEditorDialogProps, "onClose" | "statusText">;
+
+function AddKeySteps(form: AddKeyStepsProps) {
+  const t = useT();
+  const container = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState("");
+  const [chosen, setChosen] = useState<ActionType | undefined>(undefined);
+  const [isDetailing, setIsDetailing] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
+  const isFirstStep = useRef(true);
+
+  // Each step starts with focus on its first control; the dialog itself focuses the first one it shows.
   useEffect(() => {
-    const element = dialog.current;
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    if (element && !element.open) element.showModal();
-    element?.querySelector<HTMLElement>("select, input, textarea")?.focus();
-    return () => {
-      if (element?.open) element.close();
-      // The opener may have been re-rendered; only refocus it when it is still on the page.
-      if (opener?.isConnected) opener.focus();
-    };
-  }, []);
+    if (isFirstStep.current) {
+      isFirstStep.current = false;
+      return;
+    }
+    focusInitial(container.current);
+  }, [isDetailing]);
 
-  // Escape and other close requests (e.g. the Android back gesture) cancel the edit.
-  const cancel = (event: SyntheticEvent) => {
-    event.preventDefault();
-    onClose();
-  };
-  const handleKeyDown = (event: KeyboardEvent<HTMLDialogElement>) => {
-    if (event.key === "Escape") cancel(event);
+  const pick = (type: ActionType) => {
+    setChosen(type);
+    if (ACTION_REGISTRY[type].params.length > 0) {
+      setIsDetailing(true);
+      return;
+    }
+    if (isBusy) return;
+    // Nothing to fill in: the key takes the action's own name and icon.
+    const result = draftToKey(form.slot, draftOf(undefined, type), t);
+    if (!result.ok) return;
+    setIsBusy(true);
+    void form.onSave(result.key).finally(() => setIsBusy(false));
   };
 
   return (
-    <dialog ref={dialog} className="key-editor-dialog" aria-labelledby={titleId} onCancel={cancel} onKeyDown={handleKeyDown}>
-      <KeyEditorForm
-        {...form}
-        onCancel={onClose}
-        heading={
-          <>
-            <h2 id={titleId} className="key-editor-title">
-              {t("editor.dialogTitle", { number: form.slot + 1 })}
-            </h2>
-            <p className="status" role="status" aria-live="polite">
-              {statusText}
-            </p>
-          </>
-        }
-      />
-    </dialog>
+    <div ref={container} className="modal-body-content">
+      {isDetailing && chosen ? (
+        <KeyEditorForm {...form} assignedType={chosen} fixedAction onCancel={() => setIsDetailing(false)} cancelLabel={t("editor.back")} />
+      ) : (
+        <ActionPicker boardKind={form.boardKind} query={query} onQueryChange={setQuery} focusType={chosen} onPick={pick} />
+      )}
+    </div>
   );
 }

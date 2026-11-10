@@ -94,7 +94,7 @@ export function BoardPlayer({ boards, groupByKind = false, navigation, context, 
           if (!key) {
             return (
               <li key={slot}>
-                {onEditKey && isEditing ? (
+                {onEditKey ? (
                   <button
                     type="button"
                     className="deck-key deck-key-empty"
