@@ -1,0 +1,23 @@
+{
+  "name": "@speak-bot/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local server that speaks through the computer and shows captions in OBS.",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@speak-bot/core": "0.0.0",
+    "tsx": "^4.23.15",
+    "ws": "^8.22.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/ws": "^8.18.2",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0"
+  }
+}
