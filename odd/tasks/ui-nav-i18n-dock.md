@@ -39,6 +39,13 @@ User feedback (2026-11-09) after testing the macOS app:
 - RDD: off (global).
 
 ## Progress / Evidence
+- Writer: T1 `1b5513f`, T2 + T2b `c906998`, T3 `90461c8`. RED→GREEN for core, desktop and electron logic. Mobile UI tests were written after the code; regressions were checked by breaking the code on purpose (T1, T3). No RED for the T2 mobile tests.
+- T4 inline `4d6d9be` (README sections, language, OBS dock).
+- Assess: risk high → independent verifier PASS, 1 low-medium finding (restore not atomic, concurrent restores duplicate the list). Scoped correction, test-first: `d681dfb` atomic `replaceAll`, `95e0b2f` shared localized defaults in core, `20e9635` empty-list copy, `ea972cd` overlay `lang="es"`.
+- Parent spot check: `npm test` → 38, 101, 12, 90 passed. Local dmg rebuilt (`apps/electron/release/speak-bot-0.0.0-mac-arm64.dmg`).
+- Not verified visually: sidebar and bottom bar, phrase board, dock inside OBS, Spanish tray menu.
+- Release note: existing installs become Spanish by default; English phrases with an automatic voice are read by a Spanish voice.
+- Deferred nits: the dock reads the language once; the voice cache never refreshes; phrase button accessible name vs label.
 
 ## Next step
 T1–T3 writer.
