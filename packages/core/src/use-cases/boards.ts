@@ -1,6 +1,7 @@
 import { InvalidBoardError } from "../domain/actions";
 import {
   assertKeySlot,
+  BoardLimitError,
   BoardNotFoundError,
   createKey,
   KeyNotFoundError,
@@ -101,11 +102,15 @@ export async function moveKey(repository: BoardRepository, boardId: string, from
   });
 }
 
-/** Puts back the built-in communication board in `language`, in place, or first when it was deleted. */
+/**
+ * Puts back the built-in communication board in `language`, in place, or first when it was deleted.
+ * Rejects with `BoardLimitError` when it was deleted and there is no room for it.
+ */
 export async function restoreDefaultBoard(repository: BoardRepository, language: UiLanguage): Promise<Board> {
   const fresh = buildDefaultBoard(language);
   return repository.update((boards) => {
     const index = boards.findIndex((board) => board.id === DEFAULT_BOARD_ID);
+    if (index === -1 && boards.length >= MAX_BOARDS) throw new BoardLimitError();
     const next = index === -1 ? [fresh, ...boards] : boards.map((board, at) => (at === index ? fresh : board));
     return { boards: next, result: fresh };
   });

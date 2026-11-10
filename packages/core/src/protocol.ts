@@ -283,7 +283,8 @@ export type ApiErrorCode =
   | "obs-unavailable"
   | "obs-disabled"
   | "obs-request-failed"
-  | "loopback-only";
+  | "loopback-only"
+  | "board-limit";
 
 export interface ErrorResponse {
   /** Technical detail in English. */

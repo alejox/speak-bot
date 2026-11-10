@@ -15,7 +15,9 @@ import {
   DEFAULT_PHRASES_BY_LANGUAGE,
   deleteBoard,
   initializeBoards,
+  BoardLimitError,
   InvalidBoardError,
+  MAX_BOARDS,
   KEY_ICON_IDS,
   KeyNotFoundError,
   KEYS_PER_PAGE,
@@ -267,6 +269,17 @@ describe("board use cases", () => {
     const other = setup([board("x")]);
     await restoreDefaultBoard(other.repository, "es");
     expect((await listBoards(other.repository)).map((b) => b.id)).toEqual([DEFAULT_BOARD_ID, "x"]);
+  });
+
+  it("reports the board limit instead of restoring the default board past it", async () => {
+    const full = Array.from({ length: MAX_BOARDS }, (_, index) => board(`b${index}`));
+    const { repository } = setup(full);
+    await expect(restoreDefaultBoard(repository, "es")).rejects.toThrow(BoardLimitError);
+    expect(repository.writeCount).toBe(0);
+
+    // Restoring in place still works with a full set of boards.
+    const withDefault = setup([...full.slice(1), board(DEFAULT_BOARD_ID, [], "Mine")]);
+    expect((await restoreDefaultBoard(withDefault.repository, "en")).name).toBe("Communication");
   });
 
   it("writes nothing when a change is rejected", async () => {

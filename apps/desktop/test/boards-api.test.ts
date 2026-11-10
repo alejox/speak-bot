@@ -1,4 +1,4 @@
-import { DEFAULT_BOARD_ID, type Board, type ServerEvent } from "@speak-bot/core";
+import { DEFAULT_BOARD_ID, MAX_BOARDS, type Board, type ServerEvent } from "@speak-bot/core";
 import { request as httpRequest } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
@@ -132,6 +132,17 @@ describe("boards and actions API", () => {
     expect(await restored.json()).toMatchObject({ id: DEFAULT_BOARD_ID, name: "Communication" });
     expect((await boards())[0]!.keys[0]!.action).toEqual({ type: "voice.speak", text: "Hello" });
     expect((await send("/api/boards/restore-default", "POST", { language: "fr" })).status).toBe(400);
+  });
+
+  it("answers 409 board-limit when restoring the default board would exceed the limit", async () => {
+    for (let index = 0; index < MAX_BOARDS - 1; index += 1) expect((await send("/api/boards", "POST", { name: `B${index}` })).status).toBe(201);
+    expect((await send(`/api/boards/${DEFAULT_BOARD_ID}`, "DELETE")).status).toBe(204);
+    expect((await send("/api/boards", "POST", { name: "Last" })).status).toBe(201);
+
+    const restored = await send("/api/boards/restore-default", "POST", { language: "es" });
+    expect(restored.status).toBe(409);
+    expect(await restored.json()).toMatchObject({ code: "board-limit" });
+    expect(await boards()).toHaveLength(MAX_BOARDS);
   });
 
   it("validates input and reports unknown boards", async () => {

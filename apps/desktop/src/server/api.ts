@@ -1,5 +1,6 @@
 import {
   assertKeySlot,
+  BoardLimitError,
   BoardNotFoundError,
   clearKey,
   createBoard,
@@ -380,6 +381,7 @@ function describeFailure(error: unknown): { status: number; message: string; cod
   if (error instanceof KeyNotFoundError) return { status: 404, message: error.message, code: "key-not-found" };
   if (error instanceof NothingToRepeatError) return { status: 404, message: error.message, code: "nothing-to-repeat" };
   if (error instanceof SlotOccupiedError) return { status: 409, message: error.message, code: "slot-occupied" };
+  if (error instanceof BoardLimitError) return { status: 409, message: error.message, code: "board-limit" };
   if (error instanceof LastBoardError) return { status: 409, message: error.message, code: "last-board" };
   if (error instanceof ObsUnavailableError) return { status: 409, message: error.message, code: "obs-unavailable" };
   if (error instanceof ObsDisabledError) return { status: 409, message: error.message, code: "obs-disabled" };

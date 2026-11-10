@@ -45,6 +45,7 @@ export {
   KEY_ICON_IDS,
   KeyNotFoundError,
   KEYS_PER_PAGE,
+  BoardLimitError,
   LastBoardError,
   makeBoard,
   MAX_BOARD_NAME_LENGTH,

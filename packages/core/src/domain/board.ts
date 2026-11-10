@@ -85,6 +85,14 @@ export class KeyNotFoundError extends Error {
   }
 }
 
+/** There are already `MAX_BOARDS` boards. */
+export class BoardLimitError extends Error {
+  constructor() {
+    super(`There can be at most ${MAX_BOARDS} boards.`);
+    this.name = "BoardLimitError";
+  }
+}
+
 /** Every user keeps at least one board. */
 export class LastBoardError extends Error {
   constructor() {
