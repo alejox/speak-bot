@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DesktopApiClient } from "../src/adapters/desktop-api";
 import { DesktopEventSource } from "../src/adapters/desktop-events";
-import { RemotePhraseRepository } from "../src/adapters/remote-phrase-repository";
+import { createRemoteBoardStore } from "../src/adapters/board-stores";
 import { DesktopSpeechError, RemoteSpeechSynthesizer } from "../src/adapters/remote-speech-synthesizer";
 import { boardsOf, createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
 
@@ -95,63 +95,23 @@ describe("DesktopApiClient OBS", () => {
   });
 });
 
-describe("RemotePhraseRepository", () => {
-  const route = (phrases: Parameters<typeof boardsOf>[0]) => (request: RecordedRequest) =>
-    request.method === "GET" ? { body: boardsOf(phrases) } : { status: request.method === "DELETE" ? 204 : 200, body: {} };
-
-  it("reads the speak keys of the first desktop board as phrases", async () => {
-    const { api } = setup((request) => {
-      const [board] = boardsOf([{ text: "Hi", label: "H", slot: 2 }]);
-      return { body: [{ ...board, keys: [...board!.keys, { slot: 10, action: { type: "voice.stop" } }] }] };
-    });
-
-    expect(await new RemotePhraseRepository(api).list()).toEqual([{ id: "slot-2", text: "Hi", label: "H", slot: 2, createdAt: 2 }]);
-  });
-
-  it("saves into an empty key, so a key filled by another device is never overwritten", async () => {
-    const { api, requests } = setup(route([]));
-    const repository = new RemotePhraseRepository(api);
-
-    await repository.save({ id: "new", text: "Water", label: "W", slot: 1, createdAt: 2 });
-    await repository.delete("slot-1");
-
-    expect(requests).toEqual([
-      { method: "GET", url: "/api/boards", body: undefined },
-      { method: "PUT", url: "/api/boards/communication/keys/1", body: { label: "W", action: { type: "voice.speak", text: "Water" } } },
-      { method: "DELETE", url: "/api/boards/communication/keys/1", body: undefined },
+describe("remote board store", () => {
+  it("sends board changes to the desktop and reloads on boards-changed", async () => {
+    const { api, events, requests } = setup((request) => (request.method === "GET" ? { body: boardsOf([{ text: "Hi", slot: 0 }]) } : { status: 200, body: {} }));
+    const store = createRemoteBoardStore(api, events);
+    expect((await store.list())[0]?.keys).toHaveLength(1);
+    await store.setKey("communication", { slot: 3, label: "", action: { type: "voice.stop" } }, { replace: true });
+    await store.moveKey("communication", 3, 4);
+    expect(requests.slice(1).map((request) => [request.method, request.url, request.body])).toEqual([
+      ["PUT", "/api/boards/communication/keys/3", { label: "", action: { type: "voice.stop" }, replace: true }],
+      ["POST", "/api/boards/communication/keys/move", { from: 3, to: 4 }],
     ]);
-  });
-
-  it("updates a phrase in place, moving it first when its slot changed", async () => {
-    const { api, requests } = setup(route([{ text: "Hello", slot: 0 }]));
-    const repository = new RemotePhraseRepository(api);
-
-    await repository.update({ id: "slot-0", text: "Hello", slot: 0, createdAt: 0 });
-    await repository.update({ id: "slot-0", text: "Hi", label: "H", slot: 4, createdAt: 0 });
-
-    expect(requests.filter((request) => request.method !== "GET")).toEqual([
-      { method: "PUT", url: "/api/boards/communication/keys/0", body: { label: "", action: { type: "voice.speak", text: "Hello" }, replace: true } },
-      { method: "POST", url: "/api/boards/communication/keys/move", body: { from: 0, to: 4 } },
-      { method: "PUT", url: "/api/boards/communication/keys/4", body: { label: "H", action: { type: "voice.speak", text: "Hi" }, replace: true } },
-    ]);
-  });
-
-  it("exposes the error code the desktop sends", async () => {
-    const { api } = setup((request) =>
-      request.method === "GET" ? { body: boardsOf([]) } : { status: 409, body: { error: "Slot 3 is already in use.", code: "slot-occupied" } },
-    );
-
-    await expect(new RemotePhraseRepository(api).save({ id: "x", text: "Hi", slot: 3, createdAt: 1 })).rejects.toMatchObject({
-      status: 409,
-      code: "slot-occupied",
-    });
-  });
-
-  it("refuses to replace every phrase and sends nothing to the desktop", async () => {
-    const { api, requests } = setup();
-
-    await expect(new RemotePhraseRepository(api).replaceAll([])).rejects.toThrow("restoreDefaultBoard");
-    expect(requests).toEqual([]);
+    let changes = 0;
+    const stop = store.onChanged(() => (changes += 1));
+    FakeSocket.instances[0]!.emit({ type: "boards-changed", at: 1 });
+    FakeSocket.instances[0]!.emit({ type: "caption", text: "x", at: 1 });
+    expect(changes).toBe(1);
+    stop();
   });
 });
 

@@ -1,11 +1,11 @@
-import type { MouseEvent } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useT } from "../i18n/I18nProvider";
 
 export interface NavItem<Id extends string> {
   id: Id;
   label: string;
   /** Decorative symbol shown next to the label. */
-  icon: string;
+  icon: ReactNode;
 }
 
 interface SideNavProps<Id extends string> {

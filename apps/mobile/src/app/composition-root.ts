@@ -1,14 +1,29 @@
-import type { AudioDevice, DesktopSettings, PhraseDependencies, SpeechCapabilities, UiLanguage } from "@speed-deck/core";
+import type {
+  Action,
+  AudioDevice,
+  DesktopSettings,
+  DesktopSettingsPatch,
+  ObsInput,
+  ObsSceneItem,
+  ObsStateEvent,
+  ObsStatus,
+  ObsStatusEvent,
+  ObsStatusResponse,
+  SpeakErrorEvent,
+  SpeakingEvent,
+  SpeechCapabilities,
+  UiLanguage,
+} from "@speed-deck/core";
+import { createLocalBoardStore, createRemoteBoardStore, type BoardStore } from "../adapters/board-stores";
 import { getLocalStorage, migrateLegacyStorageKeys } from "../adapters/browser-storage";
 import { copyText as copyToClipboard } from "../adapters/clipboard";
 import { DesktopApiClient, type ConnectionInfo } from "../adapters/desktop-api";
 import { DesktopEventSource, type WebSocketFactory } from "../adapters/desktop-events";
+import { LocalStorageBoardRepository } from "../adapters/local-storage-board-repository";
 import { LocalStorageLanguageStore, type LanguageStore } from "../adapters/local-storage-language-store";
-import { LocalStoragePhraseRepository } from "../adapters/local-storage-phrase-repository";
 import { LocalStorageSettingsStore, type SettingsStore } from "../adapters/local-storage-settings-store";
 import { LocalStorageSpeakTargetStore, type SpeakTargetStore } from "../adapters/local-storage-speak-target-store";
 import { createQrCodeImage } from "../adapters/qr-code";
-import { RemotePhraseRepository } from "../adapters/remote-phrase-repository";
 import { RemoteSpeechSynthesizer } from "../adapters/remote-speech-synthesizer";
 import { WebSpeechSynthesizer, type AppSpeechSynthesizer } from "../adapters/web-speech-synthesizer";
 import { createId } from "./create-id";
@@ -22,23 +37,40 @@ export interface ConnectionServices {
   copyText(text: string): Promise<boolean>;
 }
 
-/** Speaking through the desktop computer that serves this app. */
+/** What `POST /api/actions/execute` answers; settings an action changed come back with it. */
+export interface ExecuteActionResult {
+  ok: true;
+  captionsVisible?: boolean;
+  voiceLanguage?: UiLanguage;
+}
+
+/** OBS as the desktop sees it: status, lists for the key editor, and live changes. */
+export interface ObsServices {
+  loadStatus(): Promise<ObsStatusResponse>;
+  listScenes(): Promise<string[]>;
+  listInputs(): Promise<ObsInput[]>;
+  listSceneItems(sceneName: string): Promise<ObsSceneItem[]>;
+  /** Connects again with the saved settings (only from the computer itself). */
+  connect(): Promise<ObsStatus>;
+  onEvent(listener: (event: ObsStatusEvent | ObsStateEvent) => void): () => void;
+}
+
+/** Speaking and running keys through the desktop computer that serves this app. */
 export interface DesktopServices {
   /** Resolves with the desktop capabilities, or null when no desktop serves this page. */
   detect(): Promise<SpeechCapabilities | null>;
   synthesizer: AppSpeechSynthesizer;
-  phrases: PhraseDependencies;
-  /** Puts back the desktop communication board (the phrases) in `language`. */
-  restorePhrases(language: UiLanguage): Promise<void>;
+  boards: BoardStore;
+  /** Runs a voice, captions or OBS action on the desktop. */
+  executeAction(action: Action): Promise<ExecuteActionResult>;
+  obs: ObsServices;
   listDevices(): Promise<AudioDevice[]>;
   loadSettings(): Promise<DesktopSettings>;
-  saveSettings(patch: Partial<DesktopSettings>): Promise<DesktopSettings>;
-  /** Notifies when phrases change on the desktop (e.g. edited from another device). */
-  onPhrasesChanged(listener: () => void): () => void;
-  /** Says the last spoken text again on the desktop. */
-  repeat(): Promise<void>;
-  /** Hides the current OBS caption. */
-  clearCaption(): Promise<void>;
+  saveSettings(patch: DesktopSettingsPatch): Promise<DesktopSettings>;
+  /** The desktop settings changed (from any device, the tray or a key). */
+  onSettingsChanged(listener: (settings: DesktopSettings) => void): () => void;
+  /** The desktop started or stopped speaking, or could not speak (from any device). */
+  onSpeechEvent(listener: (event: SpeakingEvent | SpeakErrorEvent) => void): () => void;
   /** Notifies when OBS captions are turned on or off from any device. */
   onCaptionsVisibilityChanged(listener: (visible: boolean) => void): () => void;
   target: SpeakTargetStore;
@@ -47,14 +79,12 @@ export interface DesktopServices {
 }
 
 export interface AppServices {
-  /** Local (this device) speech, phrases and settings. */
+  /** Local (this device) speech, boards and settings. */
   synthesizer: AppSpeechSynthesizer;
-  phrases: PhraseDependencies;
+  boards: BoardStore;
   settings: SettingsStore;
   /** The interface language chosen on this device. */
   language: LanguageStore;
-  /** True when default phrases should be seeded (first run on this device). */
-  isFirstRun: () => boolean;
   /** Present when the app may be served by the desktop companion. */
   desktop?: DesktopServices;
 }
@@ -63,7 +93,6 @@ export interface DesktopServicesOptions {
   fetch?: typeof fetch;
   createSocket?: WebSocketFactory;
   location?: Pick<Location, "protocol" | "host"> & Partial<Pick<Location, "hostname">>;
-  generateId?: () => string;
   targetStore?: SpeakTargetStore;
   createQrCode?: (text: string) => Promise<string>;
   copyText?: (text: string) => Promise<boolean>;
@@ -81,23 +110,30 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
   return {
     detect: () => api.detect(),
     synthesizer: new RemoteSpeechSynthesizer(api, events),
-    phrases: {
-      repository: new RemotePhraseRepository(api),
-      generateId: options.generateId ?? createId,
-      now: () => Date.now(),
-    },
-    restorePhrases: async (language) => {
-      await api.restoreDefaultBoard(language);
+    boards: createRemoteBoardStore(api, events),
+    executeAction: (action) => api.executeAction(action),
+    obs: {
+      loadStatus: () => api.loadObsStatus(),
+      listScenes: () => api.listObsScenes(),
+      listInputs: () => api.listObsInputs(),
+      listSceneItems: (sceneName) => api.listObsSceneItems(sceneName),
+      connect: () => api.connectObs(),
+      onEvent: (listener) =>
+        events.subscribe((event) => {
+          if (event.type === "obs-status" || event.type === "obs-state") listener(event);
+        }),
     },
     listDevices: () => api.listDevices(),
     loadSettings: () => api.loadSettings(),
     saveSettings: (patch) => api.saveSettings(patch),
-    onPhrasesChanged: (listener) =>
+    onSettingsChanged: (listener) =>
       events.subscribe((event) => {
-        if (event.type === "boards-changed") listener();
+        if (event.type === "settings-changed") listener(event.settings);
       }),
-    repeat: () => api.repeat(),
-    clearCaption: () => api.clearCaption(),
+    onSpeechEvent: (listener) =>
+      events.subscribe((event) => {
+        if (event.type === "speaking" || event.type === "speak-error") listener(event);
+      }),
     onCaptionsVisibilityChanged: (listener) =>
       events.subscribe((event) => {
         if (event.type === "captions-visibility") listener(event.visible);
@@ -115,13 +151,11 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
 
 export function createAppServices(): AppServices {
   migrateLegacyStorageKeys(getLocalStorage());
-  const repository = new LocalStoragePhraseRepository();
   return {
     synthesizer: new WebSpeechSynthesizer(),
-    phrases: { repository, generateId: createId, now: () => Date.now() },
+    boards: createLocalBoardStore(new LocalStorageBoardRepository(), createId),
     settings: new LocalStorageSettingsStore(),
     language: new LocalStorageLanguageStore(),
-    isFirstRun: () => !repository.isInitialized(),
     desktop: createDesktopServices(),
   };
 }

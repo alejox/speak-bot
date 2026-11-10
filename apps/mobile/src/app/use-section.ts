@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { getLocalStorage, readJson, writeJson } from "../adapters/browser-storage";
 
-export const SECTIONS = ["speak", "phrases", "connect", "settings"] as const;
+export const SECTIONS = ["board", "speak", "connect", "settings"] as const;
 export type Section = (typeof SECTIONS)[number];
 
 export const SECTION_STORAGE_KEY = "speed-deck:section";
@@ -14,7 +14,7 @@ function isSection(value: unknown): value is Section {
 export function useSection(storage: Storage | null = getLocalStorage()): [Section, (section: Section) => void] {
   const [section, setSection] = useState<Section>(() => {
     const stored = readJson(storage, SECTION_STORAGE_KEY);
-    return isSection(stored) ? stored : "speak";
+    return isSection(stored) ? stored : "board";
   });
   return [
     section,
@@ -24,3 +24,4 @@ export function useSection(storage: Storage | null = getLocalStorage()): [Sectio
     },
   ];
 }
+

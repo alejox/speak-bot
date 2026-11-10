@@ -1,19 +1,25 @@
 import {
   isUiLanguage,
   voiceLanguageOf,
+  type Action,
   type AudioDevice,
   type DesktopSettings,
-  type PhraseDependencies,
+  type DesktopSettingsPatch,
+  type ObsSettingsPatch,
+  type ObsSettingsView,
+  type SpeakErrorEvent,
+  type SpeakingEvent,
   type SpeechCapabilities,
   type UiLanguage,
   type Voice,
 } from "@speed-deck/core";
+import type { BoardStore } from "../adapters/board-stores";
 import { useCallback, useEffect, useState } from "react";
 import type { SpeechSettings } from "../adapters/local-storage-settings-store";
 import type { SpeakTarget } from "../adapters/local-storage-speak-target-store";
 import type { AppSpeechSynthesizer } from "../adapters/web-speech-synthesizer";
 import type { MessageKey } from "../i18n/messages";
-import type { AppServices } from "./composition-root";
+import type { AppServices, ExecuteActionResult, ObsServices } from "./composition-root";
 
 /** Whether a desktop server answered: still asking, found, or not there. */
 export type DesktopDetection = "pending" | "found" | "missing";
@@ -25,16 +31,19 @@ export interface SpeechTargetOptions {
 
 export interface SpeechTarget {
   detection: DesktopDetection;
-  /** True when speech, phrases and settings come from the desktop. */
+  /** True when speech, boards and settings come from the desktop. */
   isRemote: boolean;
   /** True when a desktop server answered, whichever target is chosen. */
   isDesktopAvailable: boolean;
   synthesizer: AppSpeechSynthesizer;
-  phrases: PhraseDependencies;
-  /** Restores the default phrases on the desktop; null when phrases live on this device. */
-  restoreRemotePhrases: ((language: UiLanguage) => Promise<void>) | null;
-  /** Only meaningful for this device: seeding happens on the desktop itself. */
-  isFirstRun: () => boolean;
+  /** The boards of the desktop in Computer mode, otherwise of this device. */
+  boards: BoardStore;
+  /** Runs voice, captions and OBS actions on the desktop; null when speaking on this device. */
+  executeAction: ((action: Action) => Promise<ExecuteActionResult>) | null;
+  /** OBS through the desktop; null when speaking on this device. */
+  obs: ObsServices | null;
+  /** The desktop started or stopped speaking (from any device); never fires on this device. */
+  onSpeechEvent: (listener: (event: SpeakingEvent | SpeakErrorEvent) => void) => () => void;
   settings: SpeechSettings;
   updateSettings: (next: SpeechSettings) => void;
   voices: Voice[];
@@ -42,13 +51,18 @@ export interface SpeechTarget {
   speakOn: { value: SpeakTarget; onChange: (target: SpeakTarget) => void } | null;
   /** Null unless speaking on a desktop that can route audio to a chosen device. */
   outputDevice: { devices: AudioDevice[]; selectedId: string; onChange: (deviceId: string) => void } | null;
-  onPhrasesChanged: (listener: () => void) => () => void;
   /** Interface language saved on the desktop; null unless speaking on the desktop and loaded. */
   desktopLanguage: UiLanguage | null;
   /** Saves the interface language on the desktop (no-op unless speaking on the desktop). */
   saveDesktopLanguage: (language: UiLanguage) => void;
-  /** Desktop-only actions; null when speaking on this device. */
-  remoteActions: { repeat: () => Promise<void>; clearCaption: () => Promise<void> } | null;
+  /** Merges settings a desktop action reported (e.g. the new voice language) without saving them again. */
+  noteDesktopSettings: (patch: Partial<DesktopSettings>) => void;
+  /** OBS connection settings saved on the desktop; null unless speaking on the desktop and loaded. */
+  obsSettings: ObsSettingsView | null;
+  /** Saves OBS settings on the desktop (only allowed from the computer itself). */
+  saveObsSettings: (patch: ObsSettingsPatch) => Promise<DesktopSettings>;
+  /** True when this page is open on the computer that runs the desktop app. */
+  isOnComputer: boolean;
   /** Whether OBS captions are shown; null unless speaking on the desktop and loaded. */
   captionsVisible: boolean | null;
   setCaptionsVisible: (visible: boolean) => void;
@@ -61,7 +75,7 @@ export interface SpeechTarget {
 }
 
 const noSubscription = () => () => {};
-const neverFirstRun = () => false;
+const noDesktop = () => Promise.reject(new Error("No desktop."));
 
 /** Chooses between local speech and the desktop companion, and owns the matching settings. */
 export function useSpeechTarget(services: AppServices, { forceComputer = false }: SpeechTargetOptions = {}): SpeechTarget {
@@ -107,9 +121,15 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
 
   useEffect(() => {
     if (!remote) return;
-    return remote.onCaptionsVisibilityChanged((visible) =>
+    const stopVisibility = remote.onCaptionsVisibilityChanged((visible) =>
       setDesktopSettings((current) => (current ? { ...current, captionsVisible: visible } : current)),
     );
+    // Language, voice and OBS settings chosen on another device or in the tray apply right away.
+    const stopSettings = remote.onSettingsChanged(setDesktopSettings);
+    return () => {
+      stopVisibility();
+      stopSettings();
+    };
   }, [remote]);
 
   useEffect(() => {
@@ -140,7 +160,7 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
   }, [synthesizer]);
 
   const saveDesktopSettings = useCallback(
-    (patch: Partial<DesktopSettings>) => {
+    (patch: Omit<DesktopSettingsPatch, "obs">) => {
       if (!remote) return;
       setDesktopSettings((current) => (current ? { ...current, ...patch } : current));
       remote.saveSettings(patch).then(setDesktopSettings, () => setError("error.saveDesktopSettings"));
@@ -173,9 +193,10 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
     isRemote,
     isDesktopAvailable: desktop !== undefined && capabilities !== null,
     synthesizer,
-    phrases: remote?.phrases ?? services.phrases,
-    restoreRemotePhrases: remote ? remote.restorePhrases : null,
-    isFirstRun: isRemote ? neverFirstRun : services.isFirstRun,
+    boards: remote?.boards ?? services.boards,
+    executeAction: remote ? remote.executeAction : null,
+    obs: remote ? remote.obs : null,
+    onSpeechEvent: remote ? remote.onSpeechEvent : noSubscription,
     settings,
     updateSettings,
     voices,
@@ -196,10 +217,18 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
           onChange: (deviceId) => saveDesktopSettings({ deviceId }),
         }
       : null,
-    onPhrasesChanged: remote ? remote.onPhrasesChanged : noSubscription,
     desktopLanguage: isRemote && isUiLanguage(desktopSettings?.language) ? desktopSettings.language : null,
     saveDesktopLanguage: (language) => saveDesktopSettings({ language }),
-    remoteActions: remote ? { repeat: remote.repeat, clearCaption: remote.clearCaption } : null,
+    noteDesktopSettings: (patch) => setDesktopSettings((current) => (current ? { ...current, ...patch } : current)),
+    obsSettings: isRemote && desktopSettings?.obs ? desktopSettings.obs : null,
+    saveObsSettings: remote
+      ? async (obs) => {
+          const updated = await remote.saveSettings({ obs });
+          setDesktopSettings(updated);
+          return updated;
+        }
+      : noDesktop,
+    isOnComputer: desktop?.connection !== undefined,
     captionsVisible: isRemote && typeof desktopSettings?.captionsVisible === "boolean" ? desktopSettings.captionsVisible : null,
     setCaptionsVisible: (captionsVisible) => saveDesktopSettings({ captionsVisible }),
     voiceLanguage: isRemote

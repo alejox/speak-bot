@@ -1,4 +1,5 @@
 import { UI_LANGUAGES, type AudioDevice, type UiLanguage, type Voice } from "@speed-deck/core";
+import type { ReactNode } from "react";
 import { MAX_RATE, MIN_RATE, type SpeechSettings } from "../adapters/local-storage-settings-store";
 import type { SpeakTarget } from "../adapters/local-storage-speak-target-store";
 import { useLanguage, useT } from "../i18n/I18nProvider";
@@ -13,9 +14,11 @@ interface SettingsPanelProps {
   speakOn?: { value: SpeakTarget; onChange: (target: SpeakTarget) => void } | null;
   /** Shown only when speaking on a computer that can choose its output device. */
   outputDevice?: { devices: AudioDevice[]; selectedId: string; onChange: (deviceId: string) => void } | null;
+  /** Extra groups after the speech settings (e.g. the OBS connection). */
+  children?: ReactNode;
 }
 
-export function SettingsPanel({ voices, settings, onChange, onLanguageChange, speakOn, outputDevice }: SettingsPanelProps) {
+export function SettingsPanel({ voices, settings, onChange, onLanguageChange, speakOn, outputDevice, children }: SettingsPanelProps) {
   const t = useT();
   const language = useLanguage();
   return (
@@ -80,6 +83,8 @@ export function SettingsPanel({ voices, settings, onChange, onLanguageChange, sp
           onChange={(event) => onChange({ ...settings, rate: Number(event.target.value) })}
         />
       </label>
+
+      {children}
     </div>
   );
 }

@@ -5,7 +5,7 @@ interface RestoreDefaultsProps {
   onRestore: () => Promise<void>;
 }
 
-/** Destructive action with an inline two-step confirmation (never a browser dialog). */
+/** Puts back the built-in Communication board, after an inline two-step confirmation (never a browser dialog). */
 export function RestoreDefaults({ onRestore }: RestoreDefaultsProps) {
   const t = useT();
   const [isConfirming, setIsConfirming] = useState(false);
@@ -25,7 +25,7 @@ export function RestoreDefaults({ onRestore }: RestoreDefaultsProps) {
   if (!isConfirming) {
     return (
       <button ref={startButton} type="button" className="button button-small button-danger" onClick={() => setIsConfirming(true)}>
-        {t("phrases.restore")}
+        {t("boards.restore")}
       </button>
     );
   }
@@ -40,13 +40,13 @@ export function RestoreDefaults({ onRestore }: RestoreDefaultsProps) {
 
   return (
     <div className="restore-confirm" role="group" aria-labelledby={promptId}>
-      <p id={promptId}>{t("phrases.restoreConfirm")}</p>
+      <p id={promptId}>{t("boards.restoreConfirm")}</p>
       <div className="restore-actions">
         <button type="button" className="button button-small button-danger" onClick={confirm} disabled={isBusy}>
-          {t("phrases.restoreYes")}
+          {t("boards.restoreYes")}
         </button>
         <button ref={cancelButton} type="button" className="button button-small" onClick={() => setIsConfirming(false)}>
-          {t("phrases.restoreCancel")}
+          {t("boards.restoreNo")}
         </button>
       </div>
     </div>
