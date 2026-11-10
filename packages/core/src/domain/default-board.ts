@@ -13,24 +13,53 @@ export const DEFAULT_BOARD_NAMES: Readonly<Record<UiLanguage, string>> = {
   en: "Communication",
 };
 
-/** The actions placed on the last row of the communication board, in order. */
-export const COMMUNICATION_ACTIONS: readonly Action[] = [
-  { type: "voice.stop" },
-  { type: "voice.repeat" },
-  { type: "captions.clear" },
-  { type: "captions.toggle" },
-  { type: "voice.toggleLanguage" },
+/** Id of the built-in deck board, so it can be restored in place. */
+export const DEFAULT_DECK_BOARD_ID = "deck";
+
+/** Name of the built-in deck board in each interface language. */
+export const DEFAULT_DECK_BOARD_NAMES: Readonly<Record<UiLanguage, string>> = {
+  es: "Deck",
+  en: "Deck",
+};
+
+/**
+ * The voice commands on the last row of the communication board, by column. The columns in between
+ * stay empty: they held caption keys before boards had a kind, and keys never move.
+ */
+export const COMMUNICATION_KEYS: readonly { readonly column: number; readonly action: Action }[] = [
+  { column: 0, action: { type: "voice.stop" } },
+  { column: 1, action: { type: "voice.repeat" } },
+  { column: 4, action: { type: "voice.toggleLanguage" } },
 ];
 
-/** The communication board for a new install: the default phrases plus the communication actions. */
+/** The actions on the built-in deck board, from its first slot: captions and the OBS actions that need no parameters. */
+export const DEFAULT_DECK_ACTIONS: readonly Action[] = [
+  { type: "captions.clear" },
+  { type: "captions.toggle" },
+  { type: "obs.toggleStream" },
+  { type: "obs.toggleRecord" },
+];
+
+/** The communication (voice) board for a new install: the default phrases plus the voice commands. */
 export function buildDefaultBoard(language: UiLanguage): Board {
   const phraseKeys: Key[] = DEFAULT_PHRASES_BY_LANGUAGE[language].map((text, slot) => ({ slot, action: { type: "voice.speak", text } }));
-  return withCommunicationActions(phraseKeys, language);
+  return withCommunicationKeys(phraseKeys, language);
+}
+
+/** The deck board for a new install. */
+export function buildDefaultDeckBoard(language: UiLanguage): Board {
+  const keys = DEFAULT_DECK_ACTIONS.map((action, slot): Key => ({ slot, action }));
+  return makeBoard(DEFAULT_DECK_BOARD_ID, DEFAULT_DECK_BOARD_NAMES[language], "deck", keys);
+}
+
+/** The boards of a new install, in display order. */
+export function buildDefaultBoards(language: UiLanguage): Board[] {
+  return [buildDefaultBoard(language), buildDefaultDeckBoard(language)];
 }
 
 /**
  * The communication board built from phrases saved by older versions. Phrases keep their slots; the
- * communication actions go on the last row of the first page whose last row is free.
+ * voice commands go on the last row of the first page whose last row is free.
  */
 export function boardFromPhrases(phrases: readonly Phrase[], language: UiLanguage): Board {
   const keys = phrases.map((phrase): Key => {
@@ -38,22 +67,20 @@ export function boardFromPhrases(phrases: readonly Phrase[], language: UiLanguag
     const action: Action = { type: "voice.speak", text: phrase.text.trim() };
     return label ? { slot: phrase.slot, label, action } : { slot: phrase.slot, action };
   });
-  return withCommunicationActions(keys, language);
+  return withCommunicationKeys(keys, language);
 }
 
-function withCommunicationActions(keys: Key[], language: UiLanguage): Board {
-  const used = new Set(keys.map((key) => key.slot));
-  const start = lastRowStart(used);
-  const actionKeys =
-    start === null ? [] : COMMUNICATION_ACTIONS.map((action, index): Key => ({ slot: start + index, action }));
-  return makeBoard(DEFAULT_BOARD_ID, DEFAULT_BOARD_NAMES[language], [...keys, ...actionKeys]);
+function withCommunicationKeys(keys: Key[], language: UiLanguage): Board {
+  const start = lastRowStart(new Set(keys.map((key) => key.slot)));
+  const commandKeys = start === null ? [] : COMMUNICATION_KEYS.map(({ column, action }): Key => ({ slot: start + column, action }));
+  return makeBoard(DEFAULT_BOARD_ID, DEFAULT_BOARD_NAMES[language], "voice", [...keys, ...commandKeys]);
 }
 
 /** First slot of the first page whose last row is completely free, or null when every page is busy. */
 function lastRowStart(used: ReadonlySet<number>): number | null {
   for (let page = 0; page < MAX_BOARD_PAGES; page += 1) {
     const start = (page + 1) * KEYS_PER_PAGE - BOARD_COLUMNS;
-    const row = Array.from({ length: Math.min(BOARD_COLUMNS, COMMUNICATION_ACTIONS.length) }, (_, index) => start + index);
+    const row = Array.from({ length: BOARD_COLUMNS }, (_, index) => start + index);
     if (row.every((slot) => !used.has(slot))) return start;
   }
   return null;

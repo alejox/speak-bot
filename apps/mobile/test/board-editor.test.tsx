@@ -24,6 +24,7 @@ function drag(source: Element, target: Element) {
 const grid = () => screen.getByRole("list", { name: /^Keys of/ });
 const library = () => screen.getByRole("region", { name: "Actions" });
 const keyEditor = () => screen.getByRole("region", { name: /^Key \d+/ });
+const deckBoard = () => boardOf("stream", "Stream", [], "deck");
 
 async function openEditor(user: { click: (element: Element) => Promise<void> }) {
   await user.click(await screen.findByRole("button", { name: "Edit board" }));
@@ -39,19 +40,50 @@ describe("board editor on wide screens", () => {
     await openEditor(user);
     expect(screen.getByRole("region", { name: "Boards" })).toBeInTheDocument();
     expect(within(grid()).getAllByRole("listitem")).toHaveLength(15);
-    for (const category of ["Voice", "Captions", "Navigation", "OBS"]) {
-      expect(within(library()).getByRole("region", { name: category })).toBeInTheDocument();
-    }
+    expect(within(library()).getAllByRole("region").map((group) => group.getAttribute("aria-label"))).toEqual(["Voice", "Navigation"]);
     expect(screen.getByText("Select a key to edit it.")).toBeInTheDocument();
   });
 
+  it("offers only the actions the board's kind allows, in the library and in the key editor", async () => {
+    const state = desktopState({ boards: [boardOf("talk", "Talk"), deckBoard()] });
+    const { user } = renderRemoteApp({ state });
+    await openEditor(user);
+    const offered = () => within(within(keyEditor()).getByRole("combobox", { name: "Action" })).getAllByRole("group").map((group) => group.getAttribute("label"));
+
+    await user.click(within(grid()).getByRole("button", { name: "Add a key at position 1" }));
+    expect(offered()).toEqual(["Voice", "Navigation"]);
+    expect(within(library()).queryByText("Switch scene")).not.toBeInTheDocument();
+
+    await user.click(within(screen.getByRole("region", { name: "Boards" })).getByRole("button", { name: "Stream" }));
+    expect(within(library()).getAllByRole("region").map((group) => group.getAttribute("aria-label"))).toEqual(["Captions", "Navigation", "OBS"]);
+    expect(within(library()).queryByText("Speak text")).not.toBeInTheDocument();
+    await user.click(within(grid()).getByRole("button", { name: "Add a key at position 1" }));
+    expect(offered()).toEqual(["Captions", "Navigation", "OBS"]);
+  });
+
+  it("ignores an action dropped on a board whose kind does not allow it", async () => {
+    const state = desktopState({ boards: [boardOf("talk", "Talk"), deckBoard()] });
+    const { requests, user } = renderRemoteApp({ state });
+    await openEditor(user);
+    await user.click(within(screen.getByRole("region", { name: "Boards" })).getByRole("button", { name: "Stream" }));
+    const item = within(library()).getByText("Start or stop stream").closest("li")!;
+    const transfer = dataTransfer();
+    fireEvent(item, Object.assign(createEvent.dragStart(item), { dataTransfer: transfer }));
+
+    await user.click(within(screen.getByRole("region", { name: "Boards" })).getByRole("button", { name: "Talk" }));
+    const target = within(grid()).getByRole("button", { name: "Add a key at position 1" });
+    fireEvent(target, Object.assign(createEvent.drop(target), { dataTransfer: transfer }));
+    expect(within(grid()).getByRole("button", { name: "Add a key at position 1" })).toBeInTheDocument();
+    expect(writes(requests)).toEqual([]);
+  });
+
   it("filters the library with search", async () => {
-    const { user } = renderRemoteApp();
+    const { user } = renderRemoteApp({ state: desktopState({ boards: [deckBoard()] }) });
     await openEditor(user);
     await user.type(within(library()).getByRole("searchbox", { name: "Search actions" }), "scene");
     const names = within(library()).getAllByRole("listitem").map((item) => item.textContent);
     expect(names).toContainEqual(expect.stringContaining("Switch scene"));
-    expect(names).not.toContainEqual(expect.stringContaining("Speak text"));
+    expect(names).not.toContainEqual(expect.stringContaining("Clear caption"));
     await user.type(within(library()).getByRole("searchbox"), "zzz");
     expect(within(library()).getByText("No action matches.")).toBeInTheDocument();
   });
@@ -90,7 +122,7 @@ describe("board editor on wide screens", () => {
   });
 
   it("drags an action with parameters onto an empty key, then saves it from the key editor", async () => {
-    const state = desktopState({ boards: [boardOf("main", "Main")] });
+    const state = desktopState({ boards: [boardOf("main", "Main", [], "deck")] });
     const { requests, user } = renderRemoteApp({ state });
     await openEditor(user);
     const item = within(library()).getByText("Switch scene").closest("li")!;
@@ -113,7 +145,7 @@ describe("board editor on wide screens", () => {
   });
 
   it("falls back to typing OBS names when OBS is not connected", async () => {
-    const state = desktopState({ boards: [boardOf("main", "Main")], scenes: null });
+    const state = desktopState({ boards: [boardOf("main", "Main", [], "deck")], scenes: null });
     const { user } = renderRemoteApp({ state });
     await openEditor(user);
     await user.click(within(grid()).getByRole("button", { name: "Add a key at position 1" }));
@@ -188,7 +220,7 @@ describe("board editor on wide screens", () => {
   });
 
   it("maps desktop errors to localized messages in the editor's live region", async () => {
-    const state = desktopState({ boards: Array.from({ length: 2 }, (_, index) => makeBoard(`b${index}`, `Board ${index}`)) });
+    const state = desktopState({ boards: Array.from({ length: 2 }, (_, index) => makeBoard(`b${index}`, `Board ${index}`, "voice")) });
     const { user } = renderRemoteApp({ state });
     await openEditor(user);
     // The desktop refuses because another device deleted the other board meanwhile.
@@ -214,6 +246,7 @@ describe("board editor on wide screens", () => {
     await user.type(name, "Games{Enter}");
     await waitFor(() => expect(within(boards).getByRole("button", { name: "Games" })).toHaveAttribute("aria-current", "true"));
     expect(writes(requests)).toEqual(["POST /api/boards", "PATCH /api/boards/new-1"]);
+    expect(requests).toContainEqual({ method: "POST", url: "/api/boards", body: { name: "Board 2", kind: "voice" } });
 
     await user.click(within(boards).getByRole("button", { name: "Delete Games" }));
     expect(within(boards).getByRole("button", { name: "No, keep it" })).toHaveFocus();

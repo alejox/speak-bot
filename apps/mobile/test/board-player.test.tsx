@@ -1,4 +1,4 @@
-import { buildDefaultBoard } from "@speed-deck/core";
+import { buildDefaultBoard, buildDefaultDeckBoard } from "@speed-deck/core";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LONG_PRESS_MS } from "../src/components/BoardPlayer";
@@ -26,7 +26,7 @@ describe("board player in phone-only mode", () => {
   });
 
   it("disables caption keys without the desktop and says why", async () => {
-    renderLocalApp();
+    renderLocalApp({ boards: [buildDefaultDeckBoard("en")] });
     const clear = await screen.findByRole("button", { name: "Clear caption" });
     expect(clear).toHaveAttribute("aria-disabled", "true");
     expect(clear).toHaveAccessibleDescription("Needs the computer app.");

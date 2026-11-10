@@ -70,6 +70,7 @@ export function boardsOf<T extends FakePhrase>(phrases: readonly T[]) {
     {
       id: "communication",
       name: "Comunicación",
+      kind: "voice",
       columns: 5,
       rows: 3,
       keys: phrases.map(({ text, label, slot }) => ({ slot, ...(label ? { label } : {}), action: { type: "voice.speak", text } })),

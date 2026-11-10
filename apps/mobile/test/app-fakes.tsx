@@ -1,7 +1,10 @@
 import {
   buildDefaultBoard,
+  buildDefaultDeckBoard,
+  DEFAULT_DECK_BOARD_ID,
   makeBoard,
   type Board,
+  type BoardKind,
   type Key,
   type ObsState,
   type SpeakOptions,
@@ -50,8 +53,8 @@ export class LocalSynthesizer implements AppSpeechSynthesizer {
 const speakKey = (slot: number, text: string, extra: Partial<Key> = {}): Key => ({ slot, ...extra, action: { type: "voice.speak", text } });
 export { speakKey };
 
-/** A board with an id and name, from keys. */
-export const boardOf = (id: string, name: string, keys: Key[] = []): Board => makeBoard(id, name, keys);
+/** A board with an id and name, from keys; a voice board unless `kind` says otherwise. */
+export const boardOf = (id: string, name: string, keys: Key[] = [], kind: BoardKind = "voice"): Board => makeBoard(id, name, kind, keys);
 
 export interface LocalSetupOptions {
   /** Boards already on this device; none means a first run (the default board is created). */
@@ -131,12 +134,13 @@ export function desktopRoute(state: DesktopState) {
       case "GET /api/boards":
         return { body: state.boards };
       case "POST /api/boards": {
-        const created = makeBoard(`new-${state.boards.length}`, String(body.name));
+        const created = makeBoard(`new-${state.boards.length}`, String(body.name), body.kind as BoardKind);
         state.boards = [...state.boards, created];
         return { status: 201, body: created };
       }
       case "POST /api/boards/restore-default": {
-        const fresh = buildDefaultBoard(body.language as UiLanguage);
+        const language = body.language as UiLanguage;
+        const fresh = body.boardId === DEFAULT_DECK_BOARD_ID ? buildDefaultDeckBoard(language) : buildDefaultBoard(language);
         state.boards = state.boards.some((candidate) => candidate.id === fresh.id)
           ? state.boards.map((candidate) => (candidate.id === fresh.id ? fresh : candidate))
           : [fresh, ...state.boards];
@@ -184,11 +188,11 @@ export function desktopRoute(state: DesktopState) {
         const { replace, ...key } = body as { replace?: boolean } & Omit<Key, "slot">;
         if (!replace && target.keys.some((candidate) => candidate.slot === slot)) return { status: 409, body: { error: "Taken.", code: "slot-occupied" } };
         const stored: Key = { slot, ...(key.label ? { label: key.label } : {}), ...(key.icon ? { icon: key.icon } : {}), ...(key.color ? { color: key.color } : {}), action: key.action };
-        replaceBoard(makeBoard(target.id, target.name, [...target.keys.filter((candidate) => candidate.slot !== slot), stored]));
+        replaceBoard(makeBoard(target.id, target.name, target.kind, [...target.keys.filter((candidate) => candidate.slot !== slot), stored]));
         return { body: stored };
       }
       if (request.method === "DELETE") {
-        replaceBoard(makeBoard(target.id, target.name, target.keys.filter((candidate) => candidate.slot !== slot)));
+        replaceBoard(makeBoard(target.id, target.name, target.kind, target.keys.filter((candidate) => candidate.slot !== slot)));
         return { status: 204 };
       }
     }
@@ -197,7 +201,7 @@ export function desktopRoute(state: DesktopState) {
       const target = board(moveMatch[1]!)!;
       const { from, to } = body as { from: number; to: number };
       const keys = target.keys.map((key) => (key.slot === from ? { ...key, slot: to } : key.slot === to ? { ...key, slot: from } : key));
-      const moved = makeBoard(target.id, target.name, keys);
+      const moved = makeBoard(target.id, target.name, target.kind, keys);
       replaceBoard(moved);
       return { body: moved };
     }

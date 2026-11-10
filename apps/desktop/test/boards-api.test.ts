@@ -1,4 +1,4 @@
-import { DEFAULT_BOARD_ID, MAX_BOARDS, type Board, type ServerEvent } from "@speed-deck/core";
+import { DEFAULT_BOARD_ID, DEFAULT_DECK_BOARD_ID, MAX_BOARDS, type Board, type ServerEvent } from "@speed-deck/core";
 import { request as httpRequest } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
@@ -79,36 +79,39 @@ describe("boards and actions API", () => {
     };
   }
 
-  it("lists the communication board on first run", async () => {
-    const [board] = await boards();
-    expect(board).toMatchObject({ id: DEFAULT_BOARD_ID, name: "Comunicación", columns: 5, rows: 3 });
+  it("lists the communication and deck boards on first run", async () => {
+    const [board, deck] = await boards();
+    expect(board).toMatchObject({ id: DEFAULT_BOARD_ID, name: "Comunicación", kind: "voice", columns: 5, rows: 3 });
     expect(board!.keys[0]).toEqual({ slot: 0, action: { type: "voice.speak", text: "Hola" } });
+    expect(deck).toMatchObject({ id: DEFAULT_DECK_BOARD_ID, name: "Deck", kind: "deck" });
+    expect(deck!.keys.map((key) => key.action.type)).toEqual(["captions.clear", "captions.toggle", "obs.toggleStream", "obs.toggleRecord"]);
   });
 
   it("creates, renames and deletes boards, broadcasting boards-changed, but keeps the last one", async () => {
     const client = await listen();
-    const created = await send("/api/boards", "POST", { name: " OBS " });
+    const created = await send("/api/boards", "POST", { name: " OBS ", kind: "deck" });
     expect(created.status).toBe(201);
-    expect(await created.json()).toEqual({ id: "id-1", name: "OBS", columns: 5, rows: 3, keys: [] });
+    expect(await created.json()).toEqual({ id: "id-1", name: "OBS", kind: "deck", columns: 5, rows: 3, keys: [] });
     expect((await client.next(1))[0]).toEqual({ type: "boards-changed", at: 1000 });
 
     const renamed = await send("/api/boards/id-1", "PATCH", { name: "Escenas" });
     expect(await renamed.json()).toMatchObject({ id: "id-1", name: "Escenas" });
-    expect((await boards()).map((b) => b.name)).toEqual(["Comunicación", "Escenas"]);
+    expect((await boards()).map((b) => b.name)).toEqual(["Comunicación", "Deck", "Escenas"]);
 
     expect((await send(`/api/boards/${DEFAULT_BOARD_ID}`, "DELETE")).status).toBe(204);
+    expect((await send(`/api/boards/${DEFAULT_DECK_BOARD_ID}`, "DELETE")).status).toBe(204);
     const last = await send("/api/boards/id-1", "DELETE");
     expect(last.status).toBe(409);
     expect(await last.json()).toMatchObject({ code: "last-board" });
-    expect((await client.next(3)).map((e) => e.type)).toEqual(["boards-changed", "boards-changed", "boards-changed"]);
+    expect((await client.next(4)).map((e) => e.type)).toEqual(["boards-changed", "boards-changed", "boards-changed", "boards-changed"]);
     client.close();
   });
 
   it("sets, overwrites, clears and moves keys", async () => {
     const path = `/api/boards/${DEFAULT_BOARD_ID}/keys`;
-    const set = await send(`${path}/20`, "PUT", { label: "Main", icon: "scene", color: "#00FF00", action: { type: "obs.switchScene", sceneName: "Main" } });
+    const set = await send(`${path}/20`, "PUT", { label: "Two", icon: "page", color: "#00FF00", action: { type: "nav.goToPage", page: 2 } });
     expect(set.status).toBe(200);
-    expect(await set.json()).toEqual({ slot: 20, label: "Main", icon: "scene", color: "#00ff00", action: { type: "obs.switchScene", sceneName: "Main" } });
+    expect(await set.json()).toEqual({ slot: 20, label: "Two", icon: "page", color: "#00ff00", action: { type: "nav.goToPage", page: 2 } });
 
     const occupied = await send(`${path}/0`, "PUT", { action: { type: "voice.stop" } });
     expect(occupied.status).toBe(409);
@@ -118,7 +121,7 @@ describe("boards and actions API", () => {
     const moved = await send(`${path}/move`, "POST", { from: 20, to: 0 });
     expect(moved.status).toBe(200);
     const keys = ((await moved.json()) as Board).keys;
-    expect(keys.find((key) => key.slot === 0)!.action.type).toBe("obs.switchScene");
+    expect(keys.find((key) => key.slot === 0)!.action.type).toBe("nav.goToPage");
     expect(keys.find((key) => key.slot === 20)!.action.type).toBe("voice.stop");
 
     expect((await send(`${path}/20`, "DELETE")).status).toBe(204);
@@ -126,6 +129,28 @@ describe("boards and actions API", () => {
     const missing = await send(`${path}/move`, "POST", { from: 21, to: 0 });
     expect(missing.status).toBe(404);
     expect(await missing.json()).toMatchObject({ code: "key-not-found" });
+  });
+
+  it("only accepts keys whose action the board kind allows", async () => {
+    const scene = { action: { type: "obs.switchScene", sceneName: "Main" } };
+    const onVoice = await send(`/api/boards/${DEFAULT_BOARD_ID}/keys/20`, "PUT", scene);
+    expect(onVoice.status).toBe(400);
+    expect(await onVoice.json()).toMatchObject({ code: "invalid-board" });
+    expect((await send(`/api/boards/${DEFAULT_BOARD_ID}/keys/20`, "PUT", { action: { type: "captions.clear" } })).status).toBe(400);
+    expect((await send(`/api/boards/${DEFAULT_DECK_BOARD_ID}/keys/20`, "PUT", { action: { type: "voice.stop" } })).status).toBe(400);
+    expect((await send(`/api/boards/${DEFAULT_DECK_BOARD_ID}/keys/20`, "PUT", scene)).status).toBe(200);
+  });
+
+  it("restores the default deck board on its own", async () => {
+    await send(`/api/boards/${DEFAULT_DECK_BOARD_ID}/keys/0`, "DELETE");
+    await send(`/api/boards/${DEFAULT_BOARD_ID}/keys/0`, "DELETE");
+    const restored = await send("/api/boards/restore-default", "POST", { language: "en", boardId: DEFAULT_DECK_BOARD_ID });
+    expect(restored.status).toBe(200);
+    expect(await restored.json()).toMatchObject({ id: DEFAULT_DECK_BOARD_ID, kind: "deck" });
+    const [voice, deck] = await boards();
+    expect(deck!.keys[0]!.action).toEqual({ type: "captions.clear" });
+    expect(voice!.keys.some((key) => key.slot === 0)).toBe(false);
+    expect((await send("/api/boards/restore-default", "POST", { language: "en", boardId: "nope" })).status).toBe(400);
   });
 
   it("restores the default board in the requested language", async () => {
@@ -138,9 +163,9 @@ describe("boards and actions API", () => {
   });
 
   it("answers 409 board-limit when restoring the default board would exceed the limit", async () => {
-    for (let index = 0; index < MAX_BOARDS - 1; index += 1) expect((await send("/api/boards", "POST", { name: `B${index}` })).status).toBe(201);
+    for (let index = 0; index < MAX_BOARDS - 2; index += 1) expect((await send("/api/boards", "POST", { name: `B${index}`, kind: "voice" })).status).toBe(201);
     expect((await send(`/api/boards/${DEFAULT_BOARD_ID}`, "DELETE")).status).toBe(204);
-    expect((await send("/api/boards", "POST", { name: "Last" })).status).toBe(201);
+    expect((await send("/api/boards", "POST", { name: "Last", kind: "voice" })).status).toBe(201);
 
     const restored = await send("/api/boards/restore-default", "POST", { language: "es" });
     expect(restored.status).toBe(409);
@@ -150,8 +175,10 @@ describe("boards and actions API", () => {
 
   it("validates input and reports unknown boards", async () => {
     const cases: Array<[string, string, unknown, number, string?]> = [
-      ["/api/boards", "POST", { name: "" }, 400, "invalid-board"],
-      ["/api/boards", "POST", { name: "x".repeat(41) }, 400, "invalid-board"],
+      ["/api/boards", "POST", { name: "", kind: "voice" }, 400, "invalid-board"],
+      ["/api/boards", "POST", { name: "x".repeat(41), kind: "voice" }, 400, "invalid-board"],
+      ["/api/boards", "POST", { name: "No kind" }, 400, "invalid-board"],
+      ["/api/boards", "POST", { name: "Bad kind", kind: "radio" }, 400, "invalid-board"],
       ["/api/boards", "POST", "{ broken", 400],
       ["/api/boards", "POST", [], 400],
       ["/api/boards/missing", "PATCH", { name: "x" }, 404, "board-not-found"],

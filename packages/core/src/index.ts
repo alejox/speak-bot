@@ -34,11 +34,16 @@ export {
   type ActionType,
 } from "./domain/actions";
 export {
+  allowedActionCategories,
+  assertActionAllowedOnBoard,
   assertKeySlot,
   BOARD_COLUMNS,
+  BOARD_KINDS,
   BOARD_ROWS,
   BoardNotFoundError,
   createKey,
+  isActionAllowedOnBoard,
+  isBoardKind,
   isHexColor,
   isKeyIconId,
   isValidKeySlot,
@@ -54,9 +59,12 @@ export {
   MAX_ICON_ID_LENGTH,
   MAX_KEY_LABEL_LENGTH,
   MAX_KEY_SLOTS,
+  MAX_STORED_BOARDS,
+  parseBoardKind,
   parseBoardName,
   readStoredBoards,
   type Board,
+  type BoardKind,
   type Key,
   type KeyIconId,
 } from "./domain/board";
@@ -69,7 +77,18 @@ export {
   type BoardPosition,
   type NavigationAction,
 } from "./domain/board-navigation";
-export { boardFromPhrases, buildDefaultBoard, COMMUNICATION_ACTIONS, DEFAULT_BOARD_ID, DEFAULT_BOARD_NAMES } from "./domain/default-board";
+export {
+  boardFromPhrases,
+  buildDefaultBoard,
+  buildDefaultBoards,
+  buildDefaultDeckBoard,
+  COMMUNICATION_KEYS,
+  DEFAULT_BOARD_ID,
+  DEFAULT_BOARD_NAMES,
+  DEFAULT_DECK_ACTIONS,
+  DEFAULT_DECK_BOARD_ID,
+  DEFAULT_DECK_BOARD_NAMES,
+} from "./domain/default-board";
 export type { BoardChange, BoardRepository } from "./ports/board-repository";
 export {
   ObsRequestError,
@@ -140,6 +159,7 @@ export {
   type BoardNameRequest,
   type BoardsChangedEvent,
   type BoardsResponse,
+  type CreateBoardRequest,
   type ExecuteActionRequest,
   type MoveKeyRequest,
   type RestoreDefaultBoardRequest,

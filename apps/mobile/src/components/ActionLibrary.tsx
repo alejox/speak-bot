@@ -1,4 +1,4 @@
-import { ACTION_CATEGORIES, ACTION_REGISTRY, ACTION_TYPES, type ActionType } from "@speed-deck/core";
+import { ACTION_REGISTRY, ACTION_TYPES, allowedActionCategories, type ActionType, type BoardKind } from "@speed-deck/core";
 import { useId, useState } from "react";
 import { useT } from "../i18n/I18nProvider";
 import type { MessageKey } from "../i18n/messages";
@@ -8,13 +8,15 @@ import { KeyIcon } from "./KeyIcon";
 export const ACTION_DRAG_TYPE = "application/x-speed-deck-action";
 
 interface ActionLibraryProps {
+  /** Kind of the board being edited; only the actions it allows are offered. */
+  boardKind: BoardKind;
   /** 0-based slot the "Assign" buttons target; null when no key is selected. */
   selectedSlot: number | null;
   onAssign: (type: ActionType) => void;
 }
 
-/** Every action, grouped by category, with search. Drag one onto a key, or select a key and press "Assign". */
-export function ActionLibrary({ selectedSlot, onAssign }: ActionLibraryProps) {
+/** Every action the board's kind allows, grouped by category, with search. Drag one onto a key, or select a key and press "Assign". */
+export function ActionLibrary({ boardKind, selectedSlot, onAssign }: ActionLibraryProps) {
   const t = useT();
   const headingId = useId();
   const searchId = useId();
@@ -25,7 +27,7 @@ export function ActionLibrary({ selectedSlot, onAssign }: ActionLibraryProps) {
   const description = (type: ActionType) => t(ACTION_REGISTRY[type].descriptionKey as MessageKey);
   const matches = (type: ActionType) =>
     needle === "" || `${name(type)} ${description(type)} ${t(`category.${ACTION_REGISTRY[type].category}`)}`.toLocaleLowerCase().includes(needle);
-  const groups = ACTION_CATEGORIES.map((category) => ({
+  const groups = allowedActionCategories(boardKind).map((category) => ({
     category,
     types: ACTION_TYPES.filter((type) => ACTION_REGISTRY[type].category === category && matches(type)),
   })).filter((group) => group.types.length > 0);

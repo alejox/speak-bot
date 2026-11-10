@@ -4,7 +4,7 @@ import { keyLabel, presentKey, type KeyContext } from "../src/app/key-presentati
 import { translate } from "../src/i18n/messages";
 
 const t = (key: Parameters<typeof translate>[1], params?: Parameters<typeof translate>[2]) => translate("en", key, params);
-const boards = [makeBoard("main", "Main"), makeBoard("games", "Games")];
+const boards = [makeBoard("main", "Main", "voice"), makeBoard("games", "Games", "voice")];
 const LIVE = { currentScene: "Main", mutedInputs: ["Mic"], streaming: true, recording: false };
 
 const remote: KeyContext = {

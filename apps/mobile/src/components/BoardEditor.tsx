@@ -1,6 +1,7 @@
 import {
   ACTION_REGISTRY,
   boardPageCount,
+  isActionAllowedOnBoard,
   isActionType,
   keysOnPage,
   KEYS_PER_PAGE,
@@ -115,8 +116,10 @@ export function BoardEditor({ boards: boardsState, navigation, context, obs, lan
     setDropSlot(null);
     const type = event.dataTransfer.getData(ACTION_DRAG_TYPE);
     const from = event.dataTransfer.getData(SLOT_DRAG_TYPE);
-    if (isActionType(type)) void assign(slot, type);
-    else if (from !== "") void move(Number(from), slot);
+    if (isActionType(type)) {
+      // The library only offers allowed actions; a drag from elsewhere (another board's tab) is ignored.
+      if (isActionAllowedOnBoard(board.kind, type)) void assign(slot, type);
+    } else if (from !== "") void move(Number(from), slot);
   };
 
   return (
@@ -127,7 +130,8 @@ export function BoardEditor({ boards: boardsState, navigation, context, obs, lan
         onSelect={selectBoard}
         onCreate={() =>
           change(
-            (store) => store.create(t("boards.defaultName", { number: boards.length + 1 })),
+            // New boards are voice boards until each space creates its own kind.
+            (store) => store.create(t("boards.defaultName", { number: boards.length + 1 }), "voice"),
             (created) => ({ key: "boards.created", params: { name: created.name } }),
           )
         }
@@ -246,6 +250,7 @@ export function BoardEditor({ boards: boardsState, navigation, context, obs, lan
                 slot={selectedSlot}
                 existing={selectedKey}
                 assignedType={assignment?.slot === selectedSlot ? assignment.type : undefined}
+                boardKind={board.kind}
                 boards={boards}
                 obs={obs}
                 onTest={onTest}
@@ -271,7 +276,7 @@ export function BoardEditor({ boards: boardsState, navigation, context, obs, lan
       </section>
 
       <div className="board-editor-side">
-        <ActionLibrary selectedSlot={selectedSlot} onAssign={(type) => selectedSlot !== null && void assign(selectedSlot, type)} />
+        <ActionLibrary boardKind={board.kind} selectedSlot={selectedSlot} onAssign={(type) => selectedSlot !== null && void assign(selectedSlot, type)} />
       </div>
     </div>
   );

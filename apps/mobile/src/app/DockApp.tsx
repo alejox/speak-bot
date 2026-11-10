@@ -75,6 +75,7 @@ function DockContent({ target }: { target: SpeechTarget }) {
           key={`${board.id}:${dialogSlot}`}
           slot={dialogSlot}
           existing={board.keys.find((key) => key.slot === dialogSlot)}
+          boardKind={board.kind}
           boards={deck.boards.boards}
           obs={target.obs}
           onTest={deck.run}

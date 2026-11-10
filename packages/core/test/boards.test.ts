@@ -7,7 +7,7 @@ import {
   boardFromPhrases,
   buildDefaultBoard,
   clearKey,
-  COMMUNICATION_ACTIONS,
+  COMMUNICATION_KEYS,
   createBoard,
   createKey,
   DEFAULT_BOARD_ID,
@@ -38,7 +38,7 @@ import {
 import { InMemoryBoardRepository, sequentialIds } from "./fakes";
 
 const speak = (text: string): Action => ({ type: "voice.speak", text });
-const board = (id: string, keys: Board["keys"] = [], name = id): Board => ({ id, name, columns: 5, rows: 3, keys });
+const board = (id: string, keys: Board["keys"] = [], name = id, kind: Board["kind"] = "voice"): Board => ({ id, name, kind, columns: 5, rows: 3, keys });
 
 describe("action registry", () => {
   it("describes every action type with a category, executor side and i18n keys", () => {
@@ -147,7 +147,7 @@ describe("readStoredBoards", () => {
 });
 
 describe("default and migrated boards", () => {
-  it("builds the Comunicación board with phrases first and communication actions on the last row", () => {
+  it("builds the Comunicación board with phrases first and the voice commands on the last row", () => {
     const es = buildDefaultBoard("es");
     expect(es.id).toBe(DEFAULT_BOARD_ID);
     expect(es.name).toBe("Comunicación");
@@ -156,8 +156,9 @@ describe("default and migrated boards", () => {
     expect(phrases.map((key) => (key.action as { text: string }).text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
     expect(phrases.map((key) => key.slot)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
     const actions = es.keys.filter((key) => key.action.type !== "voice.speak");
-    expect(actions.map((key) => key.slot)).toEqual([10, 11, 12, 13, 14]);
-    expect(actions.map((key) => key.action)).toEqual([...COMMUNICATION_ACTIONS]);
+    expect(actions.map((key) => key.slot)).toEqual([10, 11, 14]);
+    expect(actions.map((key) => key.action)).toEqual(COMMUNICATION_KEYS.map((key) => key.action));
+    expect(COMMUNICATION_KEYS.map((key) => key.action.type)).toEqual(["voice.stop", "voice.repeat", "voice.toggleLanguage"]);
     expect(buildDefaultBoard("en").keys[0]!.action).toEqual(speak("Hello"));
   });
 
@@ -170,13 +171,13 @@ describe("default and migrated boards", () => {
       { slot: 0, label: "Hi", action: speak("Hola") },
       { slot: 7, action: speak("Agua") },
     ]);
-    expect(migrated.keys.slice(2).map((key) => key.slot)).toEqual([10, 11, 12, 13, 14]);
+    expect(migrated.keys.slice(2).map((key) => key.slot)).toEqual([10, 11, 14]);
   });
 
   it("puts the actions on the next page whose last row is free", () => {
     const migrated = boardFromPhrases([phrase(12, "Hola"), phrase(27, "Busy")], "en");
     const actionSlots = migrated.keys.filter((key) => key.action.type !== "voice.speak").map((key) => key.slot);
-    expect(actionSlots).toEqual([3 * KEYS_PER_PAGE - 5, 3 * KEYS_PER_PAGE - 4, 3 * KEYS_PER_PAGE - 3, 3 * KEYS_PER_PAGE - 2, 3 * KEYS_PER_PAGE - 1]);
+    expect(actionSlots).toEqual([3 * KEYS_PER_PAGE - 5, 3 * KEYS_PER_PAGE - 4, 3 * KEYS_PER_PAGE - 1]);
   });
 
   it("shortens labels that are too long for a key", () => {
@@ -191,10 +192,10 @@ describe("board use cases", () => {
     return { repository, deps: { repository, generateId: sequentialIds("board") } };
   };
 
-  it("initializes a default board once, migrating legacy phrases when given", async () => {
+  it("initializes the default boards once, migrating legacy phrases when given", async () => {
     const empty = setup([]);
     expect(await initializeBoards(empty.deps, { language: "en", legacyPhrases: null })).toBe(true);
-    expect((await listBoards(empty.repository)).map((b) => b.name)).toEqual(["Communication"]);
+    expect((await listBoards(empty.repository)).map((b) => b.name)).toEqual(["Communication", "Deck"]);
     expect(await initializeBoards(empty.deps, { language: "es", legacyPhrases: null })).toBe(false);
     expect(empty.repository.writeCount).toBe(1);
 
@@ -206,12 +207,12 @@ describe("board use cases", () => {
 
   it("creates, renames and deletes boards but never the last one", async () => {
     const { repository, deps } = setup();
-    const created = await createBoard(deps, { name: "  OBS  " });
+    const created = await createBoard(deps, { name: "  OBS  ", kind: "voice" });
     expect(created).toEqual(board("board-1", [], "OBS"));
     expect(await renameBoard(repository, "board-1", "Escenas")).toEqual(board("board-1", [], "Escenas"));
     await expect(renameBoard(repository, "missing", "x")).rejects.toThrow(BoardNotFoundError);
     await expect(renameBoard(repository, "b1", " ")).rejects.toThrow(InvalidBoardError);
-    await expect(createBoard(deps, { name: "x".repeat(41) })).rejects.toThrow(InvalidBoardError);
+    await expect(createBoard(deps, { name: "x".repeat(41), kind: "voice" })).rejects.toThrow(InvalidBoardError);
 
     await deleteBoard(repository, "b1");
     expect((await listBoards(repository)).map((b) => b.id)).toEqual(["board-1"]);
@@ -221,14 +222,14 @@ describe("board use cases", () => {
 
   it("sets a key in a free slot and only overwrites an occupied one when asked", async () => {
     const { repository } = setup();
-    const key = await setKey(repository, "b1", { slot: 2, label: "Go", icon: "scene", color: "#112233", action: { type: "obs.switchScene", sceneName: "Main" } });
+    const key = await setKey(repository, "b1", { slot: 2, label: "Go", icon: "page", color: "#112233", action: { type: "nav.goToPage", page: 2 } });
     expect(key.slot).toBe(2);
     await expect(setKey(repository, "b1", { slot: 0, action: speak("Other") })).rejects.toThrow(SlotOccupiedError);
     await setKey(repository, "b1", { slot: 0, action: speak("Other") }, { replace: true });
     const [saved] = await listBoards(repository);
     expect(saved!.keys.map((k) => [k.slot, k.action.type])).toEqual([
       [0, "voice.speak"],
-      [2, "obs.switchScene"],
+      [2, "nav.goToPage"],
     ]);
     expect(saved!.keys[0]!.action).toEqual(speak("Other"));
     await expect(setKey(repository, "missing", { slot: 1, action: speak("a") })).rejects.toThrow(BoardNotFoundError);

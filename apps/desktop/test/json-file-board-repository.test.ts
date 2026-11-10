@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { JsonFileBoardRepository } from "../src/adapters/json-file-board-repository";
 
-const board = (id: string, keys: Board["keys"] = []): Board => ({ id, name: id.toUpperCase(), columns: 5, rows: 3, keys });
+const board = (id: string, keys: Board["keys"] = []): Board => ({ id, name: id.toUpperCase(), kind: "voice", columns: 5, rows: 3, keys });
 
 describe("JsonFileBoardRepository", () => {
   let dir: string;
@@ -42,7 +42,29 @@ describe("JsonFileBoardRepository", () => {
         ],
       }),
     );
-    expect(await new JsonFileBoardRepository(file).list()).toEqual([{ id: "a", name: "A", columns: 5, rows: 3, keys: [{ slot: 1, action: { type: "voice.stop" } }] }]);
+    expect(await new JsonFileBoardRepository(file).list()).toEqual([{ id: "a", name: "A", kind: "voice", columns: 5, rows: 3, keys: [{ slot: 1, action: { type: "voice.stop" } }] }]);
+  });
+
+  it("gives boards stored without a kind one, splitting a mixed board without moving or losing keys", async () => {
+    const speak = { slot: 0, action: { type: "voice.speak", text: "Hola" } };
+    const captions = { slot: 12, action: { type: "captions.clear" } };
+    const scene = { slot: 20, label: "Main", action: { type: "obs.switchScene", sceneName: "Main" } };
+    const stored = { version: 1, boards: [{ id: "communication", name: "Comunicación", columns: 5, rows: 3, keys: [speak, captions, scene] }] };
+    await writeFile(file, JSON.stringify(stored));
+    const repository = new JsonFileBoardRepository(file);
+    const migrated = [
+      { id: "communication", name: "Comunicación", kind: "voice", columns: 5, rows: 3, keys: [speak] },
+      { id: "communication-deck", name: "Comunicación (Deck)", kind: "deck", columns: 5, rows: 3, keys: [captions, scene] },
+    ];
+    expect(await repository.list()).toEqual(migrated);
+    // Reading alone does not rewrite the file; the first change stores the migrated boards.
+    expect(JSON.parse(await readFile(file, "utf8"))).toEqual(stored);
+
+    await setKey(repository, "communication-deck", { slot: 1, action: { type: "obs.toggleStream" } });
+    const written = JSON.parse(await readFile(file, "utf8")) as { boards: Board[] };
+    expect(written.boards[0]).toEqual(migrated[0]);
+    expect(written.boards[1]!.keys.map((key) => key.slot)).toEqual([1, 12, 20]);
+    expect(await new JsonFileBoardRepository(file).list()).toEqual(written.boards);
   });
 
   it("keeps a corrupt file as a backup and starts empty", async () => {
@@ -84,7 +106,7 @@ describe("JsonFileBoardRepository", () => {
 
     // Twenty boards created at once all survive.
     let next = 0;
-    await Promise.all(Array.from({ length: 20 }, () => createBoard({ repository, generateId: () => `b${++next}` }, { name: "Board" })));
+    await Promise.all(Array.from({ length: 20 }, () => createBoard({ repository, generateId: () => `b${++next}` }, { name: "Board", kind: "voice" })));
     const boards = await listBoards(new JsonFileBoardRepository(file));
     expect(boards).toHaveLength(21);
     expect(boards[0]!.keys).toHaveLength(1);

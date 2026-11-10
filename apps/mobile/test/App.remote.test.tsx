@@ -1,3 +1,4 @@
+import { buildDefaultBoards } from "@speed-deck/core";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { boardOf, desktopState, renderRemoteApp, speakKey, writes } from "./app-fakes";
@@ -36,20 +37,23 @@ describe("App in Computer mode", () => {
   });
 
   it("toggles captions and the voice language on the desktop, showing the new state", async () => {
-    const state = desktopState();
+    const state = desktopState({ boards: buildDefaultBoards("en") });
     state.execute["captions.toggle"] = { body: { ok: true, captionsVisible: false } };
     state.execute["voice.toggleLanguage"] = { body: { ok: true, voiceLanguage: "es" } };
     const { user } = renderRemoteApp({ state });
 
+    // The voice commands are on the Communication board; captions are on the Deck board.
+    const language = await screen.findByRole("button", { name: /Switch voice language/ });
+    expect(screen.queryByRole("button", { name: "Hide or show captions" })).not.toBeInTheDocument();
+    await user.click(language);
+    await waitFor(() => expect(language).toHaveTextContent("Voice: Español"));
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Board" }), "Deck");
     const captions = await screen.findByRole("button", { name: "Hide or show captions" });
     expect(captions).toHaveAttribute("aria-pressed", "false");
     await user.click(captions);
     await waitFor(() => expect(captions).toHaveAttribute("aria-pressed", "true"));
     expect(screen.getByRole("status")).toHaveTextContent("Captions hidden in OBS.");
-
-    const language = screen.getByRole("button", { name: /Switch voice language/ });
-    await user.click(language);
-    await waitFor(() => expect(language).toHaveTextContent("Voice: Español"));
   });
 
   it("explains desktop refusals in the interface language", async () => {
@@ -79,7 +83,7 @@ describe("App in Computer mode", () => {
           { slot: 0, action: { type: "obs.toggleMute", inputName: "Mic" } },
           { slot: 1, action: { type: "obs.switchScene", sceneName: "Main" } },
           { slot: 2, action: { type: "obs.toggleStream" } },
-        ]),
+        ], "deck"),
       ],
     });
     state.obs.state = { currentScene: "Main", mutedInputs: ["Mic"], streaming: false, recording: false };

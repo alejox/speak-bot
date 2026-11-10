@@ -2,7 +2,9 @@
 
 Status: IN PROGRESS. Authorized 2026-11-10: the user chose two spaces inside one app.
 Branch: `feat/premium-ux-redesign`, stacked on `feat/stream-deck-boards` like the existing PR chain.
-Next step: T2.
+Order changed after authorization: T1, T3, T4, then T2 and T5 to T8, because separating the two
+experiences is the user's main request and the visual work builds on that structure.
+T1 commit: d02e459. Next step: close T3 (verifier), then T4.
 
 ## Objective
 
@@ -58,9 +60,19 @@ word prediction, switch scanning.
 - [ ] **T2 Design foundations.** Token layers (colour, spacing, type, radius, elevation, motion), split
       `styles.css` by area, manual theme switch, text-size setting, contrast and reduced-motion rules.
       Check: contrast script for every text/background pair; visual pass in light and dark.
-- [ ] **T3 Board kind in the domain.** `Board.kind: "voice" | "deck"`, allowed action categories per
-      kind, migration for stored boards (a mixed board is split, never dropped), default voice board
-      without caption keys, a default deck board. Test first in `packages/core/test`.
+- [x] **T3 Board kind in the domain.** Route: delegated writer (core, desktop and mobile files).
+      `Board.kind: "voice" | "deck"`; voice allows voice + navigation, deck allows obs + captions +
+      navigation; lazy migration in `readStoredBoards` splits a mixed board into `<id>` (voice) and
+      `<id>-deck`, slots unchanged; default voice board without caption keys plus a default deck board.
+      Evidence so far: core RED 18 failing then GREEN; parent re-run 2026-11-10: typecheck clean,
+      core 123, desktop 156, mobile 150 tests passing; in the browser an existing stored board split
+      into "Comunicación" and "Comunicación (Deck)" with no console errors. `gentle-ai review assess`
+      was unassessable (untracked files), treated as high: independent verifier returned "pass with
+      follow-ups" (3000-case fuzz: no key lost, no slot moved, idempotent; 50 mixed boards accepted by
+      the desktop write guard). Follow-ups carried into T4: a board that already has a kind drops
+      disallowed keys instead of splitting them out; name/id truncation can cut a surrogate pair.
+      Known limit, accepted: a user with more than 25 mixed legacy boards ends above the 50-board
+      limit and must delete boards before creating new ones (no data loss).
 - [ ] **T4 Two spaces in the navigation.** "Voice" (home) and "Deck" as top-level spaces, each listing
       only its own boards; action library and key editor filtered by board kind. Update navigation and
       i18n tests.

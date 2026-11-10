@@ -16,7 +16,7 @@ import {
 import { InMemoryBoardRepository, sequentialIds } from "./fakes";
 
 const key = (slot: number): Key => ({ slot, action: { type: "voice.speak", text: `Key ${slot}` } });
-const board = (id: string, slots: number[] = []): Board => makeBoard(id, id.toUpperCase(), slots.map(key));
+const board = (id: string, slots: number[] = []): Board => makeBoard(id, id.toUpperCase(), "voice", slots.map(key));
 
 describe("board pages", () => {
   it("has one page when empty and enough pages for its highest key", () => {
@@ -92,6 +92,6 @@ describe("contrastTextColor", () => {
 describe("createBoard at the limit", () => {
   it("rejects with BoardLimitError, so clients can explain it", async () => {
     const repository = new InMemoryBoardRepository(Array.from({ length: MAX_BOARDS }, (_, index) => board(`b${index}`)));
-    await expect(createBoard({ repository, generateId: sequentialIds() }, { name: "One more" })).rejects.toThrow(BoardLimitError);
+    await expect(createBoard({ repository, generateId: sequentialIds() }, { name: "One more", kind: "voice" })).rejects.toThrow(BoardLimitError);
   });
 });

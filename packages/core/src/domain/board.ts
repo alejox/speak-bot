@@ -1,4 +1,4 @@
-import { InvalidBoardError, parseAction, type Action } from "./actions";
+import { ACTION_REGISTRY, InvalidBoardError, MAX_BOARD_ID_LENGTH, parseAction, type Action, type ActionCategory, type ActionType } from "./actions";
 
 /** Keys per row and rows per page of every board. */
 export const BOARD_COLUMNS = 5;
@@ -11,7 +11,46 @@ export const MAX_KEY_SLOTS = KEYS_PER_PAGE * MAX_BOARD_PAGES;
 export const MAX_KEY_LABEL_LENGTH = 40;
 export const MAX_BOARD_NAME_LENGTH = 40;
 export const MAX_ICON_ID_LENGTH = 40;
+/** Most boards a user can have; creating or restoring one past it is refused. */
 export const MAX_BOARDS = 50;
+/**
+ * Most boards read from storage. Twice `MAX_BOARDS` because giving stored boards a kind may split
+ * every one of them in two, and a split must never cost the user a key.
+ */
+export const MAX_STORED_BOARDS = MAX_BOARDS * 2;
+
+/** What a board is for: "voice" speaks for its user, "deck" controls the computer (OBS, captions). */
+export const BOARD_KINDS = ["voice", "deck"] as const;
+export type BoardKind = (typeof BOARD_KINDS)[number];
+
+const ALLOWED_CATEGORIES: Readonly<Record<BoardKind, readonly ActionCategory[]>> = {
+  voice: ["voice", "navigation"],
+  deck: ["captions", "navigation", "obs"],
+};
+
+export function isBoardKind(value: unknown): value is BoardKind {
+  return typeof value === "string" && (BOARD_KINDS as readonly string[]).includes(value);
+}
+
+export function parseBoardKind(kind: unknown): BoardKind {
+  if (!isBoardKind(kind)) throw new InvalidBoardError(`kind must be one of: ${BOARD_KINDS.join(", ")}.`);
+  return kind;
+}
+
+/** The action categories a board of `kind` may hold, in library order. */
+export function allowedActionCategories(kind: BoardKind): readonly ActionCategory[] {
+  return ALLOWED_CATEGORIES[kind];
+}
+
+/** Whether a key with an action of `actionType` may sit on a board of `kind`. */
+export function isActionAllowedOnBoard(kind: BoardKind, actionType: ActionType): boolean {
+  return ALLOWED_CATEGORIES[kind].includes(ACTION_REGISTRY[actionType].category);
+}
+
+/** Throws `InvalidBoardError` when a board of `kind` may not hold an action of `actionType`. */
+export function assertActionAllowedOnBoard(kind: BoardKind, actionType: ActionType): void {
+  if (!isActionAllowedOnBoard(kind, actionType)) throw new InvalidBoardError(`A ${kind} board cannot hold the action ${actionType}.`);
+}
 
 /** Icon ids a key may show; the clients draw them. */
 export const KEY_ICON_IDS = [
@@ -60,10 +99,14 @@ export interface Key {
   readonly action: Action;
 }
 
-/** A named set of keys, shown as pages of `columns` × `rows`. Keys are kept in slot order. */
+/**
+ * A named set of keys, shown as pages of `columns` × `rows`. Keys are kept in slot order, and every
+ * key's action is one its `kind` allows (see `isActionAllowedOnBoard`).
+ */
 export interface Board {
   readonly id: string;
   readonly name: string;
+  readonly kind: BoardKind;
   readonly columns: number;
   readonly rows: number;
   readonly keys: readonly Key[];
@@ -154,40 +197,96 @@ export function parseBoardName(name: unknown): string {
 }
 
 export function parseBoardId(id: unknown): string {
-  if (typeof id !== "string" || id.trim() === "" || id.length > 100) throw new InvalidBoardError("id must be a non-empty string.");
+  if (typeof id !== "string" || id.trim() === "" || id.length > MAX_BOARD_ID_LENGTH) throw new InvalidBoardError("id must be a non-empty string.");
   return id;
 }
 
-/** A validated board with its keys in slot order. */
-export function makeBoard(id: string, name: string, keys: readonly Key[] = []): Board {
-  return { id: parseBoardId(id), name: parseBoardName(name), columns: BOARD_COLUMNS, rows: BOARD_ROWS, keys: sortKeys(keys) };
+/** A validated board of `kind` with its keys in slot order. Rejects a key whose action the kind does not allow. */
+export function makeBoard(id: string, name: string, kind: BoardKind, keys: readonly Key[] = []): Board {
+  const parsedKind = parseBoardKind(kind);
+  for (const key of keys) assertActionAllowedOnBoard(parsedKind, key.action.type);
+  return { id: parseBoardId(id), name: parseBoardName(name), kind: parsedKind, columns: BOARD_COLUMNS, rows: BOARD_ROWS, keys: sortKeys(keys) };
 }
 
 export function sortKeys(keys: readonly Key[]): Key[] {
   return [...keys].sort((a, b) => a.slot - b.slot);
 }
 
+/** A stored board whose id, name and keys are valid; `kind` is undefined when it was stored before boards had one. */
+interface StoredBoard {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: BoardKind | undefined;
+  readonly keys: readonly Key[];
+}
+
 /**
  * Reads boards from stored or received data without ever throwing: invalid boards are dropped, and
- * so are invalid keys and keys whose slot an earlier key already uses. Board ids stay unique.
+ * so are invalid keys, keys whose slot an earlier key already uses and keys the board's kind does
+ * not allow. Board ids stay unique.
+ *
+ * Boards stored before boards had a kind get one from their keys (see `boardsOfLegacyBoard`), which
+ * may split a board in two. Reading the result again changes nothing.
  */
 export function readStoredBoards(value: unknown): Board[] {
   if (!Array.isArray(value)) return [];
-  const boards: Board[] = [];
+  const stored: StoredBoard[] = [];
   const ids = new Set<string>();
   for (const candidate of value) {
     const board = readStoredBoard(candidate);
-    if (board && !ids.has(board.id) && boards.length < MAX_BOARDS) {
+    if (board && !ids.has(board.id)) {
       ids.add(board.id);
-      boards.push(board);
+      stored.push(board);
     }
+  }
+  const boards: Board[] = [];
+  for (const board of stored) {
+    const read =
+      board.kind === undefined
+        ? boardsOfLegacyBoard(board, ids)
+        : [makeBoard(board.id, board.name, board.kind, board.keys.filter((key) => isActionAllowedOnBoard(board.kind!, key.action.type)))];
+    // A split board is kept whole or not at all, so it is never stored half migrated.
+    if (boards.length + read.length > MAX_STORED_BOARDS) break;
+    boards.push(...read);
   }
   return boards;
 }
 
-function readStoredBoard(value: unknown): Board | null {
+/**
+ * Gives a board stored without a kind one, never moving or dropping a key:
+ * - only voice and navigation keys, or no keys → a voice board;
+ * - no voice keys and at least one OBS or caption key → a deck board;
+ * - both → the board becomes a voice board with its voice and navigation keys, followed by a new
+ *   deck board `<id>-deck` named `<name> (Deck)` with its OBS and caption keys in the same slots.
+ * `takenIds` holds every board id in use; the id of a new deck board is added to it.
+ */
+function boardsOfLegacyBoard(board: StoredBoard, takenIds: Set<string>): Board[] {
+  const deckOnly = board.keys.filter((key) => !isActionAllowedOnBoard("voice", key.action.type));
+  if (deckOnly.length === 0) return [makeBoard(board.id, board.name, "voice", board.keys)];
+  if (board.keys.every((key) => isActionAllowedOnBoard("deck", key.action.type))) return [makeBoard(board.id, board.name, "deck", board.keys)];
+  const voiceKeys = board.keys.filter((key) => isActionAllowedOnBoard("voice", key.action.type));
+  const deckId = splitDeckId(board.id, takenIds);
+  takenIds.add(deckId);
+  return [makeBoard(board.id, board.name, "voice", voiceKeys), makeBoard(deckId, splitDeckName(board.name), "deck", deckOnly)];
+}
+
+/** `<id>-deck`, then `<id>-deck-2`, `<id>-deck-3`… until free; the original id is shortened to keep the limit. */
+function splitDeckId(id: string, takenIds: ReadonlySet<string>): string {
+  for (let attempt = 1; ; attempt += 1) {
+    const suffix = attempt === 1 ? "-deck" : `-deck-${attempt}`;
+    const candidate = `${id.slice(0, MAX_BOARD_ID_LENGTH - suffix.length)}${suffix}`;
+    if (!takenIds.has(candidate)) return candidate;
+  }
+}
+
+function splitDeckName(name: string): string {
+  const suffix = " (Deck)";
+  return `${name.slice(0, MAX_BOARD_NAME_LENGTH - suffix.length).trimEnd()}${suffix}`;
+}
+
+function readStoredBoard(value: unknown): StoredBoard | null {
   if (typeof value !== "object" || value === null) return null;
-  const { id, name, keys } = value as Record<string, unknown>;
+  const { id, name, kind, keys } = value as Record<string, unknown>;
   try {
     const slots = new Set<number>();
     const valid: Key[] = [];
@@ -198,7 +297,7 @@ function readStoredBoard(value: unknown): Board | null {
         valid.push(key);
       }
     }
-    return makeBoard(parseBoardId(id), parseBoardName(name), valid);
+    return { id: parseBoardId(id), name: parseBoardName(name), kind: isBoardKind(kind) ? kind : undefined, keys: valid };
   } catch {
     return null;
   }

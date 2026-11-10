@@ -1,5 +1,6 @@
 import { InvalidBoardError } from "../domain/actions";
 import {
+  assertActionAllowedOnBoard,
   assertKeySlot,
   BoardLimitError,
   BoardNotFoundError,
@@ -8,12 +9,13 @@ import {
   LastBoardError,
   makeBoard,
   MAX_BOARDS,
+  parseBoardKind,
   parseBoardName,
   sortKeys,
   type Board,
   type Key,
 } from "../domain/board";
-import { boardFromPhrases, buildDefaultBoard, DEFAULT_BOARD_ID } from "../domain/default-board";
+import { boardFromPhrases, buildDefaultBoard, buildDefaultDeckBoard, DEFAULT_BOARD_ID, DEFAULT_DECK_BOARD_ID } from "../domain/default-board";
 import { SlotOccupiedError, type Phrase } from "../domain/phrase";
 import type { BoardRepository } from "../ports/board-repository";
 import type { UiLanguage } from "../protocol";
@@ -28,9 +30,9 @@ export function listBoards(repository: BoardRepository): Promise<Board[]> {
 }
 
 /**
- * Creates the first board when there is none: the communication board built from `legacyPhrases`
- * (phrases saved by older versions) when given, otherwise the default one in `language`.
- * Resolves true when it created a board.
+ * Creates the first boards when there is none: the communication board, built from `legacyPhrases`
+ * (phrases saved by older versions) when given and otherwise the default one in `language`, followed
+ * by the default deck board. Resolves true when it created them.
  */
 export async function initializeBoards(
   { repository }: Pick<BoardDependencies, "repository">,
@@ -38,13 +40,14 @@ export async function initializeBoards(
 ): Promise<boolean> {
   return repository.update((boards) => {
     if (boards.length > 0) return { result: false };
-    const board = legacyPhrases ? boardFromPhrases(legacyPhrases, language) : buildDefaultBoard(language);
-    return { boards: [board], result: true };
+    const voice = legacyPhrases ? boardFromPhrases(legacyPhrases, language) : buildDefaultBoard(language);
+    return { boards: [voice, buildDefaultDeckBoard(language)], result: true };
   });
 }
 
-export async function createBoard({ repository, generateId }: BoardDependencies, { name }: { name: unknown }): Promise<Board> {
-  const board = makeBoard(generateId(), parseBoardName(name));
+/** Creates an empty board of `kind` ("voice" or "deck"). */
+export async function createBoard({ repository, generateId }: BoardDependencies, { name, kind }: { name: unknown; kind: unknown }): Promise<Board> {
+  const board = makeBoard(generateId(), parseBoardName(name), parseBoardKind(kind));
   return repository.update((boards) => {
     if (boards.length >= MAX_BOARDS) throw new BoardLimitError();
     if (boards.some((other) => other.id === board.id)) throw new InvalidBoardError("A board with this id already exists.");
@@ -67,12 +70,14 @@ export async function deleteBoard(repository: BoardRepository, id: string): Prom
 }
 
 /**
- * Puts a key (`slot`, label, icon, color, action; validated) on a board. A slot that already holds a
- * key rejects with `SlotOccupiedError` unless `replace` is true.
+ * Puts a key (`slot`, label, icon, color, action; validated) on a board. An action the board's kind
+ * does not allow rejects with `InvalidBoardError`. A slot that already holds a key rejects with
+ * `SlotOccupiedError` unless `replace` is true.
  */
 export async function setKey(repository: BoardRepository, boardId: string, input: unknown, { replace = false } = {}): Promise<Key> {
   const key = createKey(input);
   await changeBoard(repository, boardId, (board) => {
+    assertActionAllowedOnBoard(board.kind, key.action.type);
     if (!replace && board.keys.some((other) => other.slot === key.slot)) throw new SlotOccupiedError(key.slot);
     return { ...board, keys: [...board.keys.filter((other) => other.slot !== key.slot), key] };
   });
@@ -103,16 +108,22 @@ export async function moveKey(repository: BoardRepository, boardId: string, from
 }
 
 /**
- * Puts back the built-in communication board in `language`, in place, or first when it was deleted.
+ * Puts back a built-in board in `language`: the communication board, or the deck board when `id` is
+ * `DEFAULT_DECK_BOARD_ID`. It is restored in place; when it was deleted, the communication board
+ * goes first and the deck board right after the communication board (last when there is none).
  * Rejects with `BoardLimitError` when it was deleted and there is no room for it.
  */
-export async function restoreDefaultBoard(repository: BoardRepository, language: UiLanguage): Promise<Board> {
-  const fresh = buildDefaultBoard(language);
+export async function restoreDefaultBoard(repository: BoardRepository, language: UiLanguage, id: unknown = DEFAULT_BOARD_ID): Promise<Board> {
+  if (id !== DEFAULT_BOARD_ID && id !== DEFAULT_DECK_BOARD_ID) throw new InvalidBoardError("boardId is not a built-in board.");
+  const fresh = id === DEFAULT_BOARD_ID ? buildDefaultBoard(language) : buildDefaultDeckBoard(language);
   return repository.update((boards) => {
-    const index = boards.findIndex((board) => board.id === DEFAULT_BOARD_ID);
-    if (index === -1 && boards.length >= MAX_BOARDS) throw new BoardLimitError();
-    const next = index === -1 ? [fresh, ...boards] : boards.map((board, at) => (at === index ? fresh : board));
-    return { boards: next, result: fresh };
+    const index = boards.findIndex((board) => board.id === fresh.id);
+    if (index !== -1) return { boards: boards.map((board, at) => (at === index ? fresh : board)), result: fresh };
+    if (boards.length >= MAX_BOARDS) throw new BoardLimitError();
+    if (fresh.id === DEFAULT_BOARD_ID) return { boards: [fresh, ...boards], result: fresh };
+    const voiceIndex = boards.findIndex((board) => board.id === DEFAULT_BOARD_ID);
+    const at = voiceIndex === -1 ? boards.length : voiceIndex + 1;
+    return { boards: [...boards.slice(0, at), fresh, ...boards.slice(at)], result: fresh };
   });
 }
 
