@@ -346,3 +346,32 @@
 .badge-error {
   border-color: var(--color-danger);
 }
+
+/*
+ * Status mark on an icon (StatusDot): filled when connected, half filled while connecting, a hollow ring
+ * when not connected, so the state never rests on colour alone. The surface-coloured halo keeps it
+ * readable on any background, the accent of the current menu item included.
+ */
+.nav-status {
+  box-sizing: border-box;
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-full);
+  border: 2px solid currentColor;
+  box-shadow: 0 0 0 2px var(--color-surface);
+  background: var(--color-surface);
+}
+
+.nav-status-ok {
+  color: var(--color-success);
+  background: currentColor;
+}
+
+.nav-status-pending {
+  color: var(--color-warning);
+  background: linear-gradient(to top, currentColor 50%, var(--color-surface) 50%);
+}
+
+.nav-status-off {
+  color: var(--color-danger);
+}

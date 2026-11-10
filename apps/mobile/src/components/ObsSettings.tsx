@@ -14,7 +14,7 @@ interface ObsSettingsProps {
   onTest: () => void;
 }
 
-/** The OBS connection group of the settings: enabled, host, port and a write-only password, with a live status. */
+/** The OBS connection (the OBS section): enabled, host, port and a write-only password, with a live status. */
 export function ObsSettings({ settings, live, canEdit, onSave, onTest }: ObsSettingsProps) {
   const t = useT();
   const ids = { heading: useId(), host: useId(), port: useId(), password: useId(), passwordHint: useId(), note: useId(), error: useId() };
@@ -53,7 +53,7 @@ export function ObsSettings({ settings, live, canEdit, onSave, onTest }: ObsSett
   return (
     <section className="obs-settings" aria-labelledby={ids.heading}>
       <div className="obs-settings-header">
-        <h4 id={ids.heading}>{t("obs.title")}</h4>
+        <h3 id={ids.heading}>{t("obs.connection")}</h3>
         <span className={`badge badge-${status}`} role="status">
           {t("obs.status", { status: t(`obs.status.${status}`) })}
         </span>

@@ -1,5 +1,5 @@
 import { ACTION_REGISTRY, MAX_KEY_SLOTS, type ActionType, type Board, type BoardKind } from "@speed-deck/core";
-import { LayoutGrid, MessageSquare, Settings, Smartphone } from "lucide-react";
+import { LayoutGrid, MessageSquare, Settings, Smartphone, Video } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import {
   BOARD_POSITION_STORAGE_KEY,
@@ -20,6 +20,7 @@ import { RecentPhrases } from "../components/RecentPhrases";
 import { SectionView } from "../components/SectionView";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { SideNav, type NavItem } from "../components/SideNav";
+import { obsTone } from "../components/StatusDot";
 import { I18nProvider, useMessageText, useT } from "../i18n/I18nProvider";
 import type { Message, MessageKey } from "../i18n/messages";
 import type { AppServices } from "./composition-root";
@@ -41,6 +42,7 @@ const ICON_SIZE = 22;
 const SECTION_ICONS: Record<Section, ReactNode> = {
   voice: <MessageSquare size={ICON_SIZE} />,
   deck: <LayoutGrid size={ICON_SIZE} />,
+  obs: <Video size={ICON_SIZE} />,
   connect: <Smartphone size={ICON_SIZE} />,
   settings: <Settings size={ICON_SIZE} />,
 };
@@ -128,8 +130,15 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const spaces = useSpaceDecks(target, speech, language, positionStores, select, setStatus);
 
   // Connect only exists on the computer itself; fall back when it is not available.
-  const section: Section = storedSection === "connect" && !connection ? "voice" : storedSection;
-  const navItems: NavItem<Section>[] = SECTIONS.filter((id) => id !== "connect" || connection).map((id) => ({ id, label: t(`nav.${id}`), icon: SECTION_ICONS[id] }));
+  const section: Section = storedSection === "connect" && !connection ? "deck" : storedSection;
+  // OBS is reached through the computer app only; the menu item shows and says whether it is connected.
+  const obsStatusTone = obsTone(target.isRemote, spaces.deck.obs);
+  const navItems: NavItem<Section>[] = SECTIONS.filter((id) => id !== "connect" || connection).map((id) => ({
+    id,
+    label: t(`nav.${id}`),
+    icon: SECTION_ICONS[id],
+    status: id === "obs" ? { tone: obsStatusTone, label: t(`nav.obsStatus.${obsStatusTone}`) } : undefined,
+  }));
   const space = spaceOfSection(section);
   const deck = space ? spaces[space] : null;
   const board = deck?.navigation.board ?? null;
@@ -196,12 +205,16 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
       obs={deck.obs}
       note={deckNote ? t(deckNote) : undefined}
       onOpenSettings={() => select("settings")}
+      onOpenObs={() => select("obs")}
     />
   );
 
   return (
-    // data-space picks the accent colour: each space has its own, and the other sections share the Voice one.
-    <div className={["app", navCollapsed ? "app-nav-collapsed" : "", hasPanel ? "app-inspecting" : ""].filter(Boolean).join(" ")} data-space={space ?? "voice"}>
+    // data-space picks the accent colour: each space has its own, OBS shares the Deck one and the rest the Voice one.
+    <div
+      className={["app", navCollapsed ? "app-nav-collapsed" : "", hasPanel ? "app-inspecting" : ""].filter(Boolean).join(" ")}
+      data-space={space ?? (section === "obs" ? "deck" : "voice")}
+    >
       <header className="app-header">
         <h1 className="app-brand">
           <AppMark />
@@ -302,6 +315,46 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
           </SectionView>
         )}
 
+        {section === "obs" && (
+          <SectionView key="obs" title={t("nav.obs")} focusHeading={navigated}>
+            <div className="settings">
+              {target.obsSettings ? (
+                <ObsSettings
+                  settings={target.obsSettings}
+                  live={spaces.deck.obs}
+                  canEdit={target.isOnComputer}
+                  onSave={(patch) =>
+                    target.saveObsSettings(patch).then(
+                      () => {
+                        setStatus({ key: "obs.saved" });
+                        return true;
+                      },
+                      (error: unknown) => {
+                        setStatus(describeRequestError(error));
+                        return false;
+                      },
+                    )
+                  }
+                  onTest={() => {
+                    setStatus(null);
+                    target.obs?.connect().catch((error: unknown) => setStatus(describeRequestError(error)));
+                  }}
+                />
+              ) : (
+                <>
+                  <p className="field-hint">{t("obs.needsComputer")}</p>
+                  {/* The computer is there but this device speaks itself: choosing the computer is in Settings. */}
+                  {target.isDesktopAvailable && !target.isRemote && (
+                    <button type="button" className="button button-small obs-open-settings" onClick={() => select("settings")}>
+                      {t("deck.openSettings")}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </SectionView>
+        )}
+
         {section === "connect" && connection && (
           <SectionView key="connect" title={t("nav.connect")} focusHeading={navigated}>
             <ConnectPanel {...connection} />
@@ -323,31 +376,6 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
               onAppearanceChange={appearance.setAppearance}
               speakOn={target.speakOn}
               outputDevice={target.outputDevice}
-              deckSettings={
-                target.obsSettings && (
-                  <ObsSettings
-                    settings={target.obsSettings}
-                    live={spaces.deck.obs}
-                    canEdit={target.isOnComputer}
-                    onSave={(patch) =>
-                      target.saveObsSettings(patch).then(
-                        () => {
-                          setStatus({ key: "obs.saved" });
-                          return true;
-                        },
-                        (error: unknown) => {
-                          setStatus(describeRequestError(error));
-                          return false;
-                        },
-                      )
-                    }
-                    onTest={() => {
-                      setStatus(null);
-                      target.obs?.connect().catch((error: unknown) => setStatus(describeRequestError(error)));
-                    }}
-                  />
-                )
-              }
             />
           </SectionView>
         )}

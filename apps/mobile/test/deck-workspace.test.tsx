@@ -61,6 +61,31 @@ describe("Deck workspace on wide screens", () => {
     expect(screen.getByRole("img", { name: "OBS connected, Live, Recording" })).toBeInTheDocument();
   });
 
+  it("shows OBS connected in green with a filled status dot", async () => {
+    const state = desktopState({ boards: boards() });
+    state.obs = { enabled: true, status: "connected", state: idle };
+    const { user } = renderRemoteApp({ state });
+    await screen.findByRole("button", { name: "Hi" });
+    await goTo(user, "Deck");
+    const indicator = await screen.findByRole("img", { name: "OBS connected" });
+    expect(indicator).toHaveClass("deck-indicator-ok");
+    expect(indicator.querySelector(".nav-status-ok")).not.toBeNull();
+  });
+
+  it("leads to the OBS section from the indicator when OBS is not connected", async () => {
+    const state = desktopState({ boards: boards() });
+    state.obs = { enabled: true, status: "error", state: idle };
+    const { user } = renderRemoteApp({ state });
+    await screen.findByRole("button", { name: "Hi" });
+    await goTo(user, "Deck");
+    const indicator = await screen.findByRole("button", { name: "OBS not connected. Open OBS" });
+    expect(indicator).toHaveClass("deck-indicator-off");
+    expect(indicator.querySelector(".nav-status-off")).not.toBeNull();
+    await user.click(indicator);
+    expect(screen.getByRole("heading", { level: 2, name: "OBS" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Connection" })).toBeInTheDocument();
+  });
+
   it("docks the key inspector beside the workspace, not inside it", async () => {
     await openLocalDeck();
     const panel = screen.getByRole("complementary", { name: "New key" });

@@ -2,8 +2,8 @@ import type { BoardKind } from "@speed-deck/core";
 import { useState } from "react";
 import { getLocalStorage, readJson, writeJson } from "../adapters/browser-storage";
 
-/** "voice" and "deck" are the two spaces, each showing the boards of that kind. */
-export const SECTIONS = ["voice", "deck", "connect", "settings"] as const;
+/** "voice" and "deck" are the two spaces, each showing the boards of that kind; the menu lists them in this order. */
+export const SECTIONS = ["deck", "voice", "obs", "connect", "settings"] as const;
 export type Section = (typeof SECTIONS)[number];
 
 /** Sections of versions before the Voice and Deck spaces, and where each one lives now. */
@@ -15,10 +15,10 @@ function isSection(value: unknown): value is Section {
   return typeof value === "string" && (SECTIONS as readonly string[]).includes(value);
 }
 
-/** The section a stored value names; Voice for anything unknown. */
+/** The section a stored value names; the Deck (the first launch) for anything unknown. */
 export function sectionOfStored(stored: unknown): Section {
   if (isSection(stored)) return stored;
-  return (typeof stored === "string" && Object.hasOwn(LEGACY_SECTIONS, stored) ? LEGACY_SECTIONS[stored] : undefined) ?? "voice";
+  return (typeof stored === "string" && Object.hasOwn(LEGACY_SECTIONS, stored) ? LEGACY_SECTIONS[stored] : undefined) ?? "deck";
 }
 
 /** The space a section shows, or null for a section that is not a space. */

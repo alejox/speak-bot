@@ -1,12 +1,15 @@
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { useT } from "../i18n/I18nProvider";
+import { StatusDot, type ObsTone } from "./StatusDot";
 
 export interface NavItem<Id extends string> {
   id: Id;
   label: string;
   /** Decorative symbol shown next to the label. */
   icon: ReactNode;
+  /** A live state shown on the icon (colour and a dot) and spoken after the label, e.g. "OBS, connected". */
+  status?: { tone: ObsTone; label: string };
 }
 
 interface SideNavProps<Id extends string> {
@@ -43,22 +46,29 @@ export function SideNav<Id extends string>({ items, active, onSelect, collapsed 
         </button>
       )}
       <ul>
-        {items.map((item) => (
-          <li key={item.id}>
-            <a
-              href={`#${item.id}`}
-              className="side-nav-link"
-              aria-current={item.id === active ? "page" : undefined}
-              title={collapsed ? item.label : undefined}
-              onClick={(event) => select(event, item.id)}
-            >
-              <span className="side-nav-icon" aria-hidden="true">
-                {item.icon}
-              </span>
-              <span className="side-nav-label">{item.label}</span>
-            </a>
-          </li>
-        ))}
+        {items.map((item) => {
+          const name = item.status ? `${item.label}, ${item.status.label}` : item.label;
+          return (
+            <li key={item.id}>
+              <a
+                href={`#${item.id}`}
+                className={item.status ? `side-nav-link side-nav-link-${item.status.tone}` : "side-nav-link"}
+                aria-current={item.id === active ? "page" : undefined}
+                title={collapsed ? name : undefined}
+                onClick={(event) => select(event, item.id)}
+              >
+                <span className="side-nav-icon" aria-hidden="true">
+                  {item.icon}
+                  {item.status && <StatusDot tone={item.status.tone} />}
+                </span>
+                <span className="side-nav-label">
+                  {item.label}
+                  {item.status && <span className="visually-hidden">, {item.status.label}</span>}
+                </span>
+              </a>
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );

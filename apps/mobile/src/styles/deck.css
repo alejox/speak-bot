@@ -407,8 +407,23 @@
   border-radius: var(--radius-lg);
 }
 
+/* Green when OBS is connected, amber while connecting, red otherwise; the status dot repeats it in shape. */
 .deck-indicator-ok {
   color: var(--color-success);
+}
+
+.deck-indicator-pending {
+  color: var(--color-warning);
+}
+
+.deck-indicator-off {
+  color: var(--color-danger);
+}
+
+.deck-indicator .nav-status {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
 }
 
 .deck-indicator-link {
@@ -416,7 +431,6 @@
 }
 
 .deck-indicator-link:hover {
-  color: var(--color-text);
   background: var(--color-surface-raised);
 }
 

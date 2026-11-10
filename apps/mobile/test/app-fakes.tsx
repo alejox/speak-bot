@@ -23,6 +23,7 @@ import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesize
 import { App } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
 import { DockApp } from "../src/app/DockApp";
+import { SECTION_STORAGE_KEY, type Section } from "../src/app/use-section";
 import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
 import { memoryLanguageStore } from "./i18n-helpers";
 
@@ -77,6 +78,11 @@ export interface LocalSetupOptions {
   voices?: Voice[];
   /** A synthesizer to use instead of the default one (e.g. one whose speech never ends). */
   synthesizer?: LocalSynthesizer;
+  /**
+   * The section remembered from an earlier visit, unless the test stored one itself. Voice by default, where
+   * most suites start; null keeps a first launch (which opens the Deck).
+   */
+  section?: Section | null;
 }
 
 /** App services for phone-only mode, with boards in localStorage. */
@@ -87,7 +93,9 @@ export function localServices({
   appearance: initialAppearance,
   voices,
   synthesizer = new LocalSynthesizer(voices),
+  section = "voice",
 }: LocalSetupOptions = {}) {
+  if (section && localStorage.getItem(SECTION_STORAGE_KEY) === null) localStorage.setItem(SECTION_STORAGE_KEY, JSON.stringify(section));
   if (boards) localStorage.setItem("speed-deck:boards", JSON.stringify({ version: 1, boards }));
   let saved = settings;
   let id = 0;

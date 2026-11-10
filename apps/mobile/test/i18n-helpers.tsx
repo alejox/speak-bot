@@ -24,7 +24,7 @@ export function renderWithLanguage(ui: ReactElement, language: UiLanguage = "en"
 }
 
 /** Opens a section from the navigation menu. */
-export async function goTo(user: { click: (element: Element) => Promise<void> }, section: string) {
+export async function goTo(user: { click: (element: Element) => Promise<void> }, section: string | RegExp) {
   const { screen } = await import("@testing-library/react");
   await user.click(screen.getByRole("link", { name: section }));
 }

@@ -8,6 +8,10 @@ export const es: Messages = {
   "nav.label": "Secciones",
   "nav.voice": "Voz",
   "nav.deck": "Deck",
+  "nav.obs": "OBS",
+  "nav.obsStatus.ok": "conectado",
+  "nav.obsStatus.pending": "conectando",
+  "nav.obsStatus.off": "sin conexión",
   "nav.connect": "Conectar",
   "nav.settings": "Ajustes",
   "nav.collapse": "Contraer menú",
@@ -20,6 +24,7 @@ export const es: Messages = {
     "Las teclas del Deck controlan OBS mediante la app de Speed Deck para computadora. Para usarlas, elige «Computadora» en «Hablar en», dentro de Ajustes.",
 
   "deck.openSettings": "Abrir Ajustes",
+  "deck.openObs": "Abrir OBS",
   "deck.status.label": "Estado del Deck",
   "deck.status.noComputer": "Computadora no conectada",
   "deck.status.obsDisconnected": "OBS no conectado",
@@ -259,7 +264,6 @@ export const es: Messages = {
   "settings.previewSample": "Hola, así suena esta voz.",
   "settings.noVoices": "Este navegador no ofrece ninguna voz, así que no hay nada que elegir aquí. Prueba con otro navegador o instala una voz en los ajustes del sistema.",
   "settings.speed": "Velocidad",
-  "settings.deckNeedsComputer": "La conexión con OBS se configura aquí cuando Speed Deck se abre desde la app de la computadora y está configurado para hablar en la computadora.",
   "settings.languageGroup": "Idioma",
   "settings.appearance": "Apariencia",
   "settings.theme": "Tema",
@@ -271,7 +275,8 @@ export const es: Messages = {
   "settings.textSizeLarge": "Grande",
   "settings.textSizeExtraLarge": "Muy grande",
 
-  "obs.title": "OBS",
+  "obs.connection": "Conexión",
+  "obs.needsComputer": "La conexión con OBS se configura aquí cuando Speed Deck se abre desde la app de la computadora y está configurado para hablar en la computadora.",
   "obs.hint":
     "En OBS, abre Herramientas → Ajustes del servidor WebSocket, activa el servidor y copia aquí su puerto y su contraseña.",
   "obs.enabled": "Conectar con OBS",

@@ -38,16 +38,13 @@ interface SettingsPanelProps {
   speakOn?: { value: SpeakTarget; onChange: (target: SpeakTarget) => void } | null;
   /** Shown only when speaking on a computer that can choose its output device. */
   outputDevice?: { devices: AudioDevice[]; selectedId: string; onChange: (deviceId: string) => void } | null;
-  /** The Deck group (the OBS connection); without it the group explains where OBS is set up. */
-  deckSettings?: ReactNode;
 }
 
 /** A titled group of settings. */
-function SettingsGroup({ title, space, children }: { title: string; space?: "deck"; children: ReactNode }) {
+function SettingsGroup({ title, children }: { title: string; children: ReactNode }) {
   const titleId = useId();
   return (
-    // data-space gives the Deck group the Deck accent; the others keep the accent of the app.
-    <div className="settings-group" role="group" aria-labelledby={titleId} data-space={space}>
+    <div className="settings-group" role="group" aria-labelledby={titleId}>
       <h3 id={titleId}>{title}</h3>
       {children}
     </div>
@@ -67,7 +64,6 @@ export function SettingsPanel({
   onAppearanceChange,
   speakOn,
   outputDevice,
-  deckSettings,
 }: SettingsPanelProps) {
   const t = useT();
   const language = useLanguage();
@@ -174,10 +170,6 @@ export function SettingsPanel({
             <span>{formatRate(MAX_RATE)}</span>
           </span>
         </div>
-      </SettingsGroup>
-
-      <SettingsGroup title={t("nav.deck")} space="deck">
-        {deckSettings ?? <p className="field-hint">{t("settings.deckNeedsComputer")}</p>}
       </SettingsGroup>
 
       <SettingsGroup title={t("settings.appearance")}>

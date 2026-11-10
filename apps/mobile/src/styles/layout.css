@@ -152,10 +152,37 @@
 }
 
 .side-nav-icon {
+  position: relative;
   display: flex;
   flex: none;
   justify-content: center;
   width: 1.4em;
+}
+
+/*
+ * A status on the icon (OBS): green when connected, amber while connecting, red when not. The dot shape
+ * (filled, half, hollow) repeats it without colour, and stays coloured on the current item.
+ */
+.side-nav-link-ok .side-nav-icon {
+  color: var(--color-success);
+}
+
+.side-nav-link-pending .side-nav-icon {
+  color: var(--color-warning);
+}
+
+.side-nav-link-off .side-nav-icon {
+  color: var(--color-danger);
+}
+
+.side-nav-link[aria-current="page"] .side-nav-icon {
+  color: inherit;
+}
+
+.side-nav-icon .nav-status {
+  position: absolute;
+  right: -3px;
+  bottom: -1px;
 }
 
 .side-nav-toggle {

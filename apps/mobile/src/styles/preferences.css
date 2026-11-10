@@ -39,6 +39,22 @@
  * was drawn with them gets a border or an outline in a system colour instead.
  */
 @media (forced-colors: active) {
+  /* Status dots keep their shape: filled, half filled or hollow in the text colour. */
+  .nav-status {
+    forced-color-adjust: none;
+    color: CanvasText;
+    box-shadow: none;
+    background: Canvas;
+  }
+
+  .nav-status-ok {
+    background: CanvasText;
+  }
+
+  .nav-status-pending {
+    background: linear-gradient(to top, CanvasText 50%, Canvas 50%);
+  }
+
   :focus-visible,
   .picker-choice:has(input:focus-visible),
   .deck-key-selected:focus-visible {

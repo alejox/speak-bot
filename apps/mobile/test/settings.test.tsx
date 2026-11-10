@@ -65,29 +65,19 @@ describe("Voice options", () => {
 });
 
 describe("Settings groups", () => {
-  it("is organised as Voice, Deck, Appearance and Language", async () => {
+  it("is organised as Voice, Appearance and Language", async () => {
     await openSettings();
     await screen.findByRole("option", { name: SPANISH_OPTIONS[0] });
-    expect(screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Voice", "Deck", "Appearance", "Language"]);
+    expect(screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Voice", "Appearance", "Language"]);
     expect(within(screen.getByRole("group", { name: "Voice" })).getByRole("combobox", { name: "Voice" })).toBeInTheDocument();
     expect(within(screen.getByRole("group", { name: "Voice" })).getByRole("slider", { name: /Speed/ })).toBeInTheDocument();
     expect(within(screen.getByRole("group", { name: "Appearance" })).getByRole("combobox", { name: "Theme" })).toBeInTheDocument();
     expect(within(screen.getByRole("group", { name: "Language" })).getByRole("combobox", { name: "Language / Idioma" })).toBeInTheDocument();
   });
 
-  it("explains in the Deck group that OBS is set up from the computer app when there is none", async () => {
-    await openSettings();
-    const deck = screen.getByRole("group", { name: "Deck" });
-    expect(within(deck).getByText(/OBS connection is set up here/)).toBeInTheDocument();
-    expect(within(deck).queryByRole("region", { name: "OBS" })).not.toBeInTheDocument();
-  });
-
-  it("puts the OBS connection and where to speak in their groups on the computer", async () => {
+  it("puts where to speak in the Voice group on the computer", async () => {
     const { user } = renderRemoteApp({ hostname: "127.0.0.1" });
     await goTo(user, "Settings");
-    const deck = screen.getByRole("group", { name: "Deck" });
-    expect(await within(deck).findByRole("region", { name: "OBS" })).toBeInTheDocument();
-    expect(deck).toHaveAttribute("data-space", "deck");
     const voiceGroup = screen.getByRole("group", { name: "Voice" });
     expect(within(voiceGroup).getByRole("combobox", { name: "Speak on" })).toBeInTheDocument();
     expect(await within(voiceGroup).findByRole("combobox", { name: "Output device" })).toBeInTheDocument();
@@ -96,7 +86,7 @@ describe("Settings groups", () => {
   it("names the groups in Spanish", async () => {
     await openSettings({ language: "es" });
     await waitFor(() =>
-      expect(screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Voz", "Deck", "Apariencia", "Idioma"]),
+      expect(screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Voz", "Apariencia", "Idioma"]),
     );
     expect(await screen.findByRole("option", { name: "Mónica · Español (España)" })).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Mostrar voces en todos los idiomas" })).not.toBeChecked();

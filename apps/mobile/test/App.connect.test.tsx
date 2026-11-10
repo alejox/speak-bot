@@ -1,5 +1,5 @@
 import type { Voice } from "@speed-deck/core";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../src/adapters/local-storage-settings-store";
@@ -75,6 +75,8 @@ describe("App connect panel", () => {
   it("shows the phone QR code and copies the OBS URL on the computer itself", async () => {
     const { copied } = setup();
     await userEvent.click(await screen.findByRole("link", { name: "Connect" }));
+    const nav = screen.getByRole("navigation", { name: "Sections" });
+    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Deck", "Voice", "OBS, not connected", "Connect", "Settings"]);
 
     const qr = await screen.findByRole("img", { name: "QR code for http://192.168.1.20:4545/" });
     expect(qr).toHaveAttribute("src", "data:qr,http://192.168.1.20:4545/");
