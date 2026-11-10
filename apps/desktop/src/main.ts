@@ -6,6 +6,7 @@ async function main(): Promise<void> {
 
   for (const url of desktop.urls) log(`Listening on ${url}`);
   log(`OBS overlay (Browser Source): ${desktop.overlayUrl}`);
+  log(`OBS dock (Custom Browser Dock): ${desktop.dockUrl}`);
 
   const shutdown = () => void desktop.close().finally(() => process.exit(0));
   process.once("SIGINT", shutdown);

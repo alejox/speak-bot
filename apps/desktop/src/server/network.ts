@@ -7,6 +7,11 @@ export interface ConnectionInfo {
   lanUrls: string[];
   /** Browser Source URL for OBS on this computer. */
   overlayUrl: string;
+  /**
+   * Custom Browser Dock URL for OBS: the app's compact view. IPv4 loopback, because `localhost`
+   * may resolve to [::1] where another app could hold the same port.
+   */
+  dockUrl: string;
 }
 
 export type NetworkInterfaces = NodeJS.Dict<NetworkInterfaceInfo[]>;
@@ -44,6 +49,7 @@ export function connectionInfo(port: number, interfaces: NetworkInterfaces): Con
     port,
     lanUrls: selectLanAddresses(interfaces).map((address) => `http://${address}:${port}/`),
     overlayUrl: `http://localhost:${port}/overlay`,
+    dockUrl: `http://127.0.0.1:${port}/dock`,
   };
 }
 

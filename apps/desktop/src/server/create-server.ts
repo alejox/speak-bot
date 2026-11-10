@@ -1,4 +1,4 @@
-import type { PhraseRepository, ServerEvent } from "@speak-bot/core";
+import type { DesktopSettings, PhraseRepository, ServerEvent } from "@speak-bot/core";
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { hostname as osHostname } from "node:os";
@@ -27,6 +27,8 @@ export interface DesktopServerDependencies {
   pageHandler?: (request: IncomingMessage, response: ServerResponse, pathname: string) => Promise<boolean>;
   /** Reported by GET /api/health; defaults to a random id per server. */
   instanceId?: string;
+  /** Called after settings are saved through the API. */
+  onSettingsChanged?: (settings: DesktopSettings) => void;
 }
 
 export interface DesktopServer {

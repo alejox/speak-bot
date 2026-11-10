@@ -1,7 +1,8 @@
-import type { AudioDevice, DesktopSettings, PhraseDependencies, SpeechCapabilities } from "@speak-bot/core";
+import type { AudioDevice, DesktopSettings, PhraseDependencies, SpeechCapabilities, UiLanguage } from "@speak-bot/core";
 import { copyText as copyToClipboard } from "../adapters/clipboard";
 import { DesktopApiClient, type ConnectionInfo } from "../adapters/desktop-api";
 import { DesktopEventSource, type WebSocketFactory } from "../adapters/desktop-events";
+import { LocalStorageLanguageStore, type LanguageStore } from "../adapters/local-storage-language-store";
 import { LocalStoragePhraseRepository } from "../adapters/local-storage-phrase-repository";
 import { LocalStorageSettingsStore, type SettingsStore } from "../adapters/local-storage-settings-store";
 import { LocalStorageSpeakTargetStore, type SpeakTargetStore } from "../adapters/local-storage-speak-target-store";
@@ -26,11 +27,19 @@ export interface DesktopServices {
   detect(): Promise<SpeechCapabilities | null>;
   synthesizer: AppSpeechSynthesizer;
   phrases: PhraseDependencies;
+  /** Replaces the desktop phrases with the default set in `language`. */
+  restorePhrases(language: UiLanguage): Promise<void>;
   listDevices(): Promise<AudioDevice[]>;
   loadSettings(): Promise<DesktopSettings>;
   saveSettings(patch: Partial<DesktopSettings>): Promise<DesktopSettings>;
   /** Notifies when phrases change on the desktop (e.g. edited from another device). */
   onPhrasesChanged(listener: () => void): () => void;
+  /** Says the last spoken text again on the desktop. */
+  repeat(): Promise<void>;
+  /** Hides the current OBS caption. */
+  clearCaption(): Promise<void>;
+  /** Notifies when OBS captions are turned on or off from any device. */
+  onCaptionsVisibilityChanged(listener: (visible: boolean) => void): () => void;
   target: SpeakTargetStore;
   /** Present only when this page is open on the desktop computer itself (localhost). */
   connection?: ConnectionServices;
@@ -41,6 +50,8 @@ export interface AppServices {
   synthesizer: AppSpeechSynthesizer;
   phrases: PhraseDependencies;
   settings: SettingsStore;
+  /** The interface language chosen on this device. */
+  language: LanguageStore;
   /** True when default phrases should be seeded (first run on this device). */
   isFirstRun: () => boolean;
   /** Present when the app may be served by the desktop companion. */
@@ -74,12 +85,19 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
       generateId: options.generateId ?? createId,
       now: () => Date.now(),
     },
+    restorePhrases: (language) => api.restorePhrases(language),
     listDevices: () => api.listDevices(),
     loadSettings: () => api.loadSettings(),
     saveSettings: (patch) => api.saveSettings(patch),
     onPhrasesChanged: (listener) =>
       events.subscribe((event) => {
         if (event.type === "phrases-changed") listener();
+      }),
+    repeat: () => api.repeat(),
+    clearCaption: () => api.clearCaption(),
+    onCaptionsVisibilityChanged: (listener) =>
+      events.subscribe((event) => {
+        if (event.type === "captions-visibility") listener(event.visible);
       }),
     target: options.targetStore ?? new LocalStorageSpeakTargetStore(),
     connection: isLocalHostname(location.hostname ?? "")
@@ -98,6 +116,7 @@ export function createAppServices(): AppServices {
     synthesizer: new WebSpeechSynthesizer(),
     phrases: { repository, generateId: createId, now: () => Date.now() },
     settings: new LocalStorageSettingsStore(),
+    language: new LocalStorageLanguageStore(),
     isFirstRun: () => !repository.isInitialized(),
     desktop: createDesktopServices(),
   };

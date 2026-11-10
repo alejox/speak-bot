@@ -1,10 +1,13 @@
 import {
   DESKTOP_SERVER_NAME,
+  type ApiErrorCode,
   type AudioDevice,
   type DesktopSettings,
   type Phrase,
   type SpeakRequest,
   type SpeechCapabilities,
+  type UiLanguage,
+  type UpdatePhraseRequest,
   type Voice,
 } from "@speak-bot/core";
 
@@ -12,6 +15,8 @@ export class DesktopRequestError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** Why the desktop refused, when it said so. */
+    readonly code?: ApiErrorCode,
   ) {
     super(message);
     this.name = "DesktopRequestError";
@@ -25,6 +30,8 @@ export interface ConnectionInfo {
   lanUrls: string[];
   /** Browser Source URL for OBS on the computer. */
   overlayUrl: string;
+  /** Custom Browser Dock URL for OBS: the compact app view. */
+  dockUrl: string;
 }
 
 const DETECT_TIMEOUT_MS = 1500;
@@ -64,6 +71,17 @@ export class DesktopApiClient {
     await this.request("POST", "/api/phrases", phrase);
   }
 
+  /** Changes text, label and slot of an existing phrase; an empty label removes it. */
+  async updatePhrase(phrase: Phrase): Promise<void> {
+    const body: UpdatePhraseRequest = { text: phrase.text, label: phrase.label ?? "", slot: phrase.slot };
+    await this.request("PUT", `/api/phrases/${encodeURIComponent(phrase.id)}`, body);
+  }
+
+  /** Replaces every desktop phrase with the default set in `language`. */
+  async restorePhrases(language: UiLanguage): Promise<void> {
+    await this.request("POST", "/api/phrases/restore", { language });
+  }
+
   async deletePhrase(id: string): Promise<void> {
     await this.request("DELETE", `/api/phrases/${encodeURIComponent(id)}`);
   }
@@ -74,6 +92,16 @@ export class DesktopApiClient {
 
   async stop(): Promise<void> {
     await this.request("POST", "/api/stop", {});
+  }
+
+  /** Says the last spoken text again; rejects with code "nothing-to-repeat" when there is none. */
+  async repeat(): Promise<void> {
+    await this.request("POST", "/api/repeat", {});
+  }
+
+  /** Hides the current OBS caption right away. */
+  async clearCaption(): Promise<void> {
+    await this.request("POST", "/api/captions/clear", {});
   }
 
   listVoices(): Promise<Voice[]> {
@@ -102,11 +130,9 @@ export class DesktopApiClient {
     if (response.status === 204) return undefined;
     const payload = (await response.json().catch(() => undefined)) as unknown;
     if (!response.ok) {
-      const message =
-        typeof payload === "object" && payload !== null && typeof (payload as { error?: unknown }).error === "string"
-          ? (payload as { error: string }).error
-          : `Request failed with status ${response.status}.`;
-      throw new DesktopRequestError(response.status, message);
+      const { error, code } = (typeof payload === "object" && payload !== null ? payload : {}) as Record<string, unknown>;
+      const message = typeof error === "string" ? error : `Request failed with status ${response.status}.`;
+      throw new DesktopRequestError(response.status, message, typeof code === "string" ? (code as ApiErrorCode) : undefined);
     }
     return payload;
   }
@@ -119,7 +145,8 @@ function isConnectionInfo(value: unknown): value is ConnectionInfo {
     typeof candidate.port === "number" &&
     Array.isArray(candidate.lanUrls) &&
     candidate.lanUrls.every((url) => typeof url === "string") &&
-    typeof candidate.overlayUrl === "string"
+    typeof candidate.overlayUrl === "string" &&
+    typeof candidate.dockUrl === "string"
   );
 }
 

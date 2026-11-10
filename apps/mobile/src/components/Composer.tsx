@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from "react";
+import { useT } from "../i18n/I18nProvider";
 
 interface ComposerProps {
   text: string;
@@ -10,6 +11,7 @@ interface ComposerProps {
 }
 
 export function Composer({ text, isSpeaking, onTextChange, onSpeak, onStop, onSave }: ComposerProps) {
+  const t = useT();
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     // Enter speaks, Shift+Enter inserts a new line. Ignore Enter while an IME is composing.
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -19,29 +21,29 @@ export function Composer({ text, isSpeaking, onTextChange, onSpeak, onStop, onSa
   };
 
   return (
-    <section className="composer" aria-label="Type to speak">
+    <section className="composer" aria-label={t("composer.region")}>
       <label htmlFor="composer-text" className="visually-hidden">
-        Text to speak
+        {t("composer.textLabel")}
       </label>
       <textarea
         id="composer-text"
         className="composer-text"
         value={text}
         rows={3}
-        placeholder="Type what you want to say…"
+        placeholder={t("composer.placeholder")}
         enterKeyHint="send"
         onChange={(event) => onTextChange(event.target.value)}
         onKeyDown={handleKeyDown}
       />
       <div className="composer-actions">
         <button type="button" className="button button-primary" onClick={onSpeak}>
-          Speak
+          {t("composer.speak")}
         </button>
         <button type="button" className="button" onClick={onStop} disabled={!isSpeaking}>
-          Stop
+          {t("composer.stop")}
         </button>
         <button type="button" className="button" onClick={onSave}>
-          Save as phrase
+          {t("composer.save")}
         </button>
       </div>
     </section>

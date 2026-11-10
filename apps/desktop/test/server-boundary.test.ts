@@ -72,7 +72,7 @@ describe("desktop server boundary", () => {
     dir = await mkdtemp(join(tmpdir(), "speak-bot-boundary-"));
     server = createDesktopServer({
       repository: new JsonFilePhraseRepository(join(dir, "phrases.json")),
-      settings: new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "" }),
+      settings: new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true }),
       synthesizer: silentSynthesizer,
       generateId: () => "id",
       now: () => 1000,
@@ -124,6 +124,15 @@ describe("desktop server boundary", () => {
     ]) {
       expect(await requestWith(port, "/api/health", { host }), host).toBe(200);
     }
+  });
+
+  it("accepts requests from an OBS dock page served by this desktop on 127.0.0.1", async () => {
+    const dock = { host: `127.0.0.1:${port}`, origin: `http://127.0.0.1:${port}` };
+    const json = { ...dock, "content-type": "application/json" };
+    expect(await requestWith(port, "/api/health", dock)).toBe(200);
+    expect(await requestWith(port, "/api/phrases", dock)).toBe(200);
+    expect(await requestWith(port, "/api/stop", json, "POST", "{}")).toBe(200);
+    expect(await requestWith(port, "/dock", dock)).toBe(200);
   });
 
   it("rejects requests whose Origin does not match the Host", async () => {

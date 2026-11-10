@@ -1,21 +1,46 @@
-export { createPhrase, InvalidPhraseError, type Phrase, type PhraseInput } from "./domain/phrase";
+export {
+  createPhrase,
+  InvalidPhraseError,
+  isValidSlot,
+  MAX_PHRASE_LABEL_LENGTH,
+  MAX_PHRASE_SLOTS,
+  MAX_PHRASE_TEXT_LENGTH,
+  PhraseNotFoundError,
+  SlotOccupiedError,
+  type Phrase,
+  type PhraseInput,
+  type StoredPhrase,
+} from "./domain/phrase";
+export { assignMissingSlots, lowestFreeSlot } from "./domain/phrase-slots";
 export type { PhraseRepository } from "./ports/phrase-repository";
 export type { SpeakOptions, SpeechSynthesizer, Voice } from "./ports/speech-synthesizer";
 export { EmptyTextError, speakText, stopSpeaking } from "./use-cases/speak";
 export {
   DEFAULT_PHRASE_TEXTS,
+  DEFAULT_PHRASES_BY_LANGUAGE,
   deletePhrase,
   listPhrases,
+  restoreDefaultPhrases,
   savePhrase,
   seedDefaultPhrases,
+  updatePhrase,
+  type PhraseChanges,
   type PhraseDependencies,
 } from "./use-cases/phrases";
+export { languageOfTag, pickVoiceForLanguage } from "./voices";
 export {
+  DEFAULT_UI_LANGUAGE,
   DESKTOP_SERVER_NAME,
   isServerEvent,
+  isUiLanguage,
+  UI_LANGUAGES,
   MAX_SPEAK_TEXT_LENGTH,
+  voiceLanguageOf,
+  type ApiErrorCode,
   type AudioDevice,
+  type CaptionClearEvent,
   type CaptionEvent,
+  type CaptionsVisibilityEvent,
   type DesktopSettings,
   type DevicesResponse,
   type ErrorResponse,
@@ -24,9 +49,12 @@ export {
   type PhrasesResponse,
   type SavePhraseRequest,
   type ServerEvent,
+  type SpeakErrorCode,
   type SpeakErrorEvent,
   type SpeakingEvent,
   type SpeechCapabilities,
   type SpeakRequest,
+  type UiLanguage,
+  type UpdatePhraseRequest,
   type VoicesResponse,
 } from "./protocol";

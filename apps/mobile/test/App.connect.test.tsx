@@ -7,6 +7,7 @@ import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesize
 import { App } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
 import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
+import { goTo, memoryLanguageStore } from "./i18n-helpers";
 
 const synthesizer: AppSpeechSynthesizer = {
   isSupported: true,
@@ -20,12 +21,15 @@ const repository: PhraseRepository = {
   list: async (): Promise<Phrase[]> => [],
   save: async () => {},
   delete: async () => {},
+  update: async () => {},
+  replaceAll: async () => {},
 };
 
 const connection = {
   port: 4545,
   lanUrls: ["http://192.168.1.20:4545/", "http://10.0.0.5:4545/"],
   overlayUrl: "http://localhost:4545/overlay",
+  dockUrl: "http://127.0.0.1:4545/dock",
 };
 
 function route(request: RecordedRequest) {
@@ -53,6 +57,7 @@ function setup({ hostname = "localhost", answer = route } = {}) {
     phrases: { repository, generateId: () => "x", now: () => 1 },
     settings: { load: () => DEFAULT_SETTINGS, save: () => {} },
     isFirstRun: () => false,
+    language: memoryLanguageStore("en"),
     desktop: createDesktopServices({
       fetch,
       createSocket: (url) => new FakeSocket(url),
@@ -72,6 +77,7 @@ function setup({ hostname = "localhost", answer = route } = {}) {
 describe("App connect panel", () => {
   it("shows the phone QR code and copies the OBS URL on the computer itself", async () => {
     const { copied } = setup();
+    await userEvent.click(await screen.findByRole("link", { name: "Connect" }));
 
     const qr = await screen.findByRole("img", { name: "QR code for http://192.168.1.20:4545/" });
     expect(qr).toHaveAttribute("src", "data:qr,http://192.168.1.20:4545/");
@@ -82,11 +88,16 @@ describe("App connect panel", () => {
     await userEvent.click(screen.getByRole("button", { name: "Copy OBS URL" }));
     expect(copied).toEqual(["http://localhost:4545/overlay"]);
     expect(await screen.findByText("Copied!")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Copy dock URL" }));
+    expect(copied).toEqual(["http://localhost:4545/overlay", "http://127.0.0.1:4545/dock"]);
   });
 
   it("is hidden on the phone (page opened through the LAN address)", async () => {
     const { requests } = setup({ hostname: "192.168.1.20" });
+    await goTo(userEvent, "Settings");
     await screen.findByRole("combobox", { name: "Speak on" });
+    expect(screen.queryByRole("link", { name: "Connect" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Connect your phone" })).not.toBeInTheDocument();
     expect(requests.some((request) => request.url === "/api/connection")).toBe(false);
   });

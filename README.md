@@ -23,9 +23,22 @@ Download the installer for your system from the [latest release](https://github.
 | Windows               | `speak-bot-<version>-win-x64.exe`     |
 | Linux                 | `.AppImage` or `.deb`                 |
 
-Open **Speak Bot**. A window appears where you can type, use saved phrases and change settings. Closing the window keeps the app running in the tray or menu bar, so OBS captions keep working. Use the tray menu to quit, to copy the OBS URL, or to start Speak Bot at login.
+Open **Speak Bot**. Use the side menu to switch between sections:
 
-**Connect the phone:** in the **Connect phone** panel, scan the QR code with the phone (same Wi-Fi). Then, under **Speak on**, choose **Computer**. The first time, allow incoming network connections when your system asks.
+| Spanish (default) | English  | What it does                                               |
+| ----------------- | -------- | ---------------------------------------------------------- |
+| Hablar            | Speak    | Type a message and speak it; quick access to phrases       |
+| Frases            | Phrases  | Button board of saved phrases; add, delete or restore defaults |
+| Conectar          | Connect  | QR code for the phone, OBS caption and dock URLs           |
+| Ajustes           | Settings | Language, voice, speed, output device                      |
+
+The interface is in **Spanish by default**. Switch to English under **Ajustes → Idioma**.
+
+Closing the window keeps the app running in the tray or menu bar, so OBS keeps working. Use the tray menu to quit, copy the OBS URLs, or start Speak Bot at login.
+
+**Connect the phone:** in **Conectar**, scan the QR code with the phone (same Wi-Fi). Then, under **Hablar en**, choose **Computadora**. The first time, allow incoming network connections when your system asks.
+
+**Restore default phrases:** in **Frases**, enter edit mode and choose **Restaurar frases predeterminadas**. This replaces all saved phrases with the defaults in the current language, after a confirmation.
 
 #### The installers are not signed yet
 
@@ -117,6 +130,17 @@ Customize it with query parameters:
 Example: `http://localhost:4545/overlay?size=56&position=bottom&hold=5000`
 
 For the voice itself in OBS, capture the output device you route Speak Bot to (see below), or use desktop audio capture.
+
+## OBS dock
+
+Control Speak Bot from inside OBS with a dock. It uses the same phrases, voice and output device as the app.
+
+1. Copy the dock URL from **Conectar** (or from the tray menu). It looks like `http://127.0.0.1:4545/dock`.
+2. In OBS, open **Docks → Custom Browser Docks** (in older versions, **View → Docks → Custom Browser Docks**).
+3. Enter a name (for example `Speak Bot`), paste the URL, and click **Apply**.
+4. Dock the panel wherever you like. It has a text box, Speak and Stop buttons, and the phrase board.
+
+The Speak Bot app must be running. If it starts on a different port (because 4545 was busy), copy the new URL and update the dock.
 
 ## Using the voice as a microphone (calls, Discord, Zoom)
 

@@ -10,7 +10,7 @@ describe("loadConfig", () => {
       port: 4545,
       host: "0.0.0.0",
       dataDir: posix.join("/home/me", "Library", "Application Support", "speak-bot"),
-      defaults: { voiceId: "", rate: 1, deviceId: "" },
+      defaults: { voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true },
       allowedHosts: [],
     });
   });
@@ -37,7 +37,7 @@ describe("loadConfig", () => {
       port: 6000,
       host: "127.0.0.1",
       dataDir: "/data",
-      defaults: { voiceId: "Alex", rate: 1.5, deviceId: "BlackHole 2ch" },
+      defaults: { voiceId: "Alex", rate: 1.5, deviceId: "BlackHole 2ch", language: "es", captionsVisible: true },
       allowedHosts: [],
     });
   });

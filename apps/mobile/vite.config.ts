@@ -26,7 +26,8 @@ export default defineConfig({
       manifest: {
         name: "Speak Bot",
         short_name: "Speak Bot",
-        description: "Type or tap a phrase and let your phone speak for you.",
+        description: "Escribe o toca una frase y deja que tu teléfono hable por ti.",
+        lang: "es",
         display: "standalone",
         start_url: base,
         scope: base,

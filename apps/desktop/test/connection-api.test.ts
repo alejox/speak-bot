@@ -28,7 +28,7 @@ describe("GET /api/connection", () => {
     dir = await mkdtemp(join(tmpdir(), "speak-bot-connection-"));
     server = createDesktopServer({
       repository: new JsonFilePhraseRepository(join(dir, "phrases.json")),
-      settings: new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "" }),
+      settings: new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true }),
       synthesizer: {
         capabilities: { platform: "test", engine: "fake", supportsDeviceSelection: false },
         speak: async () => {},
@@ -56,6 +56,7 @@ describe("GET /api/connection", () => {
       port,
       lanUrls: [`http://192.168.1.20:${port}/`],
       overlayUrl: `http://localhost:${port}/overlay`,
+      dockUrl: `http://127.0.0.1:${port}/dock`,
     });
   });
 

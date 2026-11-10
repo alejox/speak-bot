@@ -44,18 +44,18 @@ describe("RemotePhraseRepository", () => {
   it("lists, saves and deletes phrases over HTTP", async () => {
     const { api, requests } = setup((request) =>
       request.method === "GET"
-        ? { body: [{ id: "a", text: "Hi", createdAt: 1 }, { bogus: true }] }
+        ? { body: [{ id: "a", text: "Hi", slot: 0, createdAt: 1 }, { bogus: true }] }
         : { status: request.method === "DELETE" ? 204 : 201, body: request.body },
     );
     const repository = new RemotePhraseRepository(api);
 
-    expect(await repository.list()).toEqual([{ id: "a", text: "Hi", createdAt: 1 }]);
-    await repository.save({ id: "b", text: "Water", label: "W", createdAt: 2 });
+    expect(await repository.list()).toEqual([{ id: "a", text: "Hi", slot: 0, createdAt: 1 }]);
+    await repository.save({ id: "b", text: "Water", label: "W", slot: 1, createdAt: 2 });
     await repository.delete("id/with space");
 
     expect(requests).toEqual([
       { method: "GET", url: "/api/phrases", body: undefined },
-      { method: "POST", url: "/api/phrases", body: { id: "b", text: "Water", label: "W", createdAt: 2 } },
+      { method: "POST", url: "/api/phrases", body: { id: "b", text: "Water", label: "W", slot: 1, createdAt: 2 } },
       { method: "DELETE", url: "/api/phrases/id%2Fwith%20space", body: undefined },
     ]);
   });
@@ -63,7 +63,35 @@ describe("RemotePhraseRepository", () => {
   it("throws when the desktop rejects a request", async () => {
     const repository = new RemotePhraseRepository(setup(() => ({ status: 400, body: { error: "text too long" } })).api);
 
-    await expect(repository.save({ id: "x", text: "Hi", createdAt: 1 })).rejects.toThrow("text too long");
+    await expect(repository.save({ id: "x", text: "Hi", slot: 0, createdAt: 1 })).rejects.toThrow("text too long");
+  });
+
+  it("updates a phrase with PUT, sending an empty label to remove it", async () => {
+    const { api, requests } = setup(() => ({ body: {} }));
+
+    await new RemotePhraseRepository(api).update({ id: "a/b", text: "Hello", slot: 4, createdAt: 1 });
+    await new RemotePhraseRepository(api).update({ id: "c", text: "Hi", label: "H", slot: 0, createdAt: 1 });
+
+    expect(requests).toEqual([
+      { method: "PUT", url: "/api/phrases/a%2Fb", body: { text: "Hello", label: "", slot: 4 } },
+      { method: "PUT", url: "/api/phrases/c", body: { text: "Hi", label: "H", slot: 0 } },
+    ]);
+  });
+
+  it("exposes the error code the desktop sends", async () => {
+    const { api } = setup(() => ({ status: 409, body: { error: "Slot 3 already holds a phrase.", code: "slot-occupied" } }));
+
+    await expect(new RemotePhraseRepository(api).save({ id: "x", text: "Hi", slot: 3, createdAt: 1 })).rejects.toMatchObject({
+      status: 409,
+      code: "slot-occupied",
+    });
+  });
+
+  it("refuses to replace every phrase and sends nothing to the desktop", async () => {
+    const { api, requests } = setup();
+
+    await expect(new RemotePhraseRepository(api).replaceAll([])).rejects.toThrow("restorePhrases");
+    expect(requests).toEqual([]);
   });
 });
 

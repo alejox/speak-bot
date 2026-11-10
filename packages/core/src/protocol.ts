@@ -11,6 +11,15 @@ export const MAX_SPEAK_TEXT_LENGTH = 1000;
 /** Identifies a speak-bot desktop server in the health response. */
 export const DESKTOP_SERVER_NAME = "speak-bot-desktop";
 
+/** Languages the user interface is available in. */
+export const UI_LANGUAGES = ["es", "en"] as const;
+export type UiLanguage = (typeof UI_LANGUAGES)[number];
+export const DEFAULT_UI_LANGUAGE: UiLanguage = "es";
+
+export function isUiLanguage(value: unknown): value is UiLanguage {
+  return typeof value === "string" && (UI_LANGUAGES as readonly string[]).includes(value);
+}
+
 // ---- Server → client WebSocket events (path `/ws`) ----
 
 export interface CaptionEvent {
@@ -32,14 +41,38 @@ export interface PhrasesChangedEvent {
   readonly at: number;
 }
 
+/** Why the desktop could not speak, so clients can show a message in their own language. */
+export type SpeakErrorCode = "engine-unavailable" | "speech-failed";
+
 /** The desktop could not speak, e.g. because the TTS engine is not installed. */
 export interface SpeakErrorEvent {
   readonly type: "speak-error";
+  /** Technical detail in English (e.g. how to install the engine). */
   readonly message: string;
+  readonly code?: SpeakErrorCode;
   readonly at: number;
 }
 
-export type ServerEvent = CaptionEvent | SpeakingEvent | PhrasesChangedEvent | SpeakErrorEvent;
+/** Hide the current caption right away (POST /api/captions/clear). */
+export interface CaptionClearEvent {
+  readonly type: "caption-clear";
+  readonly at: number;
+}
+
+/** Captions were turned on or off (`captionsVisible` in the desktop settings). */
+export interface CaptionsVisibilityEvent {
+  readonly type: "captions-visibility";
+  readonly visible: boolean;
+  readonly at: number;
+}
+
+export type ServerEvent =
+  | CaptionEvent
+  | SpeakingEvent
+  | PhrasesChangedEvent
+  | SpeakErrorEvent
+  | CaptionClearEvent
+  | CaptionsVisibilityEvent;
 
 export function isServerEvent(value: unknown): value is ServerEvent {
   if (typeof value !== "object" || value === null) return false;
@@ -53,7 +86,11 @@ export function isServerEvent(value: unknown): value is ServerEvent {
     case "phrases-changed":
       return true;
     case "speak-error":
-      return typeof event.message === "string";
+      return typeof event.message === "string" && (event.code === undefined || typeof event.code === "string");
+    case "caption-clear":
+      return true;
+    case "captions-visibility":
+      return typeof event.visible === "boolean";
     default:
       return false;
   }
@@ -80,13 +117,26 @@ export interface HealthResponse {
   readonly instanceId: string;
 }
 
-/** GET /api/phrases → Phrase[]; POST /api/phrases with this body → Phrase; DELETE /api/phrases/:id → 204. */
+/**
+ * GET /api/phrases → Phrase[] (slot order); POST /api/phrases with this body → 201 Phrase;
+ * PUT /api/phrases/:id with `UpdatePhraseRequest` → Phrase; DELETE /api/phrases/:id → 204.
+ * A slot already used by another phrase → 409 with code "slot-occupied".
+ */
 export interface SavePhraseRequest {
   /** Client-generated id; the server generates one when omitted. Saving an existing id replaces it. */
   id?: string;
   text: string;
   label?: string;
+  /** Deck slot; defaults to the phrase's current slot, or the lowest free one for a new phrase. */
+  slot?: number;
   createdAt?: number;
+}
+
+/** PUT /api/phrases/:id: fields left out keep their value; an empty label removes it. */
+export interface UpdatePhraseRequest {
+  text?: string;
+  label?: string;
+  slot?: number;
 }
 
 export type PhrasesResponse = Phrase[];
@@ -120,8 +170,24 @@ export interface DesktopSettings {
   rate: number;
   /** Empty string means the system default output device. */
   deviceId: string;
+  /** Interface language; also picks the first-run phrases and, unless `voiceLanguage` is set, the default voice. */
+  language: UiLanguage;
+  /** False hides the OBS captions until turned back on. */
+  captionsVisible: boolean;
+  /** Language of the automatic voice; when absent it follows `language`. */
+  voiceLanguage?: UiLanguage;
 }
 
+/** The language the automatic voice should speak. */
+export function voiceLanguageOf(settings: { language: UiLanguage; voiceLanguage?: UiLanguage }): UiLanguage {
+  return settings.voiceLanguage ?? settings.language;
+}
+
+/** Machine-readable reasons a request failed, so clients can explain them in their own language. */
+export type ApiErrorCode = "slot-occupied" | "phrase-not-found" | "nothing-to-repeat";
+
 export interface ErrorResponse {
+  /** Technical detail in English. */
   readonly error: string;
+  readonly code?: ApiErrorCode;
 }

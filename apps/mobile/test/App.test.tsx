@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, type SpeechSettings } from "../src/adapters/local-storage-settings-store";
 import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesizer";
 import { App } from "../src/app/App";
+import { goTo, memoryLanguageStore } from "./i18n-helpers";
 import type { AppServices } from "../src/app/composition-root";
 
 class FakeSynthesizer implements AppSpeechSynthesizer {
@@ -30,8 +31,14 @@ class MemoryRepository implements PhraseRepository {
   async save(phrase: Phrase) {
     this.phrases = [...this.phrases.filter((p) => p.id !== phrase.id), phrase];
   }
+  async update(phrase: Phrase) {
+    this.phrases = this.phrases.map((p) => (p.id === phrase.id ? phrase : p));
+  }
   async delete(id: string) {
     this.phrases = this.phrases.filter((p) => p.id !== id);
+  }
+  async replaceAll(phrases: Phrase[]) {
+    this.phrases = [...phrases];
   }
 }
 
@@ -49,6 +56,7 @@ function setup({ phrases, firstRun = false, settings = DEFAULT_SETTINGS }: {
     phrases: { repository, generateId: () => `id-${++nextId}`, now: () => nextId },
     settings: { load: () => saved, save: (next) => void (saved = next) },
     isFirstRun: () => firstRun,
+    language: memoryLanguageStore("en"),
   };
   render(<App services={services} />);
   return { synthesizer, repository, user: userEvent.setup(), getSavedSettings: () => saved };
@@ -84,6 +92,7 @@ describe("App", () => {
 
   it("seeds default phrases on first run and speaks a phrase on tap", async () => {
     const { synthesizer, user } = setup({ firstRun: true });
+    await goTo(user, "Phrases");
 
     const phraseButtons = await screen.findAllByRole("button", { name: /^Speak: / });
     expect(phraseButtons).toHaveLength(DEFAULT_PHRASE_TEXTS.length);
@@ -100,16 +109,20 @@ describe("App", () => {
     expect(await screen.findByRole("button", { name: "Speak: I need water" })).toBeInTheDocument();
     expect(repository.phrases.map((p) => p.text)).toEqual(["I need water"]);
 
+    await goTo(user, "Phrases");
     await user.click(screen.getByRole("button", { name: "Edit" }));
-    const phrases = screen.getByRole("list");
-    await user.click(within(phrases).getByRole("button", { name: "Delete phrase: I need water" }));
+    const phrases = screen.getByRole("region", { name: "Saved phrases" });
+    await user.click(within(phrases).getByRole("button", { name: "Edit phrase: I need water" }));
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Yes, delete" }));
 
-    expect(await screen.findByText(/No saved phrases yet/)).toBeInTheDocument();
+    expect(await within(phrases).findByRole("button", { name: "Add a phrase to button 1" })).toBeInTheDocument();
     expect(repository.phrases).toEqual([]);
   });
 
   it("persists the selected voice and rate", async () => {
     const { user, getSavedSettings } = setup();
+    await goTo(user, "Settings");
 
     await user.selectOptions(await screen.findByRole("combobox", { name: "Voice" }), "v1");
 
