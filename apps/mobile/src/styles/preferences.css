@@ -99,6 +99,13 @@
     outline-color: Highlight;
   }
 
+  /* Backgrounds are dropped in forced colours: the dot keeps a system colour of its own. */
+  .deck-key-dot {
+    forced-color-adjust: none;
+    background: ButtonText;
+    box-shadow: none;
+  }
+
   .deck-key-drop {
     outline-color: Highlight;
   }

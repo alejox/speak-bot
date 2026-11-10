@@ -16,7 +16,7 @@ export interface BoardKeyView {
   color?: string;
   /** Phrase, command or navigation: each has its own shape. A phrase when absent. */
   role?: KeyRole;
-  /** A command that stops something: its icon and edge take the danger colour. */
+  /** A command that stops something: its icon takes the danger colour. */
   danger?: boolean;
   /** Toggle state; undefined for plain keys. */
   pressed?: boolean;
@@ -74,8 +74,11 @@ export const BoardKey = forwardRef<HTMLButtonElement, BoardKeyProps>(function Bo
   ) : role === "navigation" && !(iconId && DIRECTION_ICONS.has(iconId)) ? (
     <NavigationCue size={CUE_SIZE} />
   ) : null;
+  // A toggle that is on shows a small dot in the corner; the current scene has its tick instead.
+  const hasDot = state !== undefined && state !== "scene";
   return (
     <button ref={ref} type="button" className={classes} aria-pressed={pressed} data-state={state} style={{ ...colors, ...style }} {...button}>
+      {hasDot && <span className="deck-key-dot" aria-hidden="true" />}
       {cue && (
         <span className="deck-key-cue" aria-hidden="true">
           {cue}
@@ -83,11 +86,11 @@ export const BoardKey = forwardRef<HTMLButtonElement, BoardKeyProps>(function Bo
       )}
       {iconId && <KeyIcon id={iconId} size={36} />}
       <span className="deck-key-text">{label}</span>
-      {/* The spaces keep the words apart in the key's accessible name; the layout ignores them. */}
+      {/* The spaces keep the words apart in the key's accessible name; the layout ignores them. The dot shows the state, the word names it. */}
       {stateLabel && (
         <>
           {" "}
-          <span className="deck-key-state">{stateLabel}</span>
+          <span className="visually-hidden">{stateLabel}</span>
         </>
       )}
       {detail && (

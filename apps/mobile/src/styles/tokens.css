@@ -149,8 +149,7 @@
   --key-shadow-pressed: 0 0 0 rgb(15 18 23 / 0);
   /* Pressing a key that has its own colour: the background cannot change, so the whole key does. */
   --key-press-filter: brightness(0.94);
-  /* A toggle that is on: ring and dot. */
-  --key-on: var(--color-warning);
+  /* The dot on a key that is live or recording. */
   --key-live: var(--red-500);
 }
 
@@ -193,7 +192,6 @@
     --key-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 6px 16px rgb(0 0 0 / 0.25);
     --key-shadow-pressed: inset 0 1px 0 rgb(255 255 255 / 0.02);
     --key-press-filter: brightness(1.2);
-    --key-on: var(--color-warning);
   }
 }
 
@@ -232,7 +230,6 @@
   --key-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 6px 16px rgb(0 0 0 / 0.25);
   --key-shadow-pressed: inset 0 1px 0 rgb(255 255 255 / 0.02);
   --key-press-filter: brightness(1.2);
-  --key-on: var(--color-warning);
 }
 
 /*

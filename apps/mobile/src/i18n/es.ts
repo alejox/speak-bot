@@ -216,7 +216,7 @@ export const es: Messages = {
   "key.state.live": "EN VIVO",
   "key.state.recording": "REC",
   "key.state.muted": "Silenciado",
-  "key.state.on": "Activos",
+  "key.state.on": "Activado",
 
   "actions.stopped": "Se detuvo la voz.",
   "actions.captionCleared": "Se borró el subtítulo.",

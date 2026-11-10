@@ -97,11 +97,6 @@
   font-size: var(--text-2xs);
 }
 
-.dock .deck-key-state {
-  padding: 0 var(--space-1);
-  font-size: var(--text-2xs);
-}
-
 .dock .deck-key-cue svg {
   width: var(--dock-cue);
   height: var(--dock-cue);

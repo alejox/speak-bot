@@ -164,10 +164,6 @@
   color: var(--color-text-muted);
 }
 
-.deck-key-danger:not(.deck-key-colored) {
-  --key-edge: var(--color-danger);
-}
-
 .deck-key-danger:not(.deck-key-colored) .key-icon {
   color: var(--color-danger);
 }
@@ -204,56 +200,47 @@
 }
 
 /*
- * Toggles that are on. Each has words or an icon as well as its ring: LIVE, REC with a dot, Muted
- * with the crossed microphone, On, and a tick on the current scene.
+ * Toggles that are on: the tile fills with a soft tint of the space accent (or brightens its own
+ * colour) and a small filled dot sits in the top-left corner. No ring, no outlined badge. The dot is
+ * the shape cue, aria-pressed and the hidden state word name it; live and recording dots are red.
  */
-.deck-key[data-state] {
-  box-shadow:
-    inset 0 0 0 3px var(--key-on),
-    var(--key-shadow);
+.deck-key[data-state]:not(.deck-key-colored) {
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--color-accent) 34%, var(--key-bg)),
+    color-mix(in oklch, var(--color-accent) 16%, var(--key-bg))
+  );
 }
 
-.deck-key[data-state="live"] {
-  box-shadow:
-    inset 0 0 0 3px var(--key-live),
-    var(--key-shadow);
+.deck-key-colored[data-state] {
+  background-image: linear-gradient(135deg, color-mix(in oklch, var(--key-color) 82%, white), var(--key-color));
 }
 
-.deck-key[data-state="scene"] {
-  box-shadow:
-    inset 0 0 0 3px var(--color-accent),
-    var(--key-shadow);
+.deck-key-dot {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  /* A halo of the key colour keeps the dot apart from the tinted tile. */
+  box-shadow: 0 0 0 2px var(--key-bg);
+}
+
+.deck-key-colored .deck-key-dot {
+  box-shadow: none;
+  background: currentColor;
+}
+
+.deck-key[data-state="live"] .deck-key-dot,
+.deck-key[data-state="recording"] .deck-key-dot {
+  background: var(--key-live);
 }
 
 /* Muted is dimmed but stays readable: quieter text on the same tile. */
 .deck-key[data-state="muted"]:not(.deck-key-colored) {
   color: var(--color-text-muted);
-}
-
-.deck-key-state {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-2);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-caps);
-  border: calc(var(--border-width) * 2) solid currentColor;
-  border-radius: var(--radius-full);
-}
-
-.deck-key[data-state="live"] .deck-key-state {
-  border-color: var(--key-live);
-}
-
-/* The dot that says "on air" or "recording"; the words next to it carry the meaning. */
-.deck-key[data-state="live"] .deck-key-state::before,
-.deck-key[data-state="recording"] .deck-key-state::before {
-  content: "";
-  width: 0.6em;
-  height: 0.6em;
-  border-radius: var(--radius-full);
-  background: var(--key-live);
 }
 
 /* Offline on purpose, not broken: flat, quieter text, a dotted edge and the unplugged sign. */
