@@ -1,4 +1,4 @@
-import { buildDefaultBoard, makeBoard } from "@speed-deck/core";
+import { buildDefaultBoard, KEYS_PER_PAGE, makeBoard, MAX_BOARD_PAGES } from "@speed-deck/core";
 import { createEvent, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { boardOf, desktopState, renderLocalApp, renderRemoteApp, setWideScreen, speakKey, writes } from "./app-fakes";
@@ -132,6 +132,20 @@ describe("board editor on wide screens", () => {
     await user.type(position, "16");
     await user.click(within(keyEditor()).getByRole("button", { name: "Move" }));
     await waitFor(() => expect(within(grid()).getByRole("button", { name: "Edit key 16: A" })).toBeInTheDocument());
+  });
+
+  it("never opens a page past the board limit", async () => {
+    const state = desktopState({ boards: [boardOf("main", "Main", [speakKey(0, "A")])] });
+    const { user } = renderRemoteApp({ state });
+    await openEditor(user);
+    await user.click(within(grid()).getByRole("button", { name: "Edit key 1: A" }));
+    const position = within(keyEditor()).getByRole("spinbutton", { name: "Move to position" });
+    await user.clear(position);
+    await user.type(position, String(MAX_BOARD_PAGES * KEYS_PER_PAGE));
+    await user.click(within(keyEditor()).getByRole("button", { name: "Move" }));
+    await waitFor(() => expect(screen.getByText(`Page ${MAX_BOARD_PAGES} of ${MAX_BOARD_PAGES}`)).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "New page" })).not.toBeInTheDocument();
   });
 
   it("validates the color and saves label, icon and color", async () => {

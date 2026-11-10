@@ -4,6 +4,7 @@ import {
   isActionType,
   keysOnPage,
   KEYS_PER_PAGE,
+  MAX_BOARD_PAGES,
   type Action,
   type ActionType,
   type Board,
@@ -61,8 +62,10 @@ export function BoardEditor({ boards: boardsState, navigation, context, obs, lan
 
   if (!board) return null;
   const pageCount = boardPageCount(board);
-  // One page past the last is always open, so a new page is a click away.
-  const current = Math.min(page, pageCount);
+  // One page past the last is always open, so a new page is a click away, up to the board limit.
+  const lastPage = Math.min(pageCount, MAX_BOARD_PAGES - 1);
+  const current = Math.min(page, lastPage);
+  const opensNewPage = current >= pageCount - 1 && current < lastPage;
   const keys = keysOnPage(board, current);
   const selectedKey = selectedSlot === null ? undefined : board.keys.find((key) => key.slot === selectedSlot);
 
@@ -225,10 +228,10 @@ export function BoardEditor({ boards: boardsState, navigation, context, obs, lan
             type="button"
             className="button button-small"
             onClick={() => setPage(current + 1)}
-            disabled={current >= pageCount}
-            aria-label={current >= pageCount - 1 ? t("editor.addPage") : t("board.next")}
+            disabled={current >= lastPage}
+            aria-label={opensNewPage ? t("editor.addPage") : t("board.next")}
           >
-            <span aria-hidden="true">{current >= pageCount - 1 ? "+" : "›"}</span>
+            <span aria-hidden="true">{opensNewPage ? "+" : "›"}</span>
           </button>
         </div>
         <section className="key-editor-panel" aria-label={selectedSlot === null ? t("editor.noSelection") : t("editor.keyTitle", { number: selectedSlot + 1 })}>
