@@ -1,15 +1,29 @@
 import { buildDefaultBoard, buildDefaultDeckBoard } from "@speed-deck/core";
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, createEvent, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { boardOf, renderLocalApp, speakKey } from "./app-fakes";
+import { boardOf, desktopState, renderLocalApp, renderRemoteApp, setWideScreen, speakKey } from "./app-fakes";
 
 const grid = () => screen.getByRole("list", { name: /^Keys of/ });
 
-/** Opens the key dialog the only way there is on a phone: edit mode, then the key. */
+/** Opens the key dialog from the key's menu (a right click here). */
 async function editKey(user: { click: (element: Element) => Promise<void> }, name: string) {
-  await user.click(screen.getByRole("button", { name: "Edit" }));
-  await user.click(screen.getByRole("button", { name }));
+  fireEvent.contextMenu(screen.getByRole("button", { name }));
+  await user.click(screen.getByRole("menuitem", { name: "Edit" }));
   return screen.getByRole("dialog");
+}
+
+/** Drags `source` onto `target` with a DataTransfer stand-in (jsdom has none). */
+function drag(source: Element, target: Element) {
+  const data = new Map<string, string>();
+  const transfer = {
+    setData: (type: string, value: string) => void data.set(type, value),
+    getData: (type: string) => data.get(type) ?? "",
+    effectAllowed: "all",
+    dropEffect: "none",
+  };
+  fireEvent(source, Object.assign(createEvent.dragStart(source), { dataTransfer: transfer }));
+  fireEvent(target, Object.assign(createEvent.dragOver(target), { dataTransfer: transfer }));
+  fireEvent(target, Object.assign(createEvent.drop(target), { dataTransfer: transfer }));
 }
 
 describe("board player in phone-only mode", () => {
@@ -96,11 +110,13 @@ describe("board player in phone-only mode", () => {
 describe("key editing on the phone", () => {
   afterEach(() => vi.useRealTimers());
 
-  it("edits a key in a modal from edit mode and returns focus to it", async () => {
+  it("edits a key from its menu (right click) in a modal and returns focus to it", async () => {
     const { user } = renderLocalApp();
-    await screen.findByRole("button", { name: "Hello" });
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    await user.click(screen.getByRole("button", { name: "Edit key 1: Hello" }));
+    const hello = await screen.findByRole("button", { name: "Hello" });
+    expect(fireEvent.contextMenu(hello)).toBe(false);
+    const menu = screen.getByRole("menu", { name: "Key 1: Hello" });
+    await user.click(within(menu).getByRole("menuitem", { name: "Edit" }));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     const dialog = screen.getByRole("dialog", { name: "Edit key 1" });
     expect(within(dialog).getByRole("combobox", { name: "Action" })).toHaveDisplayValue("Speak text");
     await user.type(within(dialog).getByRole("textbox", { name: "Label (optional)" }), "Hi");
@@ -108,7 +124,7 @@ describe("key editing on the phone", () => {
     await user.click(within(dialog).getByRole("radio", { name: "Green" }));
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    const key = screen.getByRole("button", { name: "Edit key 1: Hi" });
+    const key = screen.getByRole("button", { name: "Hi" });
     expect(key).toHaveFocus();
     expect(key).toHaveStyle({ background: "#16a34a" });
   });
@@ -157,29 +173,92 @@ describe("key editing on the phone", () => {
   it("tests a speak key from the editor synchronously, without saving", async () => {
     const { synthesizer, user } = renderLocalApp();
     await screen.findByRole("button", { name: "Hello" });
-    const dialog = await editKey(user, "Edit key 1: Hello");
+    const dialog = await editKey(user, "Hello");
     fireEvent.click(within(dialog).getByRole("button", { name: "Test" }));
     expect(synthesizer.texts).toEqual(["Hello"]);
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("deletes a key after an inline confirmation", async () => {
+  it("deletes a key from its menu after an inline confirmation, never from the edit dialog", async () => {
     const { user } = renderLocalApp();
-    await screen.findByRole("button", { name: "Hello" });
-    const dialog = await editKey(user, "Edit key 1: Hello");
-    await user.click(within(dialog).getByRole("button", { name: "Delete key" }));
-    expect(within(dialog).getByRole("button", { name: "No, keep it" })).toHaveFocus();
-    await user.click(within(dialog).getByRole("button", { name: "Yes, delete" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(screen.queryByRole("button", { name: "Hello" })).not.toBeInTheDocument();
+    const hello = await screen.findByRole("button", { name: "Hello" });
+    const dialog = await editKey(user, "Hello");
+    expect(within(dialog).queryByRole("button", { name: /Delete/ })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    fireEvent.contextMenu(hello);
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+    const confirm = screen.getByRole("group", { name: "Delete “Hello”? This cannot be undone." });
+    expect(within(confirm).getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await user.click(within(confirm).getByRole("button", { name: "Cancel" }));
+    expect(hello).toHaveFocus();
+
+    fireEvent.contextMenu(hello);
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Hello" })).not.toBeInTheDocument());
     expect(screen.getByRole("status")).toHaveTextContent("Key deleted.");
+  });
+
+  it("opens the key menu with the keyboard, moves through it with the arrows and closes it with Escape", async () => {
+    const { user } = renderLocalApp();
+    const hello = await screen.findByRole("button", { name: "Hello" });
+    hello.focus();
+    await user.keyboard("{Shift>}{F10}{/Shift}");
+    const items = within(screen.getByRole("menu")).getAllByRole("menuitem");
+    expect(items[0]).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
+    expect(items[1]).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
+    expect(items[0]).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(hello).toHaveFocus();
+
+    await user.click(screen.getByRole("button", { name: "Options for key 1" }));
+    expect(screen.getByRole("menu", { name: "Key 1: Hello" })).toBeInTheDocument();
+  });
+
+  it("opens the key menu with a long press without running the key, and a short tap still runs it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { synthesizer } = renderLocalApp({ boards: [buildDefaultBoard("en")] });
+    const key = await screen.findByRole("button", { name: "Hello" });
+    fireEvent.pointerDown(key, { pointerType: "touch" });
+    act(() => void vi.advanceTimersByTime(600));
+    expect(screen.getByRole("menu", { name: "Key 1: Hello" })).toBeInTheDocument();
+    fireEvent.pointerUp(key, { pointerType: "touch" });
+    fireEvent.click(key, { detail: 1 });
+    expect(synthesizer.texts).toEqual([]);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+
+    fireEvent.pointerDown(key, { pointerType: "touch" });
+    act(() => void vi.advanceTimersByTime(100));
+    fireEvent.pointerUp(key, { pointerType: "touch" });
+    fireEvent.click(key, { detail: 1 });
+    expect(synthesizer.texts).toEqual(["Hello"]);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("moves keys by dragging one onto another with a mouse, swapping the two", async () => {
+    setWideScreen(true);
+    try {
+      const state = desktopState({ boards: [boardOf("main", "Main", [speakKey(0, "A"), speakKey(1, "B")])] });
+      const { requests } = renderRemoteApp({ state });
+      await screen.findByRole("button", { name: "A" });
+      drag(within(grid()).getByRole("button", { name: "A" }), within(grid()).getByRole("button", { name: "B" }));
+      await waitFor(() => expect(within(grid()).getAllByRole("button", { name: /^[AB]$/ }).map((key) => key.textContent)).toEqual(["B", "A"]));
+      expect(requests).toContainEqual({ method: "POST", url: "/api/boards/main/keys/move", body: { from: 0, to: 1 } });
+      expect(screen.getByRole("status")).toHaveTextContent("Key moved to position 2.");
+    } finally {
+      setWideScreen(false);
+    }
   });
 
   it("moves a key to another position from the editor", async () => {
     const { user } = renderLocalApp({ boards: [boardOf("main", "Main", [speakKey(0, "Hello")])] });
     await screen.findByRole("button", { name: "Hello" });
-    const dialog = await editKey(user, "Edit key 1: Hello");
+    const dialog = await editKey(user, "Hello");
     const position = within(dialog).getByRole("spinbutton", { name: "Move to position" });
     await user.clear(position);
     await user.type(position, "17");
@@ -187,22 +266,6 @@ describe("key editing on the phone", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Key moved to position 17.");
-  });
-
-  it("never opens the editor from a slow press or a right click outside edit mode", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const { synthesizer } = renderLocalApp({ boards: [buildDefaultBoard("en")] });
-    const key = await screen.findByRole("button", { name: "Hello" });
-    fireEvent.pointerDown(key);
-    act(() => void vi.advanceTimersByTime(3000));
-    fireEvent.pointerUp(key);
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    // The click that ends a slow press runs the key like any other tap.
-    fireEvent.click(key, { detail: 1 });
-    expect(synthesizer.texts).toEqual(["Hello"]);
-
-    expect(fireEvent.contextMenu(key)).toBe(true);
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("explains edit mode without mentioning holding a key or right-clicking", async () => {

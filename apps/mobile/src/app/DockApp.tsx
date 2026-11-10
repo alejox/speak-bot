@@ -72,6 +72,8 @@ function DockContent({ target }: { target: SpeechTarget }) {
         onRun={deck.run}
         isSpeaking={speech.isSpeaking}
         onEditKey={setDialogSlot}
+        onDeleteKey={deck.clearKey}
+        onMoveKey={deck.moveKey}
         isEditing={isEditing}
         toolbar={
           <button type="button" className="button button-small" aria-pressed={isEditing} onClick={() => setIsEditing((value) => !value)}>
@@ -92,11 +94,6 @@ function DockContent({ target }: { target: SpeechTarget }) {
             const saved = await deck.saveKey(key, board.keys.find((candidate) => candidate.slot === dialogSlot));
             if (saved) setDialogSlot(null);
             return saved;
-          }}
-          onDelete={async () => {
-            const deleted = await deck.clearKey(dialogSlot);
-            if (deleted) setDialogSlot(null);
-            return deleted;
           }}
           onMove={async (to) => {
             const moved = await deck.moveKey(dialogSlot, to);

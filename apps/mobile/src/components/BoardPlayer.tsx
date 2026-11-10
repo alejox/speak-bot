@@ -1,9 +1,21 @@
 import { BOARD_KINDS, boardPageCount, keysOnPage, KEYS_PER_PAGE, type Action, type Board, type Key } from "@speed-deck/core";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { MoreHorizontal } from "lucide-react";
+import { useEffect, useId, useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import type { BoardNavigation } from "../app/use-boards";
 import { KEY_STATE_LABELS, keyLabel, keyLook, presentKey, type KeyContext } from "../app/key-presentation";
+import { useMediaQuery } from "../app/use-media-query";
 import { useT } from "../i18n/I18nProvider";
 import { BoardKey } from "./BoardKey";
+import { KeyMenu } from "./KeyMenu";
+
+/** Drag data type of a key being moved to another slot. */
+const SLOT_DRAG_TYPE = "application/x-speed-deck-slot";
+/** How long a touch must rest on a key to open its menu instead of running it. */
+export const LONG_PRESS_MS = 500;
+/** A touch that moves farther than this (px) is a scroll, not a long press. */
+const LONG_PRESS_SLOP = 10;
+/** Dragging keys needs a mouse or trackpad; a long touch opens the key menu instead. */
+const FINE_POINTER_QUERY = "(pointer: fine)";
 
 interface BoardPlayerProps {
   /** The boards the selector offers; `context.boards` holds every board, for keys that open one. */
@@ -16,8 +28,12 @@ interface BoardPlayerProps {
   onRun: (action: Action) => void;
   /** Speech is playing; the phrase key that started it stays marked until it ends. */
   isSpeaking?: boolean;
-  /** Opens the key editor for a slot; without it keys cannot be edited from the player. */
+  /** Opens the key dialog for a slot (add on an empty one, edit on a key); without it keys cannot be edited from the player. */
   onEditKey?: (slot: number) => void;
+  /** Empties a slot; resolves true when deleted. Offered in the key menu. */
+  onDeleteKey?: (slot: number) => Promise<boolean>;
+  /** Moves a key to another slot, swapping with a key there; resolves true when moved. Used by drag and drop. */
+  onMoveKey?: (from: number, to: number) => Promise<boolean>;
   /** Edit mode, the only way into the key editor: tapping any key or empty space opens it. */
   isEditing?: boolean;
   /** Buttons shown next to the board selector (e.g. the Edit toggle). */
@@ -27,16 +43,47 @@ interface BoardPlayerProps {
 }
 
 /** Plays a board: board selector, a page of keys and the pager. Keys show live OBS and captions state. */
-export function BoardPlayer({ boards, groupByKind = false, navigation, context, onRun, isSpeaking = false, onEditKey, isEditing = false, toolbar, variant = "full" }: BoardPlayerProps) {
+export function BoardPlayer({
+  boards,
+  groupByKind = false,
+  navigation,
+  context,
+  onRun,
+  isSpeaking = false,
+  onEditKey,
+  onDeleteKey,
+  onMoveKey,
+  isEditing = false,
+  toolbar,
+  variant = "full",
+}: BoardPlayerProps) {
   const t = useT();
   const selectId = useId();
   const descriptionPrefix = useId();
   // The phrase key tapped last; it shows as speaking for as long as speech plays.
   const [spoken, setSpoken] = useState<{ boardId: string; slot: number } | null>(null);
+  const [menuSlot, setMenuSlot] = useState<number | null>(null);
+  const [dropSlot, setDropSlot] = useState<number | null>(null);
+  // A slot whose control should take focus once it renders (the + left by a deleted key).
+  const [focusSlot, setFocusSlot] = useState<number | null>(null);
+  const slotButtons = useRef(new Map<number, HTMLButtonElement>());
+  const longPress = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
+  // The click that ends a long press must not run the key.
+  const swallowClick = useRef(false);
+  const canDrag = useMediaQuery(FINE_POINTER_QUERY) && onMoveKey !== undefined;
+  const canEdit = onEditKey !== undefined;
 
   useEffect(() => {
     if (!isSpeaking) setSpoken(null);
   }, [isSpeaking]);
+
+  useEffect(() => {
+    if (focusSlot === null) return;
+    slotButtons.current.get(focusSlot)?.focus();
+    setFocusSlot(null);
+  }, [focusSlot]);
+
+  useEffect(() => () => cancelLongPress(), []);
 
   const { board, position } = navigation;
   if (!board || !position) return null;
@@ -45,7 +92,84 @@ export function BoardPlayer({ boards, groupByKind = false, navigation, context, 
   const page = position.page;
   const keys = keysOnPage(board, page);
 
+  const slotRef = (slot: number) => (element: HTMLButtonElement | null) => {
+    if (element) slotButtons.current.set(slot, element);
+    else slotButtons.current.delete(slot);
+  };
+
+  function cancelLongPress() {
+    if (longPress.current) clearTimeout(longPress.current.timer);
+    longPress.current = null;
+  }
+
+  const openMenu = (slot: number) => {
+    cancelLongPress();
+    setMenuSlot(slot);
+  };
+
+  const closeMenu = (restoreFocus: boolean) => {
+    const slot = menuSlot;
+    setMenuSlot(null);
+    if (restoreFocus && slot !== null) slotButtons.current.get(slot)?.focus();
+  };
+
+  const keyMenuHandlers = (slot: number) =>
+    canEdit
+      ? {
+          onContextMenu: (event: { preventDefault: () => void }) => {
+            event.preventDefault();
+            // A touch still resting on the key (Android's long press) ends in a click that must not run it.
+            if (longPress.current) swallowClick.current = true;
+            openMenu(slot);
+          },
+          onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => {
+            if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+              event.preventDefault();
+              openMenu(slot);
+            }
+          },
+          onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
+            swallowClick.current = false;
+            cancelLongPress();
+            if (event.pointerType === "mouse") return;
+            const timer = setTimeout(() => {
+              swallowClick.current = true;
+              openMenu(slot);
+            }, LONG_PRESS_MS);
+            longPress.current = { timer, x: event.clientX, y: event.clientY };
+          },
+          onPointerMove: (event: PointerEvent<HTMLButtonElement>) => {
+            const start = longPress.current;
+            if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > LONG_PRESS_SLOP) cancelLongPress();
+          },
+          onPointerUp: cancelLongPress,
+          onPointerCancel: cancelLongPress,
+          onPointerLeave: cancelLongPress,
+        }
+      : {};
+
+  const dropHandlers = (slot: number) =>
+    canDrag
+      ? {
+          onDragOver: (event: DragEvent) => {
+            event.preventDefault();
+            setDropSlot(slot);
+          },
+          onDragLeave: () => setDropSlot((value) => (value === slot ? null : value)),
+          onDrop: (event: DragEvent) => {
+            event.preventDefault();
+            setDropSlot(null);
+            const from = event.dataTransfer.getData(SLOT_DRAG_TYPE);
+            if (from !== "" && Number(from) !== slot) void onMoveKey?.(Number(from), slot);
+          },
+        }
+      : {};
+
   const press = (slot: number, key: Key | undefined, disabled: boolean) => {
+    if (swallowClick.current) {
+      swallowClick.current = false;
+      return;
+    }
     if (isEditing || !key) {
       onEditKey?.(slot);
       return;
@@ -91,15 +215,18 @@ export function BoardPlayer({ boards, groupByKind = false, navigation, context, 
       <ol className={`deck-grid${isEditing ? " deck-grid-editing" : ""}`} aria-label={t("board.keys", { board: board.name })}>
         {keys.map((key, index) => {
           const slot = page * KEYS_PER_PAGE + index;
+          const dropClass = dropSlot === slot ? "deck-key-drop" : "";
           if (!key) {
             return (
               <li key={slot}>
                 {onEditKey ? (
                   <button
+                    ref={slotRef(slot)}
                     type="button"
-                    className="deck-key deck-key-empty"
+                    className={["deck-key", "deck-key-empty", dropClass].filter(Boolean).join(" ")}
                     aria-label={t("board.addKey", { number: slot + 1 })}
                     onClick={() => press(slot, undefined, false)}
+                    {...dropHandlers(slot)}
                   >
                     <span className="deck-key-plus" aria-hidden="true">
                       +
@@ -121,8 +248,9 @@ export function BoardPlayer({ boards, groupByKind = false, navigation, context, 
           const description = reason ?? (speaking ? t("key.speaking") : undefined);
           const descriptionId = `${descriptionPrefix}-${slot}`;
           return (
-            <li key={slot}>
+            <li key={slot} className={canEdit ? "deck-slot" : undefined}>
               <BoardKey
+                ref={slotRef(slot)}
                 label={label}
                 {...keyLook(key, presentation.iconId)}
                 color={key.color}
@@ -136,8 +264,56 @@ export function BoardPlayer({ boards, groupByKind = false, navigation, context, 
                 aria-disabled={disabled && !isEditing ? true : undefined}
                 aria-describedby={description ? descriptionId : undefined}
                 title={reason}
+                className={dropClass || undefined}
+                aria-keyshortcuts={canEdit ? "Shift+F10" : undefined}
                 onClick={() => press(slot, key, disabled)}
+                draggable={canDrag || undefined}
+                onDragStart={
+                  canDrag
+                    ? (event) => {
+                        cancelLongPress();
+                        setMenuSlot(null);
+                        event.dataTransfer.setData(SLOT_DRAG_TYPE, String(slot));
+                        event.dataTransfer.effectAllowed = "move";
+                      }
+                    : undefined
+                }
+                {...keyMenuHandlers(slot)}
+                {...dropHandlers(slot)}
               />
+              {canEdit && (
+                // A visible way into the menu for mouse users; keyboards use Shift+F10 on the key itself.
+                <button
+                  type="button"
+                  className="deck-key-more"
+                  tabIndex={-1}
+                  aria-label={t("keyMenu.options", { number: slot + 1 })}
+                  aria-haspopup="menu"
+                  aria-expanded={menuSlot === slot}
+                  onClick={() => openMenu(slot)}
+                >
+                  <MoreHorizontal size={18} aria-hidden="true" />
+                </button>
+              )}
+              {menuSlot === slot && onEditKey && (
+                <KeyMenu
+                  slot={slot}
+                  label={label}
+                  onEdit={() => {
+                    closeMenu(true);
+                    onEditKey(slot);
+                  }}
+                  onDelete={async () => {
+                    const deleted = (await onDeleteKey?.(slot)) ?? false;
+                    if (deleted) {
+                      setMenuSlot(null);
+                      setFocusSlot(slot);
+                    }
+                    return deleted;
+                  }}
+                  onClose={closeMenu}
+                />
+              )}
               {description && (
                 <span id={descriptionId} hidden>
                   {description}

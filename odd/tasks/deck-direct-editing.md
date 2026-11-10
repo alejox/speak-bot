@@ -35,8 +35,9 @@ Out of scope (second delivery): custom `Select`, toggle switches and segmented c
 ## Tasks
 
 - [x] T1 — Add-key flow: empty slots show + in play mode; two-step add modal (picker → details). Tests in `board-player.test.tsx`.
-  - Evidence: RED — 4 new/updated tests failed (no "Add key 2" dialog, + only in edit mode). GREEN — 239/239 tests, typecheck and build pass. New `ModalDialog` shell (title, close, live region, focus return) and `ActionPicker` tile grid; `KeyEditorDialog` adds in two steps (parameterless actions save at once) or edits. Commit: see below.
-- [ ] T2 — Key context menu (Edit / Delete with confirm) via right-click, long-press and keyboard; drag-to-reorder in the player. Tests.
+  - Evidence: RED — 4 new/updated tests failed (no "Add key 2" dialog, + only in edit mode). GREEN — 239/239 tests, typecheck and build pass. New `ModalDialog` shell (title, close, live region, focus return) and `ActionPicker` tile grid; `KeyEditorDialog` adds in two steps (parameterless actions save at once) or edits. Commit: `79077a7`.
+- [x] T2 — Key context menu (Edit / Delete with confirm) via right-click, long-press and keyboard; drag-to-reorder in the player. Tests.
+  - Evidence: RED — 7 tests failed (no menu, no long press, no drag in the player). GREEN — 241/241 tests, typecheck and build pass. `KeyMenu` (role=menu, arrows/Home/End, Escape/Tab close and refocus the key, outside press closes); long press 500ms for non-mouse pointers swallows the ending click; Shift+F10 / ContextMenu key; a hover/focus "more" button (tabIndex -1, "Options for key N"). Drag-to-swap only with a fine pointer (iOS long press would start a native drag); touch users move keys via Edit → "Move to position". Delete removed from the edit dialog. Commit: see next task.
 - [ ] T3 — Remove `BoardEditor` three-pane screen and edit toggle; board dropdown menu (new, rename, delete, restore); page add from pager. Update/remove obsolete tests.
 - [ ] T4 — Minimal visual cleanup of deck, menus and modal styles (tokens, no accent borders/outlines/dashes, no nested cards).
 - [ ] T5 — Rebuild mobile + Electron app and relaunch for the user to try.
