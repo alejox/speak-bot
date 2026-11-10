@@ -1,8 +1,9 @@
-import { startDesktop, type RunningDesktop } from "@speak-bot/desktop";
+import { startDesktop, type RunningDesktop } from "@speed-deck/desktop";
 import { app, BrowserWindow, clipboard, dialog, Menu, nativeImage, shell, Tray } from "electron";
 import { homedir } from "node:os";
-import { isLinuxAutostartEnabled, linuxAutostartEntry, linuxAutostartFile, setLinuxAutostart } from "./linux-autostart";
+import { isLinuxAutostartEnabled, linuxAutostartEntry, linuxAutostartFile, migrateLinuxAutostart, setLinuxAutostart } from "./linux-autostart";
 import { resolveAppPaths } from "./paths";
+import { installQuitOnSignals } from "./quit-signals";
 import { HIDDEN_FLAG, shouldStartHidden } from "./startup";
 import { trayStrings, type TrayStrings } from "./tray-strings";
 
@@ -12,7 +13,7 @@ const paths = resolveAppPaths({
   bundleDir: __dirname,
   platform: process.platform,
 });
-const log = (message: string) => console.log(`[speak-bot] ${message}`);
+const log = (message: string) => console.log(`[speed-deck] ${message}`);
 
 let desktop: RunningDesktop | undefined;
 let window: BrowserWindow | undefined;
@@ -34,13 +35,18 @@ if (!app.requestSingleInstanceLock()) {
     event.preventDefault();
     const running = desktop;
     desktop = undefined;
+    log("Stopping the server…");
+    // The quit already ran its course up to here; a second app.quit() is ignored when it started
+    // from a signal (Chromium handles SIGTERM itself), so finish with app.exit().
     void running
       .close()
       .catch((error: unknown) => log(`Could not stop the server cleanly: ${String(error)}`))
-      .finally(() => app.quit());
+      .finally(() => app.exit(0));
   });
   // The server keeps running for OBS and the phone while the window is closed.
   app.on("window-all-closed", () => {});
+  // `kill`, Ctrl+C and logouts go through the same clean quit as "Quit" in the tray.
+  installQuitOnSignals({ process, quit: () => app.quit(), exit: (code) => app.exit(code) });
 
   app.whenReady().then(start, (error: unknown) => fail(error));
 }
@@ -59,6 +65,7 @@ async function start(): Promise<void> {
     strings = trayStrings(settings.language);
     refreshTrayMenu();
   });
+  if (process.platform === "linux") await migrateOldAutostart();
   createTray();
   const loginItem = process.platform === "linux" ? { wasOpenedAtLogin: false } : app.getLoginItemSettings();
   const hidden = shouldStartHidden(process.argv, loginItem.wasOpenedAtLogin);
@@ -86,11 +93,12 @@ function createWindow(port: number): BrowserWindow {
   // [::1], where another app could be listening on the same port.
   const origin = `http://127.0.0.1:${port}`;
   const created = new BrowserWindow({
-    width: 960,
-    height: 760,
+    // Wide enough for the three-pane board editor (1000px and up).
+    width: 1280,
+    height: 820,
     minWidth: 360,
     minHeight: 480,
-    title: "Speak Bot",
+    title: "Speed Deck",
     icon: paths.windowIcon,
     show: false,
     autoHideMenuBar: true,
@@ -130,7 +138,7 @@ function createTray(): void {
   const icon = nativeImage.createFromPath(paths.trayIcon);
   if (process.platform === "darwin") icon.setTemplateImage(true);
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
-  tray.setToolTip("Speak Bot");
+  tray.setToolTip("Speed Deck");
   tray.on("click", () => showWindow());
   refreshTrayMenu();
 }
@@ -166,6 +174,16 @@ function refreshTrayMenu(): void {
 function isStartAtLoginEnabled(): boolean {
   if (process.platform === "linux") return isLinuxAutostartEnabled(linuxAutostartFile(homedir(), process.env));
   return app.getLoginItemSettings({ args: [HIDDEN_FLAG] }).openAtLogin;
+}
+
+/** Keeps Start at login on after the rename from Speak Bot. */
+async function migrateOldAutostart(): Promise<void> {
+  try {
+    const entry = linuxAutostartEntry({ execPath: process.execPath, env: process.env });
+    if (await migrateLinuxAutostart(homedir(), process.env, entry)) log("Moved the Start at login entry to speed-deck.desktop.");
+  } catch (error) {
+    log(`Could not move the Start at login entry: ${String(error)}`);
+  }
 }
 
 async function setStartAtLogin(enabled: boolean): Promise<void> {

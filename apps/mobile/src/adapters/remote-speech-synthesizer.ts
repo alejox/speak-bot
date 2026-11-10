@@ -1,4 +1,4 @@
-import type { SpeakErrorCode, SpeakOptions, Voice } from "@speak-bot/core";
+import type { SpeakErrorCode, SpeakOptions, Voice } from "@speed-deck/core";
 import type { DesktopApiClient } from "./desktop-api";
 import type { DesktopEventSource } from "./desktop-events";
 import type { AppSpeechSynthesizer } from "./web-speech-synthesizer";

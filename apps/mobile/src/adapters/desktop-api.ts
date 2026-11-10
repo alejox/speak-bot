@@ -1,15 +1,23 @@
 import {
   DESKTOP_SERVER_NAME,
+  readStoredBoards,
+  type Action,
   type ApiErrorCode,
   type AudioDevice,
+  type Board,
   type DesktopSettings,
-  type Phrase,
+  type DesktopSettingsPatch,
+  type Key,
+  type ObsInput,
+  type ObsSceneItem,
+  type ObsStatus,
+  type ObsStatusResponse,
+  type SetKeyRequest,
   type SpeakRequest,
   type SpeechCapabilities,
   type UiLanguage,
-  type UpdatePhraseRequest,
   type Voice,
-} from "@speak-bot/core";
+} from "@speed-deck/core";
 
 export class DesktopRequestError extends Error {
   constructor(
@@ -40,7 +48,7 @@ const DETECT_TIMEOUT_MS = 1500;
 export class DesktopApiClient {
   constructor(private readonly fetchFn: typeof fetch = (input, init) => globalThis.fetch(input, init)) {}
 
-  /** Returns the desktop speech capabilities, or null when the page is not served by a speak-bot desktop. */
+  /** Returns the desktop speech capabilities, or null when the page is not served by a Speed Deck desktop. */
   async detect(timeoutMs = DETECT_TIMEOUT_MS): Promise<SpeechCapabilities | null> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -63,27 +71,47 @@ export class DesktopApiClient {
     return body;
   }
 
-  listPhrases(): Promise<unknown> {
-    return this.request("GET", "/api/phrases");
+  /** Every desktop board in display order; anything invalid the desktop sends is dropped. */
+  async listBoards(): Promise<Board[]> {
+    return readStoredBoards(await this.request("GET", "/api/boards"));
   }
 
-  async savePhrase(phrase: Phrase): Promise<void> {
-    await this.request("POST", "/api/phrases", phrase);
+  createBoard(name: string): Promise<Board> {
+    return this.request("POST", "/api/boards", { name }) as Promise<Board>;
   }
 
-  /** Changes text, label and slot of an existing phrase; an empty label removes it. */
-  async updatePhrase(phrase: Phrase): Promise<void> {
-    const body: UpdatePhraseRequest = { text: phrase.text, label: phrase.label ?? "", slot: phrase.slot };
-    await this.request("PUT", `/api/phrases/${encodeURIComponent(phrase.id)}`, body);
+  renameBoard(boardId: string, name: string): Promise<Board> {
+    return this.request("PATCH", `/api/boards/${encodeURIComponent(boardId)}`, { name }) as Promise<Board>;
   }
 
-  /** Replaces every desktop phrase with the default set in `language`. */
-  async restorePhrases(language: UiLanguage): Promise<void> {
-    await this.request("POST", "/api/phrases/restore", { language });
+  /** Rejects with code "last-board" for the only board. */
+  async deleteBoard(boardId: string): Promise<void> {
+    await this.request("DELETE", `/api/boards/${encodeURIComponent(boardId)}`);
   }
 
-  async deletePhrase(id: string): Promise<void> {
-    await this.request("DELETE", `/api/phrases/${encodeURIComponent(id)}`);
+  /** Puts a key at `slot`; an occupied slot rejects with code "slot-occupied" unless `replace` is set. */
+  setKey(boardId: string, slot: number, key: Omit<SetKeyRequest, "replace">, { replace = false } = {}): Promise<Key> {
+    const body: SetKeyRequest = replace ? { ...key, replace: true } : key;
+    return this.request("PUT", `${keysPath(boardId)}/${slot}`, body) as Promise<Key>;
+  }
+
+  async clearKey(boardId: string, slot: number): Promise<void> {
+    await this.request("DELETE", `${keysPath(boardId)}/${slot}`);
+  }
+
+  /** Moves the key at `from` to `to`, swapping with a key already there. */
+  moveKey(boardId: string, from: number, to: number): Promise<Board> {
+    return this.request("POST", `${keysPath(boardId)}/move`, { from, to }) as Promise<Board>;
+  }
+
+  /** Puts back the built-in communication board in `language`. */
+  restoreDefaultBoard(language: UiLanguage): Promise<Board> {
+    return this.request("POST", "/api/boards/restore-default", { language }) as Promise<Board>;
+  }
+
+  /** Runs a voice, captions or OBS action on the desktop; navigation actions are refused ("client-action"). */
+  executeAction(action: Action): Promise<{ ok: true; captionsVisible?: boolean; voiceLanguage?: UiLanguage }> {
+    return this.request("POST", "/api/actions/execute", { action }) as Promise<{ ok: true }>;
   }
 
   async speak(request: SpeakRequest): Promise<void> {
@@ -116,7 +144,31 @@ export class DesktopApiClient {
     return this.request("GET", "/api/settings") as Promise<DesktopSettings>;
   }
 
-  saveSettings(patch: Partial<DesktopSettings>): Promise<DesktopSettings> {
+  /** OBS connection status and state (scene, muted inputs, streaming, recording). */
+  loadObsStatus(): Promise<ObsStatusResponse> {
+    return this.request("GET", "/api/obs/status") as Promise<ObsStatusResponse>;
+  }
+
+  /** Rejects with code "obs-unavailable" while OBS is not connected (also the other OBS lists). */
+  listObsScenes(): Promise<string[]> {
+    return this.request("GET", "/api/obs/scenes") as Promise<string[]>;
+  }
+
+  listObsInputs(): Promise<ObsInput[]> {
+    return this.request("GET", "/api/obs/inputs") as Promise<ObsInput[]>;
+  }
+
+  listObsSceneItems(sceneName: string): Promise<ObsSceneItem[]> {
+    return this.request("GET", `/api/obs/scenes/${encodeURIComponent(sceneName)}/items`) as Promise<ObsSceneItem[]>;
+  }
+
+  /** Connects again with the saved OBS settings; resolves with the first attempt's status ("obs-disabled" when off). */
+  connectObs(): Promise<ObsStatus> {
+    return this.request("POST", "/api/obs/connect", {}) as Promise<ObsStatus>;
+  }
+
+  /** Fields left out keep their value; `obs.password` is write-only (an empty string removes it). */
+  saveSettings(patch: DesktopSettingsPatch): Promise<DesktopSettings> {
     return this.request("PUT", "/api/settings", patch) as Promise<DesktopSettings>;
   }
 
@@ -136,6 +188,10 @@ export class DesktopApiClient {
     }
     return payload;
   }
+}
+
+function keysPath(boardId: string): string {
+  return `/api/boards/${encodeURIComponent(boardId)}/keys`;
 }
 
 function isConnectionInfo(value: unknown): value is ConnectionInfo {

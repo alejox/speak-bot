@@ -21,6 +21,6 @@ describe("overlay.html", () => {
     const html = await readFile(OVERLAY_FILE, "utf8");
 
     expect(html).toContain('<html lang="es">');
-    expect(html).toContain("<title>Subtítulos de Speak Bot</title>");
+    expect(html).toContain("<title>Subtítulos de Speed Deck</title>");
   });
 });

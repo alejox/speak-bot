@@ -1,8 +1,8 @@
 {
-  "name": "@speak-bot/core",
+  "name": "@speed-deck/core",
   "version": "0.0.0",
   "private": true,
-  "description": "Framework-free domain, ports and use cases for speak-bot.",
+  "description": "Framework-free domain, ports and use cases for Speed Deck.",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

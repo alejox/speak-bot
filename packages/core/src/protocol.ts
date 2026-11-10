@@ -2,14 +2,16 @@
  * Wire protocol shared by the desktop server and its clients (mobile app, OBS overlay).
  * Pure types and tiny guards only: no runtime dependencies.
  */
-import type { Phrase } from "./domain/phrase";
+import type { Action } from "./domain/actions";
+import type { Board, Key } from "./domain/board";
+import type { ObsConnectionStatus, ObsErrorCode, ObsInput, ObsSceneItem, ObsState } from "./ports/obs-controller";
 import type { Voice } from "./ports/speech-synthesizer";
 
 /** Longest text the desktop server accepts for a single utterance. */
 export const MAX_SPEAK_TEXT_LENGTH = 1000;
 
-/** Identifies a speak-bot desktop server in the health response. */
-export const DESKTOP_SERVER_NAME = "speak-bot-desktop";
+/** Identifies a Speed Deck desktop server in the health response. */
+export const DESKTOP_SERVER_NAME = "speed-deck-desktop";
 
 /** Languages the user interface is available in. */
 export const UI_LANGUAGES = ["es", "en"] as const;
@@ -25,7 +27,6 @@ export function isUiLanguage(value: unknown): value is UiLanguage {
 export interface CaptionEvent {
   readonly type: "caption";
   readonly text: string;
-  readonly phraseId?: string;
   /** Epoch milliseconds. */
   readonly at: number;
 }
@@ -36,8 +37,9 @@ export interface SpeakingEvent {
   readonly at: number;
 }
 
-export interface PhrasesChangedEvent {
-  readonly type: "phrases-changed";
+/** Boards or keys changed on the desktop (from any client); reload GET /api/boards. */
+export interface BoardsChangedEvent {
+  readonly type: "boards-changed";
   readonly at: number;
 }
 
@@ -66,13 +68,38 @@ export interface CaptionsVisibilityEvent {
   readonly at: number;
 }
 
+/** The desktop's connection to OBS changed. */
+export interface ObsStatusEvent {
+  readonly type: "obs-status";
+  readonly status: ObsConnectionStatus;
+  readonly code?: ObsErrorCode;
+  readonly at: number;
+}
+
+/** OBS changed scene, mute, stream or record state (only sent while connected). */
+export interface ObsStateEvent {
+  readonly type: "obs-state";
+  readonly state: ObsState;
+  readonly at: number;
+}
+
+/** The desktop settings changed (from any client, the tray or an action key); never holds the OBS password. */
+export interface SettingsChangedEvent {
+  readonly type: "settings-changed";
+  readonly settings: DesktopSettings;
+  readonly at: number;
+}
+
 export type ServerEvent =
+  | SettingsChangedEvent
   | CaptionEvent
   | SpeakingEvent
-  | PhrasesChangedEvent
+  | BoardsChangedEvent
   | SpeakErrorEvent
   | CaptionClearEvent
-  | CaptionsVisibilityEvent;
+  | CaptionsVisibilityEvent
+  | ObsStatusEvent
+  | ObsStateEvent;
 
 export function isServerEvent(value: unknown): value is ServerEvent {
   if (typeof value !== "object" || value === null) return false;
@@ -80,10 +107,10 @@ export function isServerEvent(value: unknown): value is ServerEvent {
   if (typeof event.at !== "number") return false;
   switch (event.type) {
     case "caption":
-      return typeof event.text === "string" && (event.phraseId === undefined || typeof event.phraseId === "string");
+      return typeof event.text === "string";
     case "speaking":
       return event.state === "start" || event.state === "end";
-    case "phrases-changed":
+    case "boards-changed":
       return true;
     case "speak-error":
       return typeof event.message === "string" && (event.code === undefined || typeof event.code === "string");
@@ -91,9 +118,27 @@ export function isServerEvent(value: unknown): value is ServerEvent {
       return true;
     case "captions-visibility":
       return typeof event.visible === "boolean";
+    case "obs-status":
+      return typeof event.status === "string" && (event.code === undefined || typeof event.code === "string");
+    case "obs-state":
+      return isObsState(event.state);
+    case "settings-changed":
+      return typeof event.settings === "object" && event.settings !== null && isUiLanguage((event.settings as { language?: unknown }).language);
     default:
       return false;
   }
+}
+
+function isObsState(value: unknown): value is ObsState {
+  if (typeof value !== "object" || value === null) return false;
+  const state = value as Record<string, unknown>;
+  return (
+    (state.currentScene === null || typeof state.currentScene === "string") &&
+    Array.isArray(state.mutedInputs) &&
+    state.mutedInputs.every((name) => typeof name === "string") &&
+    typeof state.streaming === "boolean" &&
+    typeof state.recording === "boolean"
+  );
 }
 
 // ---- HTTP JSON API (prefix `/api`) ----
@@ -117,34 +162,52 @@ export interface HealthResponse {
   readonly instanceId: string;
 }
 
+/** GET /api/boards → Board[] in display order. */
+export type BoardsResponse = Board[];
+
+/** POST /api/boards → 201 Board; PATCH /api/boards/:id → Board. */
+export interface BoardNameRequest {
+  name: string;
+}
+
 /**
- * GET /api/phrases → Phrase[] (slot order); POST /api/phrases with this body → 201 Phrase;
- * PUT /api/phrases/:id with `UpdatePhraseRequest` → Phrase; DELETE /api/phrases/:id → 204.
- * A slot already used by another phrase → 409 with code "slot-occupied".
+ * PUT /api/boards/:id/keys/:slot → Key. A slot that already holds a key → 409 "slot-occupied"
+ * unless `replace` is true. DELETE /api/boards/:id/keys/:slot → 204 (an empty slot is fine).
  */
-export interface SavePhraseRequest {
-  /** Client-generated id; the server generates one when omitted. Saving an existing id replaces it. */
-  id?: string;
-  text: string;
+export interface SetKeyRequest {
   label?: string;
-  /** Deck slot; defaults to the phrase's current slot, or the lowest free one for a new phrase. */
-  slot?: number;
-  createdAt?: number;
+  /** One of `KEY_ICON_IDS`; empty for none. */
+  icon?: string;
+  /** `#rrggbb`; empty for none. */
+  color?: string;
+  action: Action;
+  replace?: boolean;
 }
 
-/** PUT /api/phrases/:id: fields left out keep their value; an empty label removes it. */
-export interface UpdatePhraseRequest {
-  text?: string;
-  label?: string;
-  slot?: number;
+/** POST /api/boards/:id/keys/move → Board. A key already at `to` is swapped to `from`. */
+export interface MoveKeyRequest {
+  from: number;
+  to: number;
 }
 
-export type PhrasesResponse = Phrase[];
+/** POST /api/boards/restore-default → Board: puts back the built-in communication board. */
+export interface RestoreDefaultBoardRequest {
+  language: UiLanguage;
+}
 
-/** POST /api/speak → 202. Either `text` or `phraseId` is required. */
+/**
+ * POST /api/actions/execute → 200 `{ ok: true }` (202 for speech, which runs in the background).
+ * Navigation actions run in each client → 400 "client-action".
+ */
+export interface ExecuteActionRequest {
+  action: Action;
+}
+
+export type { Board, Key };
+
+/** POST /api/speak → 202. */
 export interface SpeakRequest {
-  text?: string;
-  phraseId?: string;
+  text: string;
   voiceId?: string;
   /** Speaking rate multiplier, 1 is normal speed. */
   rate?: number;
@@ -162,7 +225,7 @@ export interface AudioDevice {
 /** GET /api/devices */
 export type DevicesResponse = AudioDevice[];
 
-/** GET /api/settings; PUT /api/settings with a partial body → full settings. */
+/** GET /api/settings; PUT /api/settings with a `DesktopSettingsPatch` body → full settings. */
 export interface DesktopSettings {
   /** Empty string means the system default voice. */
   voiceId: string;
@@ -170,13 +233,48 @@ export interface DesktopSettings {
   rate: number;
   /** Empty string means the system default output device. */
   deviceId: string;
-  /** Interface language; also picks the first-run phrases and, unless `voiceLanguage` is set, the default voice. */
+  /** Interface language; also picks the first-run board and, unless `voiceLanguage` is set, the default voice. */
   language: UiLanguage;
   /** False hides the OBS captions until turned back on. */
   captionsVisible: boolean;
   /** Language of the automatic voice; when absent it follows `language`. */
   voiceLanguage?: UiLanguage;
+  /** OBS connection; always sent by the desktop. */
+  obs?: ObsSettingsView;
 }
+
+/** OBS connection settings as the API shows them: the password itself is never sent. */
+export interface ObsSettingsView {
+  enabled: boolean;
+  host: string;
+  port: number;
+  hasPassword: boolean;
+}
+
+/** PUT /api/settings `obs` field: fields left out keep their value; an empty password removes it. */
+export interface ObsSettingsPatch {
+  enabled?: boolean;
+  host?: string;
+  port?: number;
+  password?: string;
+}
+
+/** PUT /api/settings body. */
+export type DesktopSettingsPatch = Partial<Omit<DesktopSettings, "obs">> & { obs?: ObsSettingsPatch };
+
+/** GET /api/obs/status */
+export interface ObsStatusResponse {
+  /** `obs.enabled` from the settings. */
+  readonly enabled: boolean;
+  readonly status: ObsConnectionStatus;
+  readonly code?: ObsErrorCode;
+  readonly state: ObsState;
+}
+
+/** GET /api/obs/scenes → scene names; GET /api/obs/inputs; GET /api/obs/scenes/:name/items. 409 "obs-unavailable" when not connected. */
+export type ObsScenesResponse = string[];
+export type ObsInputsResponse = ObsInput[];
+export type ObsSceneItemsResponse = ObsSceneItem[];
 
 /** The language the automatic voice should speak. */
 export function voiceLanguageOf(settings: { language: UiLanguage; voiceLanguage?: UiLanguage }): UiLanguage {
@@ -184,7 +282,19 @@ export function voiceLanguageOf(settings: { language: UiLanguage; voiceLanguage?
 }
 
 /** Machine-readable reasons a request failed, so clients can explain them in their own language. */
-export type ApiErrorCode = "slot-occupied" | "phrase-not-found" | "nothing-to-repeat";
+export type ApiErrorCode =
+  | "slot-occupied"
+  | "nothing-to-repeat"
+  | "board-not-found"
+  | "key-not-found"
+  | "last-board"
+  | "invalid-board"
+  | "client-action"
+  | "obs-unavailable"
+  | "obs-disabled"
+  | "obs-request-failed"
+  | "loopback-only"
+  | "board-limit";
 
 export interface ErrorResponse {
   /** Technical detail in English. */

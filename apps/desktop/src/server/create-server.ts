@@ -1,4 +1,4 @@
-import type { DesktopSettings, PhraseRepository, ServerEvent } from "@speak-bot/core";
+import type { BoardRepository, DesktopSettings, ObsController, ServerEvent } from "@speed-deck/core";
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { hostname as osHostname } from "node:os";
@@ -11,7 +11,7 @@ import type { NetworkInterfaces } from "./network";
 import { createRequestGuard } from "./request-guard";
 
 export interface DesktopServerDependencies {
-  repository: PhraseRepository;
+  repository: BoardRepository;
   settings: JsonFileSettingsStore;
   synthesizer: DesktopSpeechSynthesizer;
   generateId: () => string;
@@ -29,6 +29,8 @@ export interface DesktopServerDependencies {
   instanceId?: string;
   /** Called after settings are saved through the API. */
   onSettingsChanged?: (settings: DesktopSettings) => void;
+  /** Controls OBS; its status and state changes are broadcast to every client. */
+  obs?: ObsController;
 }
 
 export interface DesktopServer {
@@ -47,6 +49,11 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
   const hub = new EventHub(isAllowedRequest);
   const instanceId = deps.instanceId ?? randomUUID();
   const handleApi = createApiHandler({ ...deps, instanceId, broadcast: (event) => hub.broadcast(event) });
+  const now = deps.now;
+  const stopObsEvents = deps.obs?.subscribe((event) => {
+    if (event.type === "status") hub.broadcast({ type: "obs-status", ...event.status, at: now() });
+    else hub.broadcast({ type: "obs-state", state: event.state, at: now() });
+  });
 
   const httpServer = createServer((request, response) => {
     void (async () => {
@@ -87,6 +94,7 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     },
     close: async () => {
+      stopObsEvents?.();
       await hub.close();
       httpServer.closeAllConnections();
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));

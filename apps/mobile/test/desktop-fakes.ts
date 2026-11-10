@@ -56,3 +56,31 @@ export class FakeSocket implements WebSocketLike {
     this.onclose?.();
   }
 }
+
+/** A phrase as the old phrase deck sees it: a speak key on the first desktop board. */
+export interface FakePhrase {
+  text: string;
+  label?: string;
+  slot: number;
+}
+
+/** A GET /api/boards body: one communication board whose speak keys are `phrases` (other phrase fields are ignored). */
+export function boardsOf<T extends FakePhrase>(phrases: readonly T[]) {
+  return [
+    {
+      id: "communication",
+      name: "Comunicación",
+      columns: 5,
+      rows: 3,
+      keys: phrases.map(({ text, label, slot }) => ({ slot, ...(label ? { label } : {}), action: { type: "voice.speak", text } })),
+    },
+  ];
+}
+
+/** The phrase a `PUT /api/boards/communication/keys/:slot` request stores, or null for other requests. */
+export function phraseFromKeyRequest(request: RecordedRequest): FakePhrase | null {
+  const match = /^\/api\/boards\/communication\/keys\/(\d+)$/.exec(request.url);
+  if (request.method !== "PUT" || !match) return null;
+  const body = request.body as { label?: string; action: { text: string } };
+  return { slot: Number(match[1]), text: body.action.text, ...(body.label ? { label: body.label } : {}) };
+}

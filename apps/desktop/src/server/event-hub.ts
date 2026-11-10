@@ -1,4 +1,4 @@
-import type { ServerEvent } from "@speak-bot/core";
+import type { ServerEvent } from "@speed-deck/core";
 import type { IncomingMessage, Server } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { requestPathname } from "./http-utils";

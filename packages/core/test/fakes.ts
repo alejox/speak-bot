@@ -1,5 +1,7 @@
 import type { Phrase } from "../src/domain/phrase";
 import type { PhraseRepository } from "../src/ports/phrase-repository";
+import type { Board } from "../src/domain/board";
+import type { BoardChange, BoardRepository } from "../src/ports/board-repository";
 import type { SpeakOptions, SpeechSynthesizer, Voice } from "../src/ports/speech-synthesizer";
 
 export class InMemoryPhraseRepository implements PhraseRepository {
@@ -62,4 +64,25 @@ export class FakeSpeechSynthesizer implements SpeechSynthesizer {
 export function sequentialIds(prefix = "id"): () => string {
   let next = 0;
   return () => `${prefix}-${++next}`;
+}
+
+/** Keeps boards in memory; every `update` is synchronous, so it is atomic like the real adapters. */
+export class InMemoryBoardRepository implements BoardRepository {
+  /** How many times the boards were written. */
+  writeCount = 0;
+
+  constructor(private boards: Board[] = []) {}
+
+  async list(): Promise<Board[]> {
+    return [...this.boards];
+  }
+
+  async update<T>(change: (boards: readonly Board[]) => BoardChange<T>): Promise<T> {
+    const { boards, result } = change(this.boards);
+    if (boards) {
+      this.boards = boards;
+      this.writeCount += 1;
+    }
+    return result;
+  }
 }

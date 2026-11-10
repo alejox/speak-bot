@@ -1,8 +1,8 @@
-# Speak Bot
+# Speed Deck
 
-An assistive text-to-speech tool for people who cannot speak. Type a message or tap a saved phrase, and Speak Bot reads it aloud: on the phone in person, or through the computer for streams and calls.
+A stream deck with built-in assistive communication. Every key can speak text aloud, control OBS captions, switch pages and boards, or control OBS itself. It was made for people who cannot speak: type a message or tap a key, and Speed Deck says it for you, on the phone in person or through the computer in streams and calls.
 
-Runs on **macOS, Windows and Linux**.
+Runs on **macOS, Windows and Linux**. The interface is in **Spanish by default**, with English available.
 
 ## Install
 
@@ -16,29 +16,12 @@ Runs on **macOS, Windows and Linux**.
 
 Download the installer for your system from the [latest release](https://github.com/alejox/speak-bot/releases/latest):
 
-| System                | File                                  |
-| --------------------- | ------------------------------------- |
-| macOS (Apple Silicon) | `speak-bot-<version>-mac-arm64.dmg`   |
-| macOS (Intel)         | `speak-bot-<version>-mac-x64.dmg`     |
-| Windows               | `speak-bot-<version>-win-x64.exe`     |
-| Linux                 | `.AppImage` or `.deb`                 |
-
-Open **Speak Bot**. Use the side menu to switch between sections:
-
-| Spanish (default) | English  | What it does                                               |
-| ----------------- | -------- | ---------------------------------------------------------- |
-| Hablar            | Speak    | Type a message and speak it; quick access to phrases       |
-| Frases            | Phrases  | Button board of saved phrases; add, delete or restore defaults |
-| Conectar          | Connect  | QR code for the phone, OBS caption and dock URLs           |
-| Ajustes           | Settings | Language, voice, speed, output device                      |
-
-The interface is in **Spanish by default**. Switch to English under **Ajustes → Idioma**.
-
-Closing the window keeps the app running in the tray or menu bar, so OBS keeps working. Use the tray menu to quit, copy the OBS URLs, or start Speak Bot at login.
-
-**Connect the phone:** in **Conectar**, scan the QR code with the phone (same Wi-Fi). Then, under **Hablar en**, choose **Computadora**. The first time, allow incoming network connections when your system asks.
-
-**Restore default phrases:** in **Frases**, enter edit mode and choose **Restaurar frases predeterminadas**. This replaces all saved phrases with the defaults in the current language, after a confirmation.
+| System                | File                                   |
+| --------------------- | -------------------------------------- |
+| macOS (Apple Silicon) | `speed-deck-<version>-mac-arm64.dmg`   |
+| macOS (Intel)         | `speed-deck-<version>-mac-x64.dmg`     |
+| Windows               | `speed-deck-<version>-win-x64.exe`     |
+| Linux                 | `.AppImage` or `.deb`                  |
 
 #### The installers are not signed yet
 
@@ -46,70 +29,68 @@ Your system will warn you the first time. To open the app anyway:
 
 - **macOS**: double-click the app. When it is blocked, open **System Settings → Privacy & Security** and click **Open Anyway**.
 - **Windows**: on the "Windows protected your PC" screen, click **More info → Run anyway**.
-- **Linux (AppImage)**: make the file executable (`chmod +x speak-bot-*.AppImage`) and run it. Install `espeak-ng` and `pulseaudio-utils` for the voice. The tray icon on GNOME needs the AppIndicator extension.
+- **Linux (AppImage)**: make the file executable (`chmod +x speed-deck-*.AppImage`) and run it. Install `espeak-ng` and `pulseaudio-utils` for the voice. The tray icon on GNOME needs the AppIndicator extension.
 
-## How it fits together
+#### Coming from Speak Bot
 
-```
- Phone (PWA) ──── local mode ───▶ phone speaker (offline)
-      │
-      └──── remote mode (Wi-Fi) ──▶ Desktop server ──▶ system voice ──▶ output device
-                                        │                              (speakers / virtual mic)
-                                        └──▶ /overlay ──▶ OBS Browser Source (captions)
-```
+Speed Deck was called Speak Bot before. The first time it runs, it copies your phrases and settings from the old `speak-bot` folder and turns your saved phrases into the **Comunicación** board. The old folder is kept as a backup. You can delete the old Speak Bot app.
 
-| Package         | What it is                                                                 |
-| --------------- | -------------------------------------------------------------------------- |
-| `packages/core` | Framework-free domain: phrases, ports, use cases, shared protocol types    |
-| `apps/mobile`   | Vite + React PWA: local (Web Speech API) and remote (desktop) modes        |
-| `apps/desktop`  | Node.js server: system TTS, phrases API, WebSocket events, OBS overlay     |
-| `apps/electron` | Desktop app shell: runs the server, window, tray, phone pairing            |
+## Using Speed Deck
 
-The core follows a hexagonal layout. `PhraseRepository` and `SpeechSynthesizer` are ports, and each app provides its own adapters.
+The side menu has four sections. The button at its top collapses it to icons only.
 
-## Development
+| Spanish (default) | English  | What it does                                                         |
+| ----------------- | -------- | -------------------------------------------------------------------- |
+| Tablero           | Board    | Play your boards; on the computer, open the board editor             |
+| Hablar            | Speak    | Type a message and speak it; quick keys from the current board       |
+| Conectar          | Connect  | QR code for the phone; OBS caption and dock URLs                     |
+| Ajustes           | Settings | Language, voice, speed, output device, OBS connection                |
 
-### Requirements
+Closing the window keeps the app running in the tray or menu bar, so OBS keeps working. Use the tray menu to quit, copy the OBS URLs, or start Speed Deck at login.
 
-- Node.js 22 or newer.
-- A system voice engine:
-  - **macOS**: built in (`say`).
-  - **Windows**: built in (System.Speech / Windows voices).
-  - **Linux**: `espeak-ng` and `pulseaudio-utils` (works with PipeWire's PulseAudio compatibility). On Debian/Ubuntu: `sudo apt install espeak-ng pulseaudio-utils`.
+### Boards and keys
 
-### Run from source
+- A **board** is a grid of 5 × 3 keys, with as many pages as you need. Speed Deck starts with a **Comunicación** board: common phrases plus the voice and caption actions.
+- Each **key** has an action and, optionally, a label, an icon and a color.
 
-```sh
-npm install
-npm start                          # builds the mobile app and starts the desktop server on port 4545
-npm run dev -w @speak-bot/electron # or run the desktop app shell
-```
+**Edit boards on the computer:** open **Tablero → Editar tablero**. The editor has three panes:
 
-If port 4545 is busy, the server uses the next free port and says so in the output.
+1. **Tableros**: create, rename or delete boards, or restore **Comunicación** to its default keys.
+2. **The key grid**: select a key to edit it below. Drag keys to move or swap them, or use **Mover a la posición**.
+3. **Acciones**: the action library, with a search box. Drag an action onto a key, or select a key and click **Asignar**.
 
-- **On the computer**, open `http://localhost:4545`.
-- **On the phone** (same Wi-Fi), open `http://<computer-ip>:4545`. Under **Speak on**, choose **Computer** to use the phone as a remote deck.
-- **Phone only, without the computer**: open the app and choose **This device**. It uses the phone's own voices and works offline once installed. Installing as an app requires HTTPS.
+In the key editor, set the label, icon, color and the action's details, then click **Guardar**. **Probar** runs the key without saving.
 
-### Desktop options
+**Edit on the phone:** tap **Editar** on the board, then tap a key to open the key editor.
 
-Use CLI flags (`npm start -w @speak-bot/desktop -- --port 5000`) or environment variables:
+### Actions
 
-| Flag         | Env var              | Default                 |
-| ------------ | -------------------- | ----------------------- |
-| `--port`     | `SPEAK_BOT_PORT`     | `4545`                  |
-| `--host`     | `SPEAK_BOT_HOST`     | `0.0.0.0` (all networks) |
-| `--data-dir` | `SPEAK_BOT_DATA_DIR` | see below               |
-| `--voice`    | `SPEAK_BOT_VOICE`    | system default          |
-| `--device`   | `SPEAK_BOT_DEVICE`   | system default          |
-| `--rate`     | `SPEAK_BOT_RATE`     | `1`                     |
-| `--allowed-host` | `SPEAK_BOT_ALLOWED_HOSTS` | none (comma-separated extra host names) |
+| Category                 | Actions                                                                                   |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| Voz (Voice)              | Decir texto, Detener voz, Repetir, Cambiar idioma de la voz                               |
+| Subtítulos (Captions)    | Limpiar subtítulo, Ocultar o mostrar subtítulos                                           |
+| Navegación (Navigation)  | Página siguiente, Página anterior, Ir a la página, Abrir tablero                          |
+| OBS                      | Cambiar de escena, Silenciar o activar audio, Iniciar o detener transmisión, Iniciar o detener grabación, Mostrar u ocultar fuente |
 
-Phrases and settings are stored in:
+- **Navigation** keys move only the device you press them on, so the phone, the computer and the OBS dock can each show a different board or page.
+- **OBS** keys show live state: a muted input, an active stream or recording, the current scene.
+- When a key can't run right now (for example, OBS is not connected), it is shown disabled with the reason.
 
-- **macOS**: `~/Library/Application Support/speak-bot`
-- **Windows**: `%APPDATA%\speak-bot`
-- **Linux**: `$XDG_CONFIG_HOME/speak-bot` (or `~/.config/speak-bot`)
+### Phone as a remote
+
+In **Conectar**, scan the QR code with the phone (same Wi-Fi). Then, in **Ajustes → Hablar en**, choose **Computadora**: the keys now run on the computer, with its voice, captions and OBS. The first time, allow incoming network connections when your system asks.
+
+With **Este dispositivo**, the phone works on its own: voice and navigation keys work offline, while caption and OBS keys are disabled.
+
+## Connect OBS
+
+Speed Deck controls OBS through the WebSocket server built into OBS 28 and newer.
+
+1. In OBS, open **Tools → WebSocket Server Settings**. Check **Enable WebSocket server**. Note the port (default `4455`) and, if authentication is on, the password (**Show Connect Info**).
+2. In Speed Deck, open **Ajustes → OBS**. Check **Conectar con OBS** and fill in **Servidor** (`127.0.0.1` when OBS runs on the same computer), **Puerto** and **Contraseña**.
+3. Click **Probar conexión**. The status badge shows whether OBS is connected.
+
+Speed Deck reconnects on its own when OBS restarts. The OBS settings can only be changed from the computer that runs Speed Deck, not from the phone. The password is stored on that computer and is never sent back to any device.
 
 ## OBS captions
 
@@ -129,22 +110,22 @@ Customize it with query parameters:
 
 Example: `http://localhost:4545/overlay?size=56&position=bottom&hold=5000`
 
-For the voice itself in OBS, capture the output device you route Speak Bot to (see below), or use desktop audio capture.
+For the voice itself in OBS, capture the output device you route Speed Deck to (see below), or use desktop audio capture.
 
 ## OBS dock
 
-Control Speak Bot from inside OBS with a dock. It uses the same phrases, voice and output device as the app.
+Play your boards from inside OBS with a dock. It uses the same boards, voice and output device as the app.
 
 1. Copy the dock URL from **Conectar** (or from the tray menu). It looks like `http://127.0.0.1:4545/dock`.
 2. In OBS, open **Docks → Custom Browser Docks** (in older versions, **View → Docks → Custom Browser Docks**).
-3. Enter a name (for example `Speak Bot`), paste the URL, and click **Apply**.
-4. Dock the panel wherever you like. It has a text box, Speak and Stop buttons, and the phrase board.
+3. Enter a name (for example `Speed Deck`), paste the URL, and click **Apply**.
+4. Dock the panel wherever you like. It has a text box, a board selector and the keys.
 
-The Speak Bot app must be running. If it starts on a different port (because 4545 was busy), copy the new URL and update the dock.
+The Speed Deck app must be running. If it starts on a different port (because 4545 was busy), copy the new URL and update the dock.
 
 ## Using the voice as a microphone (calls, Discord, Zoom)
 
-Route Speak Bot to a **virtual audio cable**, then pick that cable as the microphone in the call app. The person's typed words become their voice in the call.
+Route Speed Deck to a **virtual audio cable**, then pick that cable as the microphone in the call app. The person's typed words become their voice in the call.
 
 ### macOS: BlackHole
 
@@ -158,12 +139,12 @@ So the person also hears the voice, create a **Multi-Output Device**:
 2. Click **+** and choose **Create Multi-Output Device**.
 3. Check **BlackHole 2ch** and your speakers or headphones.
 
-Then select that device under **Output device** in Speak Bot (Computer mode). In the call app, the microphone is **BlackHole 2ch**.
+Then select that device as the output device in **Ajustes** (Computer mode). In the call app, the microphone is **BlackHole 2ch**.
 
 ### Windows: VB-Cable
 
 1. Install [VB-Audio Virtual Cable](https://vb-audio.com/Cable/).
-2. Select **CABLE Input** as the output device in Speak Bot.
+2. Select **CABLE Input** as the output device in Speed Deck.
 3. In the call app, the microphone is **CABLE Output**.
 4. To also hear it yourself: open **Sound settings → More sound settings → Recording**, open **CABLE Output → Listen**, check **Listen to this device**, and pick your speakers.
 
@@ -172,35 +153,101 @@ If the device selector is not shown on your system, route the app instead: **Set
 ### Linux: PipeWire / PulseAudio null sink
 
 ```sh
-pactl load-module module-null-sink sink_name=speakbot sink_properties=device.description=SpeakBot
-pactl load-module module-loopback source=speakbot.monitor   # optional: hear it yourself
+pactl load-module module-null-sink sink_name=speeddeck sink_properties=device.description=SpeedDeck
+pactl load-module module-loopback source=speeddeck.monitor   # optional: hear it yourself
 ```
 
-Select **speakbot** as the output device in Speak Bot. In the call app, the microphone is **Monitor of SpeakBot**. These modules reset on reboot; add them to your PipeWire or PulseAudio configuration to make them permanent.
+Select **speeddeck** as the output device in Speed Deck. In the call app, the microphone is **Monitor of SpeedDeck**. These modules reset on reboot; add them to your PipeWire or PulseAudio configuration to make them permanent.
 
 **Tip:** disable noise suppression for that microphone in Discord or Zoom. Some versions cut synthetic voices.
 
 ## Security note
 
-The desktop server has **no authentication** and listens on all networks by default, so anyone on the same network can trigger speech. Use it on trusted networks. To restrict it to this computer only, run it with `--host 127.0.0.1`. That disables the phone remote.
+The desktop server has **no authentication** and listens on all networks by default, so anyone on the same network can press keys and trigger speech. Use it on trusted networks. To restrict it to this computer only, run it with `--host 127.0.0.1`. That disables the phone remote.
 
-To block other websites open in your browser from reading captions or triggering speech, the server only accepts requests addressed to `localhost`, an IP address, or this computer's name (`<hostname>` / `<hostname>.local`). If you reach it through a custom DNS name, add that name with `--allowed-host`.
+- **Other websites:** to stop other websites open in your browser from reading captions or pressing keys, the server only accepts requests addressed to `localhost`, an IP address, or this computer's name (`<hostname>` / `<hostname>.local`). If you reach it through a custom DNS name, add that name with `--allowed-host`.
+- **OBS settings:** the OBS connection settings and the connection test only work from the computer itself.
 
-## Scripts
+## How it fits together
 
-| Command             | What it does                                      |
-| ------------------- | ------------------------------------------------- |
-| `npm start`         | Build the mobile app and start the desktop server |
-| `npm run dev -w @speak-bot/mobile` | Mobile dev server (LAN-exposed)    |
-| `npm test`          | Run all workspace tests (Vitest)                  |
-| `npm run typecheck` | Type-check all workspaces                         |
-| `npm run build`     | Build the mobile PWA                              |
+```
+ Phone (PWA) ──── local mode ───▶ phone speaker (offline)
+      │
+      └──── remote mode (Wi-Fi) ──▶ Desktop server ──▶ system voice ──▶ output device
+                                        │                              (speakers / virtual mic)
+                                        ├──▶ /overlay ──▶ OBS Browser Source (captions)
+                                        ├──▶ /dock ─────▶ OBS Custom Browser Dock
+                                        └──▶ obs-websocket ──▶ OBS (scenes, audio, stream, recording)
+```
+
+| Package         | What it is                                                                         |
+| --------------- | ---------------------------------------------------------------------------------- |
+| `packages/core` | Framework-free domain: boards, keys, actions and their registry, ports, use cases, protocol types |
+| `apps/mobile`   | Vite + React PWA: board player and editor, local (Web Speech API) and remote modes |
+| `apps/desktop`  | Node.js server: system TTS, boards API, action executor, OBS connection, WebSocket events, overlay |
+| `apps/electron` | Desktop app shell: runs the server, window, tray, phone pairing                    |
+
+The core follows a hexagonal layout. `BoardRepository`, `SpeechSynthesizer` and the OBS controller are ports, and each app provides its own adapters.
+
+## Development
+
+### Requirements
+
+- Node.js 22 or newer.
+- A system voice engine:
+  - **macOS**: built in (`say`).
+  - **Windows**: built in (System.Speech / Windows voices).
+  - **Linux**: `espeak-ng` and `pulseaudio-utils` (works with PipeWire's PulseAudio compatibility). On Debian/Ubuntu: `sudo apt install espeak-ng pulseaudio-utils`.
+
+### Run from source
+
+```sh
+npm install
+npm start                            # builds the mobile app and starts the desktop server on port 4545
+npm run dev -w @speed-deck/electron  # or run the desktop app shell
+```
+
+If port 4545 is busy, the server uses the next free port and says so in the output.
+
+- **On the computer**, open `http://localhost:4545`.
+- **On the phone** (same Wi-Fi), open `http://<computer-ip>:4545`. In **Ajustes → Hablar en**, choose **Computadora** to use the phone as a remote deck.
+- **Phone only, without the computer**: choose **Este dispositivo**. Installing as an app requires HTTPS.
+
+### Desktop options
+
+Use CLI flags (`npm start -w @speed-deck/desktop -- --port 5000`) or environment variables. The old `SPEAK_BOT_*` names still work.
+
+| Flag             | Env var                    | Default                                  |
+| ---------------- | -------------------------- | ---------------------------------------- |
+| `--port`         | `SPEED_DECK_PORT`          | `4545`                                   |
+| `--host`         | `SPEED_DECK_HOST`          | `0.0.0.0` (all networks)                 |
+| `--data-dir`     | `SPEED_DECK_DATA_DIR`      | see below                                |
+| `--voice`        | `SPEED_DECK_VOICE`         | automatic (matches the language)         |
+| `--device`       | `SPEED_DECK_DEVICE`        | system default                           |
+| `--rate`         | `SPEED_DECK_RATE`          | `1`                                      |
+| `--allowed-host` | `SPEED_DECK_ALLOWED_HOSTS` | none (comma-separated extra host names)  |
+
+Boards and settings are stored in:
+
+- **macOS**: `~/Library/Application Support/speed-deck`
+- **Windows**: `%APPDATA%\speed-deck`
+- **Linux**: `$XDG_CONFIG_HOME/speed-deck` (or `~/.config/speed-deck`)
+
+### Scripts
+
+| Command                              | What it does                                      |
+| ------------------------------------ | ------------------------------------------------- |
+| `npm start`                          | Build the mobile app and start the desktop server |
+| `npm run dev -w @speed-deck/mobile`  | Mobile dev server (LAN-exposed)                   |
+| `npm test`                           | Run all workspace tests (Vitest)                  |
+| `npm run typecheck`                  | Type-check all workspaces                         |
+| `npm run build`                      | Build the mobile PWA and the desktop app bundle   |
 
 CI runs tests, typecheck and build on Linux, macOS and Windows (`.github/workflows/ci.yml`).
 
 ### Releasing
 
-- **Desktop installers**: push a version tag (`git tag v0.1.0 && git push origin v0.1.0`). `.github/workflows/release.yml` builds the installers on all three systems and attaches them to a GitHub Release. Run `npm run pack -w @speak-bot/electron` to build an unpacked app locally.
+- **Desktop installers**: push a version tag (`git tag v0.1.0 && git push origin v0.1.0`). `.github/workflows/release.yml` builds the installers on all three systems and attaches them to a GitHub Release. Run `npm run build && npm run pack -w @speed-deck/electron` to build an unpacked app locally.
 - **Phone app**: every push to `main` deploys the PWA to GitHub Pages (`.github/workflows/pages.yml`).
 
 ## Notes

@@ -34,10 +34,10 @@ export class InvalidPhraseError extends Error {
   }
 }
 
-/** Another phrase already sits in the requested deck slot. */
+/** Another phrase or key already sits in the requested slot. */
 export class SlotOccupiedError extends Error {
   constructor(readonly slot: number) {
-    super(`Slot ${slot} already holds a phrase.`);
+    super(`Slot ${slot} is already in use.`);
     this.name = "SlotOccupiedError";
   }
 }

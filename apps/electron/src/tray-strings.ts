@@ -1,4 +1,4 @@
-import { DEFAULT_UI_LANGUAGE, isUiLanguage, type UiLanguage } from "@speak-bot/core";
+import { DEFAULT_UI_LANGUAGE, isUiLanguage, type UiLanguage } from "@speed-deck/core";
 
 export interface TrayStrings {
   open: string;
@@ -12,20 +12,20 @@ export interface TrayStrings {
 /** Tray menu copy; the language follows the desktop settings, Spanish by default. */
 export const TRAY_STRINGS: Record<UiLanguage, TrayStrings> = {
   es: {
-    open: "Abrir Speak Bot",
+    open: "Abrir Speed Deck",
     copyObsUrl: "Copiar URL de OBS",
     copyObsDockUrl: "Copiar URL del dock de OBS",
     startAtLogin: "Abrir al iniciar sesión",
-    quit: "Salir de Speak Bot",
-    startupFailed: "Speak Bot no pudo iniciarse",
+    quit: "Salir de Speed Deck",
+    startupFailed: "Speed Deck no pudo iniciarse",
   },
   en: {
-    open: "Open Speak Bot",
+    open: "Open Speed Deck",
     copyObsUrl: "Copy OBS URL",
     copyObsDockUrl: "Copy OBS dock URL",
     startAtLogin: "Start at login",
-    quit: "Quit Speak Bot",
-    startupFailed: "Speak Bot could not start",
+    quit: "Quit Speed Deck",
+    startupFailed: "Speed Deck could not start",
   },
 };
 

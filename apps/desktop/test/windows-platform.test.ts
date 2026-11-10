@@ -19,26 +19,26 @@ describe("Windows speech platform", () => {
     expect(rest).toEqual([]);
     expect(command!.command).toBe("powershell.exe");
     expect(command!.args.slice(0, 4)).toEqual(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass"]);
-    expect(Buffer.from(command!.env!.SPEAK_BOT_TEXT!, "base64").toString("utf8")).toBe(text);
+    expect(Buffer.from(command!.env!.SPEED_DECK_TEXT!, "base64").toString("utf8")).toBe(text);
     expect(command!.env).toMatchObject({
-      SPEAK_BOT_VOICE: "Microsoft Zira Desktop",
-      SPEAK_BOT_RATE: "2",
-      SPEAK_BOT_DEVICE: "{0.0.0.00000000}.{abc}",
+      SPEED_DECK_VOICE: "Microsoft Zira Desktop",
+      SPEED_DECK_RATE: "2",
+      SPEED_DECK_DEVICE: "{0.0.0.00000000}.{abc}",
     });
 
     const script = decodeScript(command!.args);
     expect(script).not.toContain("Zira");
     expect(script).not.toContain("Remove-Item");
-    expect(script).toContain("$env:SPEAK_BOT_TEXT");
+    expect(script).toContain("$env:SPEED_DECK_TEXT");
     expect(script).toContain("Windows.Media.Playback.MediaPlayer");
     expect(script).toContain("SetOutputToDefaultAudioDevice");
   });
 
   it("uses default voice, rate and device when no options are given", () => {
     expect(windowsSpeechPlatform.buildSpeakCommand("Hi", {})[0]!.env).toMatchObject({
-      SPEAK_BOT_VOICE: "",
-      SPEAK_BOT_RATE: "1",
-      SPEAK_BOT_DEVICE: "",
+      SPEED_DECK_VOICE: "",
+      SPEED_DECK_RATE: "1",
+      SPEED_DECK_DEVICE: "",
     });
   });
 

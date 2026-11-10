@@ -1,4 +1,4 @@
-import type { SpeakOptions, SpeechSynthesizer, Voice } from "@speak-bot/core";
+import type { SpeakOptions, SpeechSynthesizer, Voice } from "@speed-deck/core";
 
 export class SpeechUnsupportedError extends Error {
   constructor() {

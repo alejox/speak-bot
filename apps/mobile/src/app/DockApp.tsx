@@ -1,19 +1,20 @@
 import { useState } from "react";
-import { ActionDeck } from "../components/ActionDeck";
+import { DOCK_BOARD_POSITION_STORAGE_KEY, LocalStorageBoardPositionStore } from "../adapters/local-storage-board-position-store";
+import { BoardPlayer } from "../components/BoardPlayer";
 import { DockComposer } from "../components/DockComposer";
-import { PhraseDeck } from "../components/PhraseDeck";
+import { KeyEditorDialog } from "../components/KeyEditorDialog";
 import { I18nProvider, useLanguage, useMessageText, useT } from "../i18n/I18nProvider";
 import type { Message } from "../i18n/messages";
 import type { AppServices } from "./composition-root";
-import { useDeckActions } from "./use-deck-actions";
+import { useDeck } from "./use-deck";
 import { useLanguagePreference } from "./use-language-preference";
-import { usePhraseBook } from "./use-phrase-book";
 import { useSpeech } from "./use-speech";
 import { useSpeechTarget, type SpeechTarget } from "./use-speech-target";
 
 /**
- * Container for the OBS Custom Browser Dock: a compact view that always speaks on the computer,
- * sharing its phrases and settings. Only useful when the desktop app serves the page.
+ * Container for the OBS Custom Browser Dock: a compact board player that always runs keys on the
+ * computer, with its own board and page. Only useful when the desktop app serves the page.
+ * The language follows the desktop live (settings-changed events) unless this dock chose one.
  */
 export function DockApp({ services }: { services: AppServices }) {
   const target = useSpeechTarget(services, { forceComputer: true });
@@ -42,9 +43,11 @@ function DockContent({ target }: { target: SpeechTarget }) {
   const [status, setStatus] = useState<Message | null>(null);
   const statusText = useMessageText(status);
   const speech = useSpeech(target, language, setStatus);
-  const book = usePhraseBook(target, language, setStatus);
-  const actions = useDeckActions(target, speech, setStatus);
+  const [positionStore] = useState(() => new LocalStorageBoardPositionStore(DOCK_BOARD_POSITION_STORAGE_KEY));
+  const deck = useDeck(target, speech, language, positionStore, setStatus);
+  const [dialogSlot, setDialogSlot] = useState<number | null>(null);
   const [text, setText] = useState("");
+  const board = deck.navigation.board;
 
   return (
     <main className="dock-main">
@@ -59,17 +62,41 @@ function DockContent({ target }: { target: SpeechTarget }) {
       <p className="status" role="status" aria-live="polite">
         {statusText || (target.error ? t(target.error) : "")}
       </p>
-      <PhraseDeck
-        title={t("nav.phrases")}
+      <BoardPlayer
         variant="dock"
-        phrases={book.phrases}
-        onSpeak={(phrase) => speech.speak(phrase.text)}
-        onTest={speech.speak}
-        onAdd={book.addAt}
-        onEdit={book.edit}
-        onDelete={book.remove}
+        boards={deck.boards.boards}
+        navigation={deck.navigation}
+        context={deck.context}
+        onRun={deck.run}
+        onEditKey={setDialogSlot}
       />
-      <ActionDeck title={t("actions.title")} actions={actions} />
+      {dialogSlot !== null && board && (
+        <KeyEditorDialog
+          key={`${board.id}:${dialogSlot}`}
+          slot={dialogSlot}
+          existing={board.keys.find((key) => key.slot === dialogSlot)}
+          boards={deck.boards.boards}
+          obs={target.obs}
+          onTest={deck.run}
+          onSave={async (key) => {
+            const saved = await deck.saveKey(key, board.keys.find((candidate) => candidate.slot === dialogSlot));
+            if (saved) setDialogSlot(null);
+            return saved;
+          }}
+          onDelete={async () => {
+            const deleted = await deck.clearKey(dialogSlot);
+            if (deleted) setDialogSlot(null);
+            return deleted;
+          }}
+          onMove={async (to) => {
+            const moved = await deck.moveKey(dialogSlot, to);
+            if (moved) setDialogSlot(null);
+            return moved;
+          }}
+          onClose={() => setDialogSlot(null)}
+          statusText={statusText}
+        />
+      )}
     </main>
   );
 }

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DesktopApiClient } from "../src/adapters/desktop-api";
 import { DesktopEventSource } from "../src/adapters/desktop-events";
-import { RemotePhraseRepository } from "../src/adapters/remote-phrase-repository";
+import { createRemoteBoardStore } from "../src/adapters/board-stores";
 import { DesktopSpeechError, RemoteSpeechSynthesizer } from "../src/adapters/remote-speech-synthesizer";
-import { createFakeFetch, FakeSocket } from "./desktop-fakes";
+import { boardsOf, createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
 
 const capabilities = { platform: "darwin", engine: "say", supportsDeviceSelection: true };
 
@@ -18,8 +18,8 @@ function setup(route: Parameters<typeof createFakeFetch>[0] = () => ({ status: 2
 afterEach(() => vi.useRealTimers());
 
 describe("DesktopApiClient.detect", () => {
-  it("returns the capabilities of a speak-bot desktop server", async () => {
-    const { api, requests } = setup(() => ({ body: { ok: true, name: "speak-bot-desktop", capabilities } }));
+  it("returns the capabilities of a Speed Deck desktop server", async () => {
+    const { api, requests } = setup(() => ({ body: { ok: true, name: "speed-deck-desktop", capabilities } }));
 
     expect(await api.detect()).toEqual(capabilities);
     expect(requests[0]).toMatchObject({ method: "GET", url: "/api/health" });
@@ -40,58 +40,78 @@ describe("DesktopApiClient.detect", () => {
   });
 });
 
-describe("RemotePhraseRepository", () => {
-  it("lists, saves and deletes phrases over HTTP", async () => {
-    const { api, requests } = setup((request) =>
-      request.method === "GET"
-        ? { body: [{ id: "a", text: "Hi", slot: 0, createdAt: 1 }, { bogus: true }] }
-        : { status: request.method === "DELETE" ? 204 : 201, body: request.body },
-    );
-    const repository = new RemotePhraseRepository(api);
+describe("DesktopApiClient boards", () => {
+  it("calls every board endpoint", async () => {
+    const { api, requests } = setup((request) => ({ status: request.method === "DELETE" ? 204 : 200, body: request.method === "GET" ? boardsOf([]) : {} }));
 
-    expect(await repository.list()).toEqual([{ id: "a", text: "Hi", slot: 0, createdAt: 1 }]);
-    await repository.save({ id: "b", text: "Water", label: "W", slot: 1, createdAt: 2 });
-    await repository.delete("id/with space");
+    expect(await api.listBoards()).toEqual(boardsOf([]));
+    await api.createBoard("OBS");
+    await api.renameBoard("a/b", "Escenas");
+    await api.deleteBoard("a/b");
+    await api.setKey("b1", 3, { label: "Hi", action: { type: "voice.stop" } }, { replace: true });
+    await api.clearKey("b1", 3);
+    await api.moveKey("b1", 3, 4);
+    await api.restoreDefaultBoard("en");
+    await api.executeAction({ type: "captions.clear" });
 
     expect(requests).toEqual([
-      { method: "GET", url: "/api/phrases", body: undefined },
-      { method: "POST", url: "/api/phrases", body: { id: "b", text: "Water", label: "W", slot: 1, createdAt: 2 } },
-      { method: "DELETE", url: "/api/phrases/id%2Fwith%20space", body: undefined },
+      { method: "GET", url: "/api/boards", body: undefined },
+      { method: "POST", url: "/api/boards", body: { name: "OBS" } },
+      { method: "PATCH", url: "/api/boards/a%2Fb", body: { name: "Escenas" } },
+      { method: "DELETE", url: "/api/boards/a%2Fb", body: undefined },
+      { method: "PUT", url: "/api/boards/b1/keys/3", body: { label: "Hi", action: { type: "voice.stop" }, replace: true } },
+      { method: "DELETE", url: "/api/boards/b1/keys/3", body: undefined },
+      { method: "POST", url: "/api/boards/b1/keys/move", body: { from: 3, to: 4 } },
+      { method: "POST", url: "/api/boards/restore-default", body: { language: "en" } },
+      { method: "POST", url: "/api/actions/execute", body: { action: { type: "captions.clear" } } },
     ]);
   });
 
-  it("throws when the desktop rejects a request", async () => {
-    const repository = new RemotePhraseRepository(setup(() => ({ status: 400, body: { error: "text too long" } })).api);
-
-    await expect(repository.save({ id: "x", text: "Hi", slot: 0, createdAt: 1 })).rejects.toThrow("text too long");
+  it("drops invalid boards and keys sent by the desktop", async () => {
+    const { api } = setup(() => ({ body: [...boardsOf([{ text: "Hi", slot: 0 }]), { id: 5 }] }));
+    expect(await api.listBoards()).toEqual(boardsOf([{ text: "Hi", slot: 0 }]));
   });
+});
 
-  it("updates a phrase with PUT, sending an empty label to remove it", async () => {
-    const { api, requests } = setup(() => ({ body: {} }));
+describe("DesktopApiClient OBS", () => {
+  it("reads OBS status and lists, and re-tests the connection", async () => {
+    const { api, requests } = setup(() => ({ body: [] }));
 
-    await new RemotePhraseRepository(api).update({ id: "a/b", text: "Hello", slot: 4, createdAt: 1 });
-    await new RemotePhraseRepository(api).update({ id: "c", text: "Hi", label: "H", slot: 0, createdAt: 1 });
+    await api.loadObsStatus();
+    await api.listObsScenes();
+    await api.listObsInputs();
+    await api.listObsSceneItems("Main / Live");
+    await api.connectObs();
+    await api.saveSettings({ obs: { enabled: true, password: "" } });
 
     expect(requests).toEqual([
-      { method: "PUT", url: "/api/phrases/a%2Fb", body: { text: "Hello", label: "", slot: 4 } },
-      { method: "PUT", url: "/api/phrases/c", body: { text: "Hi", label: "H", slot: 0 } },
+      { method: "GET", url: "/api/obs/status", body: undefined },
+      { method: "GET", url: "/api/obs/scenes", body: undefined },
+      { method: "GET", url: "/api/obs/inputs", body: undefined },
+      { method: "GET", url: "/api/obs/scenes/Main%20%2F%20Live/items", body: undefined },
+      { method: "POST", url: "/api/obs/connect", body: {} },
+      { method: "PUT", url: "/api/settings", body: { obs: { enabled: true, password: "" } } },
     ]);
   });
+});
 
-  it("exposes the error code the desktop sends", async () => {
-    const { api } = setup(() => ({ status: 409, body: { error: "Slot 3 already holds a phrase.", code: "slot-occupied" } }));
-
-    await expect(new RemotePhraseRepository(api).save({ id: "x", text: "Hi", slot: 3, createdAt: 1 })).rejects.toMatchObject({
-      status: 409,
-      code: "slot-occupied",
-    });
-  });
-
-  it("refuses to replace every phrase and sends nothing to the desktop", async () => {
-    const { api, requests } = setup();
-
-    await expect(new RemotePhraseRepository(api).replaceAll([])).rejects.toThrow("restorePhrases");
-    expect(requests).toEqual([]);
+describe("remote board store", () => {
+  it("sends board changes to the desktop and reloads on boards-changed", async () => {
+    const { api, events, requests } = setup((request) => (request.method === "GET" ? { body: boardsOf([{ text: "Hi", slot: 0 }]) } : { status: 200, body: {} }));
+    const store = createRemoteBoardStore(api, events);
+    expect((await store.list())[0]?.keys).toHaveLength(1);
+    await store.setKey("communication", { slot: 3, label: "", action: { type: "voice.stop" } }, { replace: true });
+    await store.moveKey("communication", 3, 4);
+    expect(requests.slice(1).map((request) => [request.method, request.url, request.body])).toEqual([
+      ["PUT", "/api/boards/communication/keys/3", { label: "", action: { type: "voice.stop" }, replace: true }],
+      ["POST", "/api/boards/communication/keys/move", { from: 3, to: 4 }],
+    ]);
+    let changes = 0;
+    const stop = store.onChanged(() => (changes += 1));
+    FakeSocket.instances[0]!.emit({ type: "boards-changed", at: 1 });
+    FakeSocket.instances[0]!.emit({ type: "caption", text: "x", at: 1 });
+    expect(changes).toBe(1);
+    stop();
   });
 });
 
@@ -170,9 +190,9 @@ describe("DesktopEventSource", () => {
     expect(FakeSocket.instances).toHaveLength(2);
 
     FakeSocket.instances[1]!.open();
-    FakeSocket.instances[1]!.emit({ type: "phrases-changed", at: 1 });
+    FakeSocket.instances[1]!.emit({ type: "boards-changed", at: 1 });
     FakeSocket.instances[1]!.emit({ type: "nonsense" });
-    expect(received).toEqual([{ type: "phrases-changed", at: 1 }]);
+    expect(received).toEqual([{ type: "boards-changed", at: 1 }]);
 
     unsubscribe();
     expect(FakeSocket.instances[1]!.closed).toBe(true);

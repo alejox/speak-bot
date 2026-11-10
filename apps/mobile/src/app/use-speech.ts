@@ -1,5 +1,5 @@
-import { EmptyTextError, pickVoiceForLanguage, speakText, stopSpeaking, type UiLanguage } from "@speak-bot/core";
-import { useRef, useState } from "react";
+import { EmptyTextError, pickVoiceForLanguage, speakText, stopSpeaking, type UiLanguage } from "@speed-deck/core";
+import { useEffect, useRef, useState } from "react";
 import { DesktopRequestError } from "../adapters/desktop-api";
 import { DesktopSpeechError } from "../adapters/remote-speech-synthesizer";
 import { SpeechUnsupportedError } from "../adapters/web-speech-synthesizer";
@@ -7,21 +7,38 @@ import type { Message } from "../i18n/messages";
 import type { SpeechTarget } from "./use-speech-target";
 
 export interface Speech {
+  /** Speaking here, or (in Computer mode) the desktop is speaking, whoever asked it to. */
   isSpeaking: boolean;
   speak: (text: string) => void;
   stop: () => void;
-  /** Says the last spoken text again (on the desktop, the last text it spoke from any device). */
+  /** Says the last text spoken on this device again. */
   repeat: () => void;
 }
 
 /** Speaking and stopping on the current target, reporting failures as localized messages. */
 export function useSpeech(
-  target: Pick<SpeechTarget, "synthesizer" | "settings" | "isRemote" | "voices" | "voiceLanguage" | "remoteActions">,
+  target: Pick<SpeechTarget, "synthesizer" | "settings" | "isRemote" | "voices" | "voiceLanguage" | "onSpeechEvent">,
   language: UiLanguage,
   report: (message: Message | null) => void,
 ): Speech {
   const { synthesizer, settings } = target;
   const [isSpeaking, setIsSpeaking] = useState(false);
+  // Speech started on the desktop by a key, another device or a repeat; follows its events.
+  const [isDesktopSpeaking, setIsDesktopSpeaking] = useState(false);
+  const reportRef = useRef(report);
+  reportRef.current = report;
+  const { onSpeechEvent } = target;
+
+  useEffect(() => {
+    setIsDesktopSpeaking(false);
+    return onSpeechEvent((event) => {
+      if (event.type === "speaking") setIsDesktopSpeaking(event.state === "start");
+      else {
+        setIsDesktopSpeaking(false);
+        reportRef.current(describeSpeechError(new DesktopSpeechError(event.message, event.code)));
+      }
+    });
+  }, [onSpeechEvent]);
   const speechRequest = useRef(0);
   // Only this device's speech; the desktop remembers its own last text.
   const lastText = useRef<string | null>(null);
@@ -44,13 +61,10 @@ export function useSpeech(
   };
 
   return {
-    isSpeaking,
+    isSpeaking: isSpeaking || isDesktopSpeaking,
     speak,
     repeat: () => {
-      if (target.remoteActions) {
-        report(null);
-        target.remoteActions.repeat().catch((error: unknown) => report(describeSpeechError(error)));
-      } else if (lastText.current === null) {
+      if (lastText.current === null) {
         report({ key: "error.nothingToRepeat" });
       } else {
         speak(lastText.current);
@@ -60,6 +74,7 @@ export function useSpeech(
       speechRequest.current += 1;
       stopSpeaking(synthesizer);
       setIsSpeaking(false);
+      setIsDesktopSpeaking(false);
     },
   };
 }

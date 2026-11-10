@@ -1,41 +1,45 @@
 import {
-  createPhrase,
-  DEFAULT_PHRASES_BY_LANGUAGE,
+  assertKeySlot,
+  BoardLimitError,
+  BoardNotFoundError,
+  clearKey,
+  createBoard,
+  deleteBoard,
   DESKTOP_SERVER_NAME,
-  InvalidPhraseError,
+  InvalidBoardError,
   isUiLanguage,
-  isValidSlot,
-  listPhrases,
-  lowestFreeSlot,
-  PhraseNotFoundError,
-  SlotOccupiedError,
-  updatePhrase,
-  voiceLanguageOf,
-  type PhraseChanges,
+  KeyNotFoundError,
+  LastBoardError,
+  listBoards,
+  MAX_OBS_NAME_LENGTH,
   MAX_SPEAK_TEXT_LENGTH,
-  pickVoiceForLanguage,
-  restoreDefaultPhrases,
+  moveKey,
+  ObsRequestError,
+  ObsUnavailableError,
+  parseAction,
+  renameBoard,
+  restoreDefaultBoard,
+  setKey,
+  SlotOccupiedError,
+  type ApiErrorCode,
+  type BoardRepository,
   type DesktopSettings,
   type HealthResponse,
-  type Phrase,
-  type PhraseRepository,
+  type ObsController,
+  type ObsStatusResponse,
   type ServerEvent,
-  type SpeakErrorCode,
-  type Voice,
-} from "@speak-bot/core";
+} from "@speed-deck/core";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { networkInterfaces as osNetworkInterfaces } from "node:os";
-import { InvalidSettingsError, isValidRate, type JsonFileSettingsStore } from "../adapters/json-file-settings-store";
-import {
-  SpeechEngineUnavailableError,
-  type DesktopSpeakOptions,
-  type DesktopSpeechSynthesizer,
-} from "../adapters/tts/process-speech-synthesizer";
+import { InvalidSettingsError, isValidRate, toPublicSettings, type JsonFileSettingsStore } from "../adapters/json-file-settings-store";
+import type { DesktopSpeechSynthesizer } from "../adapters/tts/process-speech-synthesizer";
+import { ClientActionError, createActionExecutor, NothingToRepeatError, type SpeechOverrides } from "./action-executor";
+import { applyObsSettings, ObsDisabledError } from "./obs-settings";
 import { asObject, HttpError, readJsonBody, sendEmpty, sendJson } from "./http-utils";
 import { connectionInfo, isLoopbackAddress, type NetworkInterfaces } from "./network";
 
 export interface ApiDependencies {
-  repository: PhraseRepository;
+  repository: BoardRepository;
   settings: JsonFileSettingsStore;
   synthesizer: DesktopSpeechSynthesizer;
   broadcast: (event: ServerEvent) => void;
@@ -48,168 +52,290 @@ export interface ApiDependencies {
   instanceId: string;
   /** Called after settings are saved through the API (e.g. to translate the tray menu). */
   onSettingsChanged?: (settings: DesktopSettings) => void;
+  /** Controls OBS; absent means OBS control is not available. */
+  obs?: ObsController;
 }
 
-const MAX_LABEL_LENGTH = 100;
+type Params = Record<string, string>;
+type Handler = (request: IncomingMessage, response: ServerResponse, params: Params) => Promise<void>;
+
+interface Route {
+  method: string;
+  /** Path with `:name` segments, e.g. `/api/boards/:id`. */
+  path: string;
+  handler: Handler;
+}
 
 /** Handles `/api/*` requests. Returns false when the path is not an API path. */
 export function createApiHandler(deps: ApiDependencies) {
   const { repository, settings, synthesizer, broadcast, generateId, now } = deps;
   const log = deps.log ?? (() => {});
   const listInterfaces = deps.networkInterfaces ?? osNetworkInterfaces;
-  // Only the latest utterance may report "end", so a cancelled one never hides a newer caption.
-  let speechRequest = 0;
-  // What POST /api/repeat says again; kept in memory only, so nothing spoken is written to disk.
-  let lastSpokenText: string | undefined;
-  // Listing system voices spawns a process, so a non-empty list is kept for the server's lifetime.
-  let cachedVoices: Promise<Voice[]> | undefined;
-  const listVoices = (): Promise<Voice[]> => {
-    cachedVoices ??= synthesizer.listVoices().then((voices) => {
-      if (voices.length === 0) cachedVoices = undefined;
-      return voices;
-    });
-    return cachedVoices;
+  // Every client hears about new settings (e.g. the OBS dock follows a language chosen in the window).
+  const settingsChanged = (updated: DesktopSettings) => {
+    broadcast({ type: "settings-changed", settings: updated, at: now() });
+    deps.onSettingsChanged?.(updated);
   };
-
-  const routes: Record<string, (request: IncomingMessage, response: ServerResponse, param?: string) => Promise<void>> = {
-    "GET /api/health": async (_request, response) => {
-      const body: HealthResponse = { ok: true, name: DESKTOP_SERVER_NAME, capabilities: synthesizer.capabilities, instanceId: deps.instanceId };
-      sendJson(response, 200, body);
-    },
-
-    "GET /api/connection": async (request, response) => {
-      // Only the desktop's own window needs these URLs; phones on the LAN are refused.
-      if (!isLoopbackAddress(request.socket.remoteAddress)) throw new HttpError(403, "Only available on this computer.");
-      // The port the request actually arrived on, which may differ from the configured one after a fallback.
-      sendJson(response, 200, connectionInfo(request.socket.localPort ?? 0, listInterfaces()));
-    },
-
-    "GET /api/phrases": async (_request, response) => {
-      sendJson(response, 200, await listPhrases(repository));
-    },
-
-    "POST /api/phrases": async (request, response) => {
-      const body = asObject(await readJsonBody(request));
-      const phrase = parsePhrase(body, await listPhrases(repository), generateId, now);
-      await repository.save(phrase);
-      broadcast({ type: "phrases-changed", at: now() });
-      sendJson(response, 201, phrase);
-    },
-
-    /** Replaces every phrase with the default set in `language` ("es" or "en"). */
-    "POST /api/phrases/restore": async (request, response) => {
-      const { language } = asObject(await readJsonBody(request));
-      if (!isUiLanguage(language)) throw new HttpError(400, 'language must be "es" or "en".');
-      const restored = await restoreDefaultPhrases({ repository, generateId, now }, DEFAULT_PHRASES_BY_LANGUAGE[language]);
-      broadcast({ type: "phrases-changed", at: now() });
-      sendJson(response, 200, restored);
-    },
-
-    /** Changes the text, label or slot of a phrase; fields left out keep their value. */
-    "PUT /api/phrases/:id": async (request, response, id) => {
-      const changes = parsePhraseChanges(asObject(await readJsonBody(request)));
-      const updated = await updatePhrase(repository, id!, changes);
-      broadcast({ type: "phrases-changed", at: now() });
-      sendJson(response, 200, updated);
-    },
-
-    "DELETE /api/phrases/:id": async (_request, response, id) => {
-      await repository.delete(id!);
-      broadcast({ type: "phrases-changed", at: now() });
-      sendEmpty(response, 204);
-    },
-
-    "POST /api/speak": async (request, response) => {
-      const body = asObject(await readJsonBody(request));
-      const { text, phraseId } = await resolveSpeakText(body, repository);
-      startSpeech(text, phraseId, await speakOptions(body, settings, listVoices));
-      sendJson(response, 202, { ok: true });
-    },
-
-    /** Says the last spoken text again with the saved settings. */
-    "POST /api/repeat": async (request, response) => {
-      // Required JSON body: like /api/speak, it must not be triggerable by a plain cross-site form.
-      asObject(await readJsonBody(request));
-      if (lastSpokenText === undefined) {
-        sendJson(response, 404, { error: "Nothing has been spoken yet.", code: "nothing-to-repeat" });
-        return;
-      }
-      startSpeech(lastSpokenText, undefined, await speakOptions({}, settings, listVoices));
-      sendJson(response, 202, { ok: true });
-    },
-
-    /** Hides the current OBS caption right away. */
-    "POST /api/captions/clear": async (request, response) => {
-      asObject(await readJsonBody(request));
-      broadcast({ type: "caption-clear", at: now() });
-      sendJson(response, 200, { ok: true });
-    },
-
-    "POST /api/stop": async (_request, response) => {
-      speechRequest += 1;
-      synthesizer.cancel();
-      broadcast({ type: "speaking", state: "end", at: now() });
-      sendJson(response, 200, { ok: true });
-    },
-
-    "GET /api/voices": async (_request, response) => {
-      sendJson(response, 200, await listVoices());
-    },
-
-    "GET /api/devices": async (_request, response) => {
-      sendJson(response, 200, await synthesizer.listDevices());
-    },
-
-    "GET /api/settings": async (_request, response) => {
-      sendJson(response, 200, await settings.load());
-    },
-
-    "PUT /api/settings": async (request, response) => {
-      const patch = await readJsonBody(request);
-      const updated = await settings.update(patch);
-      if (typeof (patch as { captionsVisible?: unknown }).captionsVisible === "boolean") {
-        broadcast({ type: "captions-visibility", visible: updated.captionsVisible, at: now() });
-      }
-      deps.onSettingsChanged?.(updated);
-      sendJson(response, 200, updated);
-    },
+  const executor = createActionExecutor({
+    settings,
+    synthesizer,
+    broadcast,
+    now,
+    log,
+    onSettingsChanged: settingsChanged,
+    obs: deps.obs,
+  });
+  const requireObs = (): ObsController => {
+    if (!deps.obs) throw new ObsUnavailableError();
+    return deps.obs;
   };
+  /** OBS settings hold a password the desktop sends to OBS, so only this computer may change where it goes. */
+  const requireLoopback = (request: IncomingMessage) => {
+    if (!isLoopbackAddress(request.socket.remoteAddress)) throw new LoopbackOnlyError();
+  };
+  const boardsChanged = () => broadcast({ type: "boards-changed", at: now() });
 
-  function startSpeech(text: string, phraseId: string | undefined, options: DesktopSpeakOptions): void {
-    const current = ++speechRequest;
-    lastSpokenText = text;
-    broadcast(phraseId ? { type: "caption", text, phraseId, at: now() } : { type: "caption", text, at: now() });
-    broadcast({ type: "speaking", state: "start", at: now() });
-    synthesizer
-      .speak(text, options)
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        log(`Speech failed: ${message}`);
-        const code: SpeakErrorCode = error instanceof SpeechEngineUnavailableError ? "engine-unavailable" : "speech-failed";
-        if (current === speechRequest) broadcast({ type: "speak-error", message, code, at: now() });
-      })
-      .finally(() => {
-        if (current === speechRequest) broadcast({ type: "speaking", state: "end", at: now() });
-      });
-  }
+  // Exact paths are listed before `:param` paths that could also match them.
+  const routes: Route[] = [
+    {
+      method: "GET",
+      path: "/api/health",
+      handler: async (_request, response) => {
+        const body: HealthResponse = { ok: true, name: DESKTOP_SERVER_NAME, capabilities: synthesizer.capabilities, instanceId: deps.instanceId };
+        sendJson(response, 200, body);
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/connection",
+      handler: async (request, response) => {
+        // Only the desktop's own window needs these URLs; phones on the LAN are refused.
+        if (!isLoopbackAddress(request.socket.remoteAddress)) throw new HttpError(403, "Only available on this computer.");
+        // The port the request actually arrived on, which may differ from the configured one after a fallback.
+        sendJson(response, 200, connectionInfo(request.socket.localPort ?? 0, listInterfaces()));
+      },
+    },
+
+    // ---- Boards ----
+    {
+      method: "GET",
+      path: "/api/boards",
+      handler: async (_request, response) => sendJson(response, 200, await listBoards(repository)),
+    },
+    {
+      method: "POST",
+      path: "/api/boards",
+      handler: async (request, response) => {
+        const { name } = asObject(await readJsonBody(request));
+        const board = await createBoard({ repository, generateId }, { name });
+        boardsChanged();
+        sendJson(response, 201, board);
+      },
+    },
+    {
+      method: "POST",
+      path: "/api/boards/restore-default",
+      handler: async (request, response) => {
+        const { language } = asObject(await readJsonBody(request));
+        if (!isUiLanguage(language)) throw new HttpError(400, 'language must be "es" or "en".');
+        const board = await restoreDefaultBoard(repository, language);
+        boardsChanged();
+        sendJson(response, 200, board);
+      },
+    },
+    {
+      method: "PATCH",
+      path: "/api/boards/:id",
+      handler: async (request, response, { id }) => {
+        const { name } = asObject(await readJsonBody(request));
+        const board = await renameBoard(repository, id!, name);
+        boardsChanged();
+        sendJson(response, 200, board);
+      },
+    },
+    {
+      method: "DELETE",
+      path: "/api/boards/:id",
+      handler: async (_request, response, { id }) => {
+        await deleteBoard(repository, id!);
+        boardsChanged();
+        sendEmpty(response, 204);
+      },
+    },
+    {
+      method: "POST",
+      path: "/api/boards/:id/keys/move",
+      handler: async (request, response, { id }) => {
+        const { from, to } = asObject(await readJsonBody(request));
+        assertKeySlot(from);
+        assertKeySlot(to);
+        const board = await moveKey(repository, id!, from, to);
+        boardsChanged();
+        sendJson(response, 200, board);
+      },
+    },
+    {
+      method: "PUT",
+      path: "/api/boards/:id/keys/:slot",
+      handler: async (request, response, { id, slot }) => {
+        const { label, icon, color, action, replace } = asObject(await readJsonBody(request));
+        if (replace !== undefined && typeof replace !== "boolean") throw new HttpError(400, "replace must be true or false.");
+        const key = await setKey(repository, id!, { slot: parseSlot(slot!), label, icon, color, action }, { replace: replace === true });
+        boardsChanged();
+        sendJson(response, 200, key);
+      },
+    },
+    {
+      method: "DELETE",
+      path: "/api/boards/:id/keys/:slot",
+      handler: async (_request, response, { id, slot }) => {
+        await clearKey(repository, id!, parseSlot(slot!));
+        boardsChanged();
+        sendEmpty(response, 204);
+      },
+    },
+
+    // ---- Actions and speech ----
+    {
+      method: "POST",
+      path: "/api/actions/execute",
+      handler: async (request, response) => {
+        const { action } = asObject(await readJsonBody(request));
+        const result = await executor.execute(parseAction(action));
+        sendJson(response, result.status, result.body);
+      },
+    },
+    {
+      method: "POST",
+      path: "/api/speak",
+      handler: async (request, response) => {
+        const body = asObject(await readJsonBody(request));
+        const text = parseSpeakText(body.text);
+        await executor.speak(text, parseOverrides(body));
+        sendJson(response, 202, { ok: true });
+      },
+    },
+    {
+      /** Says the last spoken text again with the saved settings. */
+      method: "POST",
+      path: "/api/repeat",
+      handler: async (request, response) => {
+        // Required JSON body: like /api/speak, it must not be triggerable by a plain cross-site form.
+        asObject(await readJsonBody(request));
+        await executor.repeat();
+        sendJson(response, 202, { ok: true });
+      },
+    },
+    {
+      /** Hides the current OBS caption right away. */
+      method: "POST",
+      path: "/api/captions/clear",
+      handler: async (request, response) => {
+        asObject(await readJsonBody(request));
+        executor.clearCaption();
+        sendJson(response, 200, { ok: true });
+      },
+    },
+    {
+      method: "POST",
+      path: "/api/stop",
+      handler: async (_request, response) => {
+        executor.stop();
+        sendJson(response, 200, { ok: true });
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/voices",
+      handler: async (_request, response) => sendJson(response, 200, await executor.listVoices()),
+    },
+    {
+      method: "GET",
+      path: "/api/devices",
+      handler: async (_request, response) => sendJson(response, 200, await synthesizer.listDevices()),
+    },
+    {
+      method: "GET",
+      path: "/api/settings",
+      handler: async (_request, response) => sendJson(response, 200, await settings.load()),
+    },
+    {
+      method: "PUT",
+      path: "/api/settings",
+      handler: async (request, response) => {
+        const patch = await readJsonBody(request);
+        if (typeof patch === "object" && patch !== null && (patch as { obs?: unknown }).obs !== undefined) requireLoopback(request);
+        const stored = await settings.updateStored(patch);
+        const updated = toPublicSettings(stored);
+        if (typeof (patch as { captionsVisible?: unknown }).captionsVisible === "boolean") {
+          broadcast({ type: "captions-visibility", visible: updated.captionsVisible, at: now() });
+        }
+        // New OBS settings reconnect in the background; the status arrives as obs-status events.
+        if (deps.obs && (patch as { obs?: unknown }).obs !== undefined) {
+          void applyObsSettings(deps.obs, stored.obs).catch((error: unknown) => log(`Applying OBS settings failed: ${String(error)}`));
+        }
+        settingsChanged(updated);
+        sendJson(response, 200, updated);
+      },
+    },
+
+    // ---- OBS ----
+    {
+      method: "GET",
+      path: "/api/obs/status",
+      handler: async (_request, response) => {
+        const { obs } = await settings.loadStored();
+        const status = deps.obs?.status() ?? { status: "disconnected" as const };
+        const state = deps.obs?.state() ?? { currentScene: null, mutedInputs: [], streaming: false, recording: false };
+        const body: ObsStatusResponse = { enabled: obs.enabled, ...status, state };
+        sendJson(response, 200, body);
+      },
+    },
+    {
+      /** Connects again with the saved settings and answers with the outcome of the first attempt. */
+      method: "POST",
+      path: "/api/obs/connect",
+      handler: async (request, response) => {
+        asObject(await readJsonBody(request));
+        requireLoopback(request);
+        const obs = requireObs();
+        const { obs: config } = await settings.loadStored();
+        if (!config.enabled) throw new ObsDisabledError();
+        sendJson(response, 200, await applyObsSettings(obs, config));
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/obs/scenes",
+      handler: async (_request, response) => sendJson(response, 200, await requireObs().listScenes()),
+    },
+    {
+      method: "GET",
+      path: "/api/obs/inputs",
+      handler: async (_request, response) => sendJson(response, 200, await requireObs().listInputs()),
+    },
+    {
+      method: "GET",
+      path: "/api/obs/scenes/:name/items",
+      handler: async (_request, response, { name }) => {
+        if (name!.length > MAX_OBS_NAME_LENGTH) throw new HttpError(400, "Scene name is too long.");
+        sendJson(response, 200, await requireObs().listSceneItems(name!));
+      },
+    },
+  ];
 
   return async function handleApi(request: IncomingMessage, response: ServerResponse, pathname: string): Promise<boolean> {
     if (pathname !== "/api" && !pathname.startsWith("/api/")) return false;
     const method = request.method ?? "GET";
     try {
-      // Exact routes (e.g. POST /api/phrases/restore) win over the `:id` pattern.
-      const exact = routes[`${method} ${pathname}`];
-      const phraseMatch = exact ? null : /^\/api\/phrases\/([^/]+)$/.exec(pathname);
-      const route = exact ?? (phraseMatch ? routes[`${method} /api/phrases/:id`] : undefined);
-      if (!route) throw new HttpError(404, "Not found.");
-      await route(request, response, phraseMatch ? decodeURIComponent(phraseMatch[1]!) : undefined);
+      const match = matchRoute(routes, method, pathname);
+      if (!match) throw new HttpError(404, "Not found.");
+      await match.route.handler(request, response, match.params);
     } catch (error) {
       if (response.headersSent) return true;
-      if (error instanceof HttpError) sendJson(response, error.status, { error: error.message });
-      else if (error instanceof SlotOccupiedError) sendJson(response, 409, { error: error.message, code: "slot-occupied" });
-      else if (error instanceof PhraseNotFoundError) sendJson(response, 404, { error: error.message, code: "phrase-not-found" });
-      else if (error instanceof InvalidPhraseError || error instanceof InvalidSettingsError) {
-        sendJson(response, 400, { error: error.message });
+      const failure = describeFailure(error);
+      if (failure) {
+        sendJson(response, failure.status, failure.code ? { error: failure.message, code: failure.code } : { error: failure.message });
       } else {
         log(`Unexpected error on ${method} ${pathname}: ${String(error)}`);
         sendJson(response, 500, { error: "Internal server error." });
@@ -219,86 +345,75 @@ export function createApiHandler(deps: ApiDependencies) {
   };
 }
 
-/**
- * Builds the phrase for POST /api/phrases. Saving an existing id replaces it, keeping its slot unless
- * a new one is given; a new phrase without a slot goes to the lowest free slot.
- */
-function parsePhrase(body: Record<string, unknown>, existing: Phrase[], generateId: () => string, now: () => number): Phrase {
-  const { id, text, label, createdAt, slot } = body;
-  if (typeof text !== "string") throw new HttpError(400, "text must be a string.");
+function matchRoute(routes: readonly Route[], method: string, pathname: string): { route: Route; params: Params } | null {
+  const segments = pathname.split("/");
+  for (const route of routes) {
+    if (route.method !== method) continue;
+    const pattern = route.path.split("/");
+    if (pattern.length !== segments.length) continue;
+    const params: Params = {};
+    const matches = pattern.every((part, index) => {
+      const segment = segments[index]!;
+      if (!part.startsWith(":")) return part === segment;
+      if (segment === "") return false;
+      try {
+        params[part.slice(1)] = decodeURIComponent(segment);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    if (matches) return { route, params };
+  }
+  return null;
+}
+
+/** The request must come from this computer. */
+class LoopbackOnlyError extends Error {
+  constructor() {
+    super("Only available on this computer.");
+    this.name = "LoopbackOnlyError";
+  }
+}
+
+function describeFailure(error: unknown): { status: number; message: string; code?: ApiErrorCode } | null {
+  if (error instanceof LoopbackOnlyError) return { status: 403, message: error.message, code: "loopback-only" };
+  if (error instanceof HttpError) return { status: error.status, message: error.message };
+  if (error instanceof InvalidBoardError) return { status: 400, message: error.message, code: "invalid-board" };
+  if (error instanceof InvalidSettingsError) return { status: 400, message: error.message };
+  if (error instanceof ClientActionError) return { status: 400, message: error.message, code: "client-action" };
+  if (error instanceof BoardNotFoundError) return { status: 404, message: error.message, code: "board-not-found" };
+  if (error instanceof KeyNotFoundError) return { status: 404, message: error.message, code: "key-not-found" };
+  if (error instanceof NothingToRepeatError) return { status: 404, message: error.message, code: "nothing-to-repeat" };
+  if (error instanceof SlotOccupiedError) return { status: 409, message: error.message, code: "slot-occupied" };
+  if (error instanceof BoardLimitError) return { status: 409, message: error.message, code: "board-limit" };
+  if (error instanceof LastBoardError) return { status: 409, message: error.message, code: "last-board" };
+  if (error instanceof ObsUnavailableError) return { status: 409, message: error.message, code: "obs-unavailable" };
+  if (error instanceof ObsDisabledError) return { status: 409, message: error.message, code: "obs-disabled" };
+  if (error instanceof ObsRequestError) return { status: 502, message: error.message, code: "obs-request-failed" };
+  return null;
+}
+
+/** A slot from the URL: digits only, range checked by the use cases. */
+function parseSlot(segment: string): number {
+  if (!/^\d{1,6}$/.test(segment)) throw new HttpError(400, "slot must be a non-negative integer.");
+  return Number(segment);
+}
+
+function parseSpeakText(text: unknown): string {
+  if (typeof text !== "string" || text.trim() === "") throw new HttpError(400, "text is required.");
   if (text.length > MAX_SPEAK_TEXT_LENGTH) throw new HttpError(400, `text must be at most ${MAX_SPEAK_TEXT_LENGTH} characters.`);
-  if (id !== undefined && (typeof id !== "string" || id.length > 100)) throw new HttpError(400, "id must be a string.");
-  if (label !== undefined && (typeof label !== "string" || label.length > MAX_LABEL_LENGTH)) {
-    throw new HttpError(400, "label must be a short string.");
-  }
-  if (createdAt !== undefined && (typeof createdAt !== "number" || !Number.isFinite(createdAt))) {
-    throw new HttpError(400, "createdAt must be a number.");
-  }
-  if (slot !== undefined && !isValidSlot(slot)) throw new HttpError(400, "slot must be a non-negative integer.");
-
-  const phraseId = id ?? generateId();
-  const others = existing.filter((phrase) => phrase.id !== phraseId);
-  const previous = existing.find((phrase) => phrase.id === phraseId);
-  const target = slot ?? previous?.slot ?? lowestFreeSlot(others);
-  if (others.some((phrase) => phrase.slot === target)) throw new SlotOccupiedError(target);
-  return createPhrase({ id: phraseId, text, label, slot: target, createdAt: createdAt ?? now() });
+  return text.trim();
 }
 
-function parsePhraseChanges(body: Record<string, unknown>): PhraseChanges {
-  const { text, label, slot } = body;
-  const changes: PhraseChanges = {};
-  if (text !== undefined) {
-    if (typeof text !== "string") throw new HttpError(400, "text must be a string.");
-    if (text.length > MAX_SPEAK_TEXT_LENGTH) throw new HttpError(400, `text must be at most ${MAX_SPEAK_TEXT_LENGTH} characters.`);
-    changes.text = text;
-  }
-  if (label !== undefined) {
-    if (typeof label !== "string" || label.length > MAX_LABEL_LENGTH) throw new HttpError(400, "label must be a short string.");
-    changes.label = label;
-  }
-  if (slot !== undefined) {
-    if (!isValidSlot(slot)) throw new HttpError(400, "slot must be a non-negative integer.");
-    changes.slot = slot;
-  }
-  return changes;
-}
-
-async function resolveSpeakText(
-  body: Record<string, unknown>,
-  repository: PhraseRepository,
-): Promise<{ text: string; phraseId?: string }> {
-  const { text, phraseId } = body;
-  if (typeof phraseId === "string") {
-    const phrase = (await repository.list()).find((candidate) => candidate.id === phraseId);
-    if (!phrase) throw new HttpError(404, "Phrase not found.");
-    return { text: phrase.text, phraseId };
-  }
-  if (typeof text !== "string" || text.trim() === "") throw new HttpError(400, "text or phraseId is required.");
-  if (text.length > MAX_SPEAK_TEXT_LENGTH) throw new HttpError(400, `text must be at most ${MAX_SPEAK_TEXT_LENGTH} characters.`);
-  return { text: text.trim() };
-}
-
-/**
- * Request overrides win; otherwise the saved desktop settings apply. Without any chosen voice, a voice
- * speaking the voice language (by default the interface language) is used, so Spanish text is not
- * read by an English voice.
- */
-async function speakOptions(
-  body: Record<string, unknown>,
-  settings: JsonFileSettingsStore,
-  listVoices: () => Promise<Voice[]>,
-): Promise<DesktopSpeakOptions> {
+function parseOverrides(body: Record<string, unknown>): SpeechOverrides {
   const { voiceId, rate } = body;
   if (voiceId !== undefined && (typeof voiceId !== "string" || voiceId.length > 200)) {
     throw new HttpError(400, "voiceId must be a string.");
   }
   if (rate !== undefined && !isValidRate(rate)) throw new HttpError(400, "rate must be a number between 0.5 and 2.");
-
-  const saved = await settings.load();
-  const options: DesktopSpeakOptions = {};
-  const voice = voiceId || saved.voiceId || pickVoiceForLanguage(await listVoices(), voiceLanguageOf(saved))?.id;
-  if (voice) options.voiceId = voice;
-  options.rate = rate ?? saved.rate;
-  if (saved.deviceId) options.deviceId = saved.deviceId;
-  return options;
+  const overrides: SpeechOverrides = {};
+  if (voiceId) overrides.voiceId = voiceId;
+  if (rate !== undefined) overrides.rate = rate;
+  return overrides;
 }

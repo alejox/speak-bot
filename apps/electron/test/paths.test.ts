@@ -14,18 +14,18 @@ describe("resolveAppPaths", () => {
   });
 
   it("uses the installer's resources folder when packaged", () => {
-    const bundleDir = join("/Applications/Speak Bot.app/Contents/Resources/app.asar", "dist");
-    expect(resolveAppPaths({ isPackaged: true, resourcesPath: "/Applications/Speak Bot.app/Contents/Resources", bundleDir, platform: "darwin" })).toEqual({
-      mobileDistDir: join("/Applications/Speak Bot.app/Contents/Resources", "mobile"),
-      overlayFile: join("/Applications/Speak Bot.app/Contents/Resources", "overlay.html"),
-      trayIcon: join("/Applications/Speak Bot.app/Contents/Resources/app.asar", "assets", "trayTemplate.png"),
-      windowIcon: join("/Applications/Speak Bot.app/Contents/Resources/app.asar", "assets", "icon.png"),
+    const bundleDir = join("/Applications/Speed Deck.app/Contents/Resources/app.asar", "dist");
+    expect(resolveAppPaths({ isPackaged: true, resourcesPath: "/Applications/Speed Deck.app/Contents/Resources", bundleDir, platform: "darwin" })).toEqual({
+      mobileDistDir: join("/Applications/Speed Deck.app/Contents/Resources", "mobile"),
+      overlayFile: join("/Applications/Speed Deck.app/Contents/Resources", "overlay.html"),
+      trayIcon: join("/Applications/Speed Deck.app/Contents/Resources/app.asar", "assets", "trayTemplate.png"),
+      windowIcon: join("/Applications/Speed Deck.app/Contents/Resources/app.asar", "assets", "icon.png"),
     });
   });
 
   it("uses the colored tray icon outside macOS", () => {
-    const bundleDir = join("C:", "Program Files", "Speak Bot", "resources", "app.asar", "dist");
-    const paths = resolveAppPaths({ isPackaged: true, resourcesPath: "C:/Program Files/Speak Bot/resources", bundleDir, platform: "win32" });
-    expect(paths.trayIcon).toBe(join("C:", "Program Files", "Speak Bot", "resources", "app.asar", "assets", "tray.png"));
+    const bundleDir = join("C:", "Program Files", "Speed Deck", "resources", "app.asar", "dist");
+    const paths = resolveAppPaths({ isPackaged: true, resourcesPath: "C:/Program Files/Speed Deck/resources", bundleDir, platform: "win32" });
+    expect(paths.trayIcon).toBe(join("C:", "Program Files", "Speed Deck", "resources", "app.asar", "assets", "tray.png"));
   });
 });

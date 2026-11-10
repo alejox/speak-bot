@@ -128,9 +128,9 @@ function sendText(response: ServerResponse, status: number, contentType: string,
 
 const MISSING_BUILD_PAGE = `<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Speak Bot</title></head>
+<head><meta charset="utf-8"><title>Speed Deck</title></head>
 <body style="font-family: system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; line-height: 1.5">
-<h1>The Speak Bot app is not built yet</h1>
+<h1>The Speed Deck app is not built yet</h1>
 <p>The desktop server is running, but the mobile app has not been built. From the repository root, run:</p>
 <pre>npm run build -w apps/mobile</pre>
 <p>Then reload this page. The OBS overlay is already available at <a href="/overlay">/overlay</a>.</p>

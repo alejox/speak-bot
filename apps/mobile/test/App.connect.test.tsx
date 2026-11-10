@@ -1,4 +1,4 @@
-import type { PhraseRepository, Phrase, Voice } from "@speak-bot/core";
+import type { Voice } from "@speed-deck/core";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -6,7 +6,9 @@ import { DEFAULT_SETTINGS } from "../src/adapters/local-storage-settings-store";
 import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesizer";
 import { App } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
-import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
+import { createLocalBoardStore } from "../src/adapters/board-stores";
+import { LocalStorageBoardRepository } from "../src/adapters/local-storage-board-repository";
+import { boardsOf, createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
 import { goTo, memoryLanguageStore } from "./i18n-helpers";
 
 const synthesizer: AppSpeechSynthesizer = {
@@ -15,14 +17,6 @@ const synthesizer: AppSpeechSynthesizer = {
   cancel: () => {},
   listVoices: async (): Promise<Voice[]> => [],
   onVoicesChanged: () => () => {},
-};
-
-const repository: PhraseRepository = {
-  list: async (): Promise<Phrase[]> => [],
-  save: async () => {},
-  delete: async () => {},
-  update: async () => {},
-  replaceAll: async () => {},
 };
 
 const connection = {
@@ -35,11 +29,11 @@ const connection = {
 function route(request: RecordedRequest) {
   switch (`${request.method} ${request.url}`) {
     case "GET /api/health":
-      return { body: { ok: true, name: "speak-bot-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: false } } };
+      return { body: { ok: true, name: "speed-deck-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: false } } };
     case "GET /api/connection":
       return { body: connection };
-    case "GET /api/phrases":
-      return { body: [] };
+    case "GET /api/boards":
+      return { body: boardsOf([]) };
     case "GET /api/voices":
       return { body: [] };
     case "GET /api/settings":
@@ -54,9 +48,8 @@ function setup({ hostname = "localhost", answer = route } = {}) {
   const { fetch, requests } = createFakeFetch(answer);
   const services: AppServices = {
     synthesizer,
-    phrases: { repository, generateId: () => "x", now: () => 1 },
+    boards: createLocalBoardStore(new LocalStorageBoardRepository(null), () => "x"),
     settings: { load: () => DEFAULT_SETTINGS, save: () => {} },
-    isFirstRun: () => false,
     language: memoryLanguageStore("en"),
     desktop: createDesktopServices({
       fetch,
@@ -104,7 +97,7 @@ describe("App connect panel", () => {
 
   it("is hidden when no desktop serves the page (e.g. GitHub Pages)", async () => {
     const { requests } = setup({ answer: () => undefined });
-    await screen.findByRole("button", { name: "Speak" });
+    await screen.findByRole("link", { name: "Board" });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(screen.queryByRole("heading", { name: "Connect your phone" })).not.toBeInTheDocument();
     expect(requests.some((request) => request.url === "/api/connection")).toBe(false);

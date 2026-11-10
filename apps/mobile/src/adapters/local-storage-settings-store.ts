@@ -1,4 +1,4 @@
-import { isUiLanguage, type UiLanguage } from "@speak-bot/core";
+import { isUiLanguage, type UiLanguage } from "@speed-deck/core";
 import { getLocalStorage, readJson, writeJson } from "./browser-storage";
 
 export interface SpeechSettings {
@@ -12,7 +12,7 @@ export interface SpeechSettings {
 export const DEFAULT_SETTINGS: SpeechSettings = { voiceId: "", rate: 1 };
 export const MIN_RATE = 0.5;
 export const MAX_RATE = 2;
-export const SETTINGS_STORAGE_KEY = "speak-bot:settings";
+export const SETTINGS_STORAGE_KEY = "speed-deck:settings";
 
 export interface SettingsStore {
   load(): SpeechSettings;

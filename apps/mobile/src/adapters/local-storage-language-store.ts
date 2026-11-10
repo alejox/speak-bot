@@ -1,4 +1,4 @@
-import { isUiLanguage, type UiLanguage } from "@speak-bot/core";
+import { isUiLanguage, type UiLanguage } from "@speed-deck/core";
 import { getLocalStorage, readJson, writeJson } from "./browser-storage";
 
 export interface LanguageStore {
@@ -7,7 +7,7 @@ export interface LanguageStore {
   save(language: UiLanguage): void;
 }
 
-export const LANGUAGE_STORAGE_KEY = "speak-bot:language";
+export const LANGUAGE_STORAGE_KEY = "speed-deck:language";
 
 export class LocalStorageLanguageStore implements LanguageStore {
   constructor(

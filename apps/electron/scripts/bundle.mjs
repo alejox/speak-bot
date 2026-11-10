@@ -1,4 +1,4 @@
-// Bundles the Electron main process (with @speak-bot/core and @speak-bot/desktop inlined)
+// Bundles the Electron main process (with @speed-deck/core and @speed-deck/desktop inlined)
 // into a single CommonJS file, so the installer needs no node_modules.
 import { build } from "esbuild";
 import { fileURLToPath } from "node:url";

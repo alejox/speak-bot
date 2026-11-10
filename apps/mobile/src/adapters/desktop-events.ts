@@ -1,4 +1,4 @@
-import { isServerEvent, type ServerEvent } from "@speak-bot/core";
+import { isServerEvent, type ServerEvent } from "@speed-deck/core";
 
 /** The subset of the browser WebSocket used here, so tests can provide a fake. */
 export interface WebSocketLike {

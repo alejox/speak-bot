@@ -1,4 +1,4 @@
-import type { AudioDevice, SpeakOptions, SpeechCapabilities, SpeechSynthesizer, Voice } from "@speak-bot/core";
+import type { AudioDevice, SpeakOptions, SpeechCapabilities, SpeechSynthesizer, Voice } from "@speed-deck/core";
 import { CommandNotFoundError, type CommandRunner, type CommandSpec, type RunningCommand } from "./command-runner";
 
 export interface DesktopSpeakOptions extends SpeakOptions {

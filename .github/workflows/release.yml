@@ -47,8 +47,8 @@ jobs:
           else
             echo "APP_VERSION=0.0.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
           fi
-      - run: npm run build -w @speak-bot/mobile
-      - run: npm run build -w @speak-bot/electron
+      - run: npm run build -w @speed-deck/mobile
+      - run: npm run build -w @speed-deck/electron
       - name: Build installers
         shell: bash
         working-directory: apps/electron

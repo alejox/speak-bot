@@ -1,14 +1,7 @@
-import type { Phrase, PhraseRepository, SpeakOptions, Voice } from "@speak-bot/core";
-import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS } from "../src/adapters/local-storage-settings-store";
-import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesizer";
-import { createDesktopServices, type AppServices } from "../src/app/composition-root";
-import { DockApp } from "../src/app/DockApp";
 import { isDockPath } from "../src/app/route";
-import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
-import { memoryLanguageStore } from "./i18n-helpers";
+import { boardOf, desktopState, renderDock, speakKey } from "./app-fakes";
 
 describe("isDockPath", () => {
   it("matches the dock route under the app base", () => {
@@ -22,122 +15,62 @@ describe("isDockPath", () => {
   });
 });
 
-class LocalSynthesizer implements AppSpeechSynthesizer {
-  readonly isSupported = true;
-  readonly spoken: string[] = [];
-  async speak(text: string, _options?: SpeakOptions) {
-    this.spoken.push(text);
-  }
-  cancel() {}
-  async listVoices(): Promise<Voice[]> {
-    return [];
-  }
-  onVoicesChanged() {
-    return () => {};
-  }
-}
-
-const localRepository: PhraseRepository = {
-  list: async (): Promise<Phrase[]> => [{ id: "l1", text: "Local phrase", slot: 0, createdAt: 1 }],
-  save: async () => {},
-  delete: async () => {},
-  update: async () => {},
-  replaceAll: async () => {},
-};
-
-function desktopRoute(request: RecordedRequest) {
-  switch (`${request.method} ${request.url}`) {
-    case "GET /api/health":
-      return { body: { ok: true, name: "speak-bot-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: true } } };
-    case "GET /api/phrases":
-      return { body: [{ id: "d1", text: "Hola desde la computadora", slot: 0, createdAt: 1 }] };
-    case "GET /api/voices":
-      return { body: [] };
-    case "GET /api/settings":
-      return { body: { voiceId: "", rate: 1, deviceId: "", language: "es" } };
-    case "POST /api/speak":
-      return { status: 202, body: { ok: true } };
-    case "POST /api/stop":
-      return { body: { ok: true } };
-    default:
-      return undefined;
-  }
-}
-
-function setup(route: (request: RecordedRequest) => { status?: number; body?: unknown } | undefined = desktopRoute) {
-  FakeSocket.instances = [];
-  const fake = createFakeFetch(route);
-  const local = new LocalSynthesizer();
-  const services: AppServices = {
-    synthesizer: local,
-    phrases: { repository: localRepository, generateId: () => "x", now: () => 1 },
-    settings: { load: () => DEFAULT_SETTINGS, save: () => {} },
-    language: memoryLanguageStore(null),
-    isFirstRun: () => true,
-    desktop: createDesktopServices({
-      fetch: fake.fetch,
-      createSocket: (url) => new FakeSocket(url),
-      location: { protocol: "http:", host: "127.0.0.1:4545", hostname: "127.0.0.1" },
-      // The phone view chose "This device"; the dock must still speak on the computer.
-      targetStore: { load: () => "device", save: () => {} },
-    }),
-  };
-  render(<DockApp services={services} />);
-  return { requests: fake.requests, local, user: userEvent.setup() };
-}
+const executed = (requests: { url: string; body: unknown }[]) =>
+  requests.filter((request) => request.url === "/api/actions/execute").map((request) => (request.body as { action: unknown }).action);
 
 describe("DockApp", () => {
-  it("always speaks on the computer, with no side menu", async () => {
-    const { requests, local, user } = setup();
+  it("is a compact board player that always runs keys on the computer, with no side menu", async () => {
+    const state = desktopState({
+      boards: [boardOf("main", "Principal", [speakKey(0, "Hola desde la computadora")]), boardOf("games", "Juegos", [speakKey(0, "GG")])],
+    });
+    state.settings = { ...state.settings, language: "es" };
+    // The phone view chose "This device"; the dock must still run keys on the computer.
+    const { requests, local, user } = renderDock({ state, storedTarget: "device", language: null, hostname: "127.0.0.1" });
 
-    await user.click(await screen.findByRole("button", { name: "Decir: Hola desde la computadora" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Hola desde la computadora" }));
     await user.type(screen.getByRole("textbox", { name: "Texto para decir" }), "Gracias por el follow{Enter}");
-
-    const spoken = requests.filter((r) => r.method === "POST" && r.url === "/api/speak").map((r) => (r.body as { text: string }).text);
-    expect(spoken).toEqual(["Hola desde la computadora", "Gracias por el follow"]);
+    expect(executed(requests)).toEqual([{ type: "voice.speak", text: "Hola desde la computadora" }]);
+    expect(requests).toContainEqual(expect.objectContaining({ method: "POST", url: "/api/speak", body: expect.objectContaining({ text: "Gracias por el follow" }) }));
     expect(local.spoken).toEqual([]);
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
-    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Decir: Local phrase" })).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Tablero" }), "Juegos");
+    expect(screen.getByRole("button", { name: "GG" })).toBeInTheDocument();
+    expect(screen.getByText("Página 1 de 1")).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem("speed-deck:dock-board-position") ?? "null")).toEqual({ boardId: "games", page: 0 });
+    expect(localStorage.getItem("speed-deck:board-position")).toBeNull();
   });
 
-  it("shows an empty deck the streamer can fill from the dock", async () => {
-    let phrases: Phrase[] = [];
-    const { requests, user } = setup((request) => {
-      if (request.url !== "/api/phrases") return desktopRoute(request);
-      if (request.method === "POST") phrases = [request.body as Phrase];
-      return request.method === "GET" ? { body: phrases } : { status: 201, body: request.body };
-    });
+  it("follows a language chosen on the desktop while it is open", async () => {
+    const { emit } = renderDock({ language: null });
+    expect(await screen.findByRole("textbox", { name: "Text to speak" })).toBeInTheDocument();
+    act(() => emit({ type: "settings-changed", settings: { ...desktopState().settings, language: "es" } }));
+    expect(screen.getByRole("textbox", { name: "Texto para decir" })).toBeInTheDocument();
+  });
 
-    const deck = await screen.findByRole("region", { name: "Frases" });
-    await user.click(await within(deck).findByRole("button", { name: "Agregar frase en el botón 1" }));
-    await user.type(screen.getByRole("textbox", { name: "Texto de la frase" }), "Bienvenidos");
-    await user.click(screen.getByRole("button", { name: "Guardar" }));
-
-    expect(await within(deck).findByRole("button", { name: "Decir: Bienvenidos" })).toBeInTheDocument();
-    expect(requests).toContainEqual(expect.objectContaining({ method: "POST", url: "/api/phrases", body: expect.objectContaining({ slot: 0 }) }));
-    expect(within(deck).getByText("Página 1 de 1")).toBeInTheDocument();
-    expect(within(deck).getAllByRole("listitem")).toHaveLength(15);
+  it("edits a key from the dock with a long press or right click", async () => {
+    const state = desktopState({ boards: [boardOf("main", "Main", [speakKey(0, "Hi")])] });
+    const { requests, user } = renderDock({ state });
+    fireEvent.contextMenu(await screen.findByRole("button", { name: "Hi" }));
+    const dialog = screen.getByRole("dialog", { name: "Edit key 1" });
+    await user.type(within(dialog).getByRole("textbox", { name: "Label (optional)" }), "Hey");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Hey" })).toBeInTheDocument());
+    expect(requests).toContainEqual(expect.objectContaining({ method: "PUT", url: "/api/boards/main/keys/0" }));
   });
 
   it("stops speech on the computer", async () => {
-    const { requests, user } = setup();
-    await screen.findByRole("button", { name: "Decir: Hola desde la computadora" });
-
-    // With live events the dock waits for the desktop's "end", so Stop stays enabled meanwhile.
-    for (const socket of FakeSocket.instances) socket.open();
-    await user.type(screen.getByRole("textbox", { name: "Texto para decir" }), "Un texto largo");
-    const composer = screen.getByRole("form", { name: "Escribe para hablar" });
-    await user.click(within(composer).getByRole("button", { name: "Hablar" }));
-    await user.click(within(composer).getByRole("button", { name: "Detener" }));
-
+    const { requests, emit, user } = renderDock();
+    await screen.findByRole("button", { name: "Hello" });
+    act(() => emit({ type: "speaking", state: "start" }));
+    const composer = screen.getByRole("form", { name: "Type to speak" });
+    await user.click(within(composer).getByRole("button", { name: "Stop" }));
     expect(requests).toContainEqual(expect.objectContaining({ method: "POST", url: "/api/stop" }));
   });
 
   it("explains, in the interface language, that the desktop app was not found", async () => {
-    const { local } = setup(() => undefined);
-
-    expect(await screen.findByText(/No se encontró la app de Speak Bot en la computadora/)).toBeInTheDocument();
+    const { local } = renderDock({ noDesktop: true, language: null });
+    expect(await screen.findByText(/No se encontró la app de Speed Deck en la computadora/)).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(local.spoken).toEqual([]);
   });

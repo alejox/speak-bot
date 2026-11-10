@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
-import { JsonFilePhraseRepository } from "../src/adapters/json-file-phrase-repository";
+import { JsonFileBoardRepository } from "../src/adapters/json-file-board-repository";
 import { JsonFileSettingsStore } from "../src/adapters/json-file-settings-store";
 import type { DesktopSpeechSynthesizer } from "../src/adapters/tts/process-speech-synthesizer";
 import { createDesktopServer, type DesktopServer } from "../src/server/create-server";
@@ -69,9 +69,9 @@ describe("desktop server boundary", () => {
   let port: number;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "speak-bot-boundary-"));
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-boundary-"));
     server = createDesktopServer({
-      repository: new JsonFilePhraseRepository(join(dir, "phrases.json")),
+      repository: new JsonFileBoardRepository(join(dir, "boards.json")),
       settings: new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true }),
       synthesizer: silentSynthesizer,
       generateId: () => "id",
@@ -130,7 +130,7 @@ describe("desktop server boundary", () => {
     const dock = { host: `127.0.0.1:${port}`, origin: `http://127.0.0.1:${port}` };
     const json = { ...dock, "content-type": "application/json" };
     expect(await requestWith(port, "/api/health", dock)).toBe(200);
-    expect(await requestWith(port, "/api/phrases", dock)).toBe(200);
+    expect(await requestWith(port, "/api/boards", dock)).toBe(200);
     expect(await requestWith(port, "/api/stop", json, "POST", "{}")).toBe(200);
     expect(await requestWith(port, "/dock", dock)).toBe(200);
   });

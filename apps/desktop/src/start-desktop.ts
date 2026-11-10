@@ -1,12 +1,17 @@
-import { DEFAULT_PHRASES_BY_LANGUAGE, seedDefaultPhrases, type DesktopSettings } from "@speak-bot/core";
+import type { DesktopSettings } from "@speed-deck/core";
 import { randomUUID } from "node:crypto";
 import { homedir, networkInterfaces } from "node:os";
 import { join } from "node:path";
-import { JsonFilePhraseRepository } from "./adapters/json-file-phrase-repository";
+import { prepareBoards } from "./adapters/board-migration";
+import { migrateLegacyDataDir } from "./adapters/legacy-data-dir";
+import { JsonFileBoardRepository } from "./adapters/json-file-board-repository";
 import { JsonFileSettingsStore } from "./adapters/json-file-settings-store";
+import { createObsWebSocketClient, type ObsClient } from "./adapters/obs/obs-client";
+import { ObsConnectionManager } from "./adapters/obs/obs-connection-manager";
 import { createSystemSynthesizer } from "./adapters/tts/create-system-synthesizer";
 import { loadConfig, type ConfigSources } from "./config";
 import { createDesktopServer } from "./server/create-server";
+import { applyObsSettings } from "./server/obs-settings";
 import { connectionInfo } from "./server/network";
 import { listenWithFallback } from "./server/port-fallback";
 import { isPortOwnedBy } from "./server/port-ownership";
@@ -20,6 +25,8 @@ export interface StartDesktopOptions extends Partial<ConfigSources> {
   log?: (message: string) => void;
   /** How many consecutive ports to try when the configured one is busy. */
   portAttempts?: number;
+  /** Creates OBS clients; defaults to obs-websocket-js. */
+  createObsClient?: () => ObsClient;
 }
 
 export interface RunningDesktop {
@@ -53,15 +60,22 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     homeDir: options.homeDir ?? homedir(),
   });
   const log = options.log ?? (() => {});
+  // Data saved before the rename to Speed Deck is copied to the new folder once.
+  await migrateLegacyDataDir(config, log);
 
-  const repository = new JsonFilePhraseRepository(join(config.dataDir, "phrases.json"));
+  const repository = new JsonFileBoardRepository(join(config.dataDir, "boards.json"));
   const settings = new JsonFileSettingsStore(join(config.dataDir, "settings.json"), config.defaults);
   const synthesizer = createSystemSynthesizer();
-  const phraseDeps = { repository, generateId: randomUUID, now: () => Date.now() };
+  const boardDeps = { repository, generateId: randomUUID, now: () => Date.now() };
+  const obs = new ObsConnectionManager({ createClient: options.createObsClient ?? createObsWebSocketClient, log });
 
-  if (!(await repository.exists())) {
-    await seedDefaultPhrases(phraseDeps, DEFAULT_PHRASES_BY_LANGUAGE[(await settings.load()).language]);
-  }
+  // Phrases saved by older versions become the communication board, once.
+  const prepared = await prepareBoards(repository, {
+    legacyPhrasesFile: join(config.dataDir, "phrases.json"),
+    language: (await settings.load()).language,
+    log,
+  });
+  if (prepared === "migrated") log("Moved the saved phrases to the communication board (backup: phrases.json.migrated.bak).");
   const settingsListeners = new Set<(next: DesktopSettings) => void>();
 
   const pageHandler = createPageHandler({
@@ -69,12 +83,13 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     overlayFile: options.overlayFile ?? OVERLAY_FILE,
   });
   const server = createDesktopServer({
-    ...phraseDeps,
+    ...boardDeps,
     settings,
     synthesizer,
     log,
     pageHandler,
     allowedHosts: config.allowedHosts,
+    obs,
     onSettingsChanged: (next) => {
       for (const listener of [...settingsListeners]) listener(next);
     },
@@ -93,6 +108,8 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
 
   const { engine, supportsDeviceSelection } = synthesizer.capabilities;
   log(`Data directory: ${config.dataDir}`);
+  // Connects in the background when OBS control is enabled; failures retry and never stop the server.
+  void applyObsSettings(obs, (await settings.loadStored()).obs).catch((error: unknown) => log(`OBS: ${String(error)}`));
   log(`Speech engine: ${engine}${supportsDeviceSelection ? " (output device selectable)" : ""}`);
 
   let closing: Promise<void> | undefined;
@@ -112,6 +129,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     close: () => {
       closing ??= (async () => {
         synthesizer.cancel();
+        await obs.close();
         await server.close();
       })();
       return closing;

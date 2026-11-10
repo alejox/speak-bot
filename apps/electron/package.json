@@ -1,9 +1,9 @@
 {
-  "name": "@speak-bot/electron",
-  "productName": "Speak Bot",
+  "name": "@speed-deck/electron",
+  "productName": "Speed Deck",
   "version": "0.0.0",
   "private": true,
-  "description": "Speak Bot for the computer: runs the desktop server in the background with a window and a tray icon.",
+  "description": "Speed Deck for the computer: runs the desktop server in the background with a window and a tray icon.",
   "author": "alejox",
   "homepage": "https://github.com/alejox/speak-bot",
   "type": "module",
@@ -17,8 +17,8 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@speak-bot/core": "0.0.0",
-    "@speak-bot/desktop": "0.0.0",
+    "@speed-deck/core": "0.0.0",
+    "@speed-deck/desktop": "0.0.0",
     "@types/node": "^26.6.6",
     "electron": "45.2.3",
     "electron-builder": "^26.18.0",

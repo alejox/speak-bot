@@ -1,8 +1,8 @@
 # Installers for macOS, Windows and Linux. Built by .github/workflows/release.yml on v* tags.
 # The apps are not code-signed: see the README for the Gatekeeper and SmartScreen warnings.
-appId: io.github.alejox.speakbot
-productName: Speak Bot
-artifactName: speak-bot-${version}-${os}-${arch}.${ext}
+appId: io.github.alejox.speeddeck
+productName: Speed Deck
+artifactName: speed-deck-${version}-${os}-${arch}.${ext}
 directories:
   output: release
   buildResources: build
@@ -42,7 +42,7 @@ nsis:
   allowToChangeInstallationDirectory: true
 
 linux:
-  executableName: speak-bot
+  executableName: speed-deck
   category: Utility
   synopsis: Speak typed phrases out loud and show captions in OBS
   maintainer: alejox <alejox@users.noreply.github.com>

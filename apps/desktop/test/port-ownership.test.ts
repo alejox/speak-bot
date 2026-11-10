@@ -7,7 +7,7 @@ import { isPortOwnedBy } from "../src/server/port-ownership";
 function healthServer(instanceId: string | undefined): Server {
   return createHttpServer((_request, response) => {
     response.writeHead(200, { "content-type": "application/json" });
-    response.end(JSON.stringify({ ok: true, name: "speak-bot-desktop", instanceId }));
+    response.end(JSON.stringify({ ok: true, name: "speed-deck-desktop", instanceId }));
   });
 }
 

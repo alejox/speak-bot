@@ -1,4 +1,4 @@
-import { DEFAULT_UI_LANGUAGE, type UiLanguage } from "@speak-bot/core";
+import { DEFAULT_UI_LANGUAGE, type UiLanguage } from "@speed-deck/core";
 import { useState } from "react";
 import type { LanguageStore } from "../adapters/local-storage-language-store";
 import type { SpeechTarget } from "./use-speech-target";

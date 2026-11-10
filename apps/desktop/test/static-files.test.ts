@@ -47,9 +47,9 @@ describe("page handler", () => {
   }
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "speak-bot-static-"));
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-static-"));
     await mkdir(join(dir, "dist", "assets"), { recursive: true });
-    await writeFile(join(dir, "dist", "index.html"), "<!doctype html><title>Speak Bot</title>", "utf8");
+    await writeFile(join(dir, "dist", "index.html"), "<!doctype html><title>Speed Deck</title>", "utf8");
     await writeFile(join(dir, "dist", "assets", "app.js"), "console.log('app')", "utf8");
     await writeFile(join(dir, "secret.txt"), "top secret", "utf8");
   });
@@ -65,7 +65,7 @@ describe("page handler", () => {
     const index = await fetch(`${baseUrl}/`);
     expect(index.status).toBe(200);
     expect(index.headers.get("content-type")).toMatch(/text\/html/);
-    expect(await index.text()).toContain("Speak Bot");
+    expect(await index.text()).toContain("Speed Deck");
 
     const asset = await fetch(`${baseUrl}/assets/app.js`);
     expect(asset.headers.get("content-type")).toMatch(/javascript/);
@@ -79,14 +79,14 @@ describe("page handler", () => {
       const response = await fetch(`${baseUrl}${path}`);
       expect(response.status, path).toBe(200);
       expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
-      expect(await response.text()).toContain("Speak Bot");
+      expect(await response.text()).toContain("Speed Deck");
     }
   });
 
   it("falls back to index.html for app routes but 404s for missing files", async () => {
     await start(join(dir, "dist"));
 
-    expect(await (await fetch(`${baseUrl}/settings`)).text()).toContain("Speak Bot");
+    expect(await (await fetch(`${baseUrl}/settings`)).text()).toContain("Speed Deck");
     expect((await fetch(`${baseUrl}/assets/missing.js`)).status).toBe(404);
   });
 
