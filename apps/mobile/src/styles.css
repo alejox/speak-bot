@@ -837,6 +837,8 @@ button.deck-key-empty {
 /* Board editor: boards | grid + key editor | action library. */
 .app-editing .app-main {
   max-width: none;
+  /* The editor lays itself out from the room it really has, whatever the sidebar is doing. */
+  container: editor / inline-size;
 }
 
 .editor-toolbar {
@@ -922,6 +924,37 @@ button.deck-key-empty {
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+  /* Lets the key grid drop to 3 columns when its own pane is narrow, like the player does. */
+  container-type: inline-size;
+}
+
+/* Three panes need about 1100px. Below that the board list becomes a strip above the grid. */
+@container editor (max-width: 1099px) {
+  .board-editor {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  }
+
+  .board-list {
+    grid-column: 1 / -1;
+  }
+
+  .board-list ul,
+  .board-list-footer {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+/* Too narrow for two panes: everything stacks and the action library scrolls with the page. */
+@container editor (max-width: 719px) {
+  .board-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .board-editor-side {
+    position: static;
+    max-height: none;
+  }
 }
 
 .board-editor-grid .deck-grid,
