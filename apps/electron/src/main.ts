@@ -3,6 +3,7 @@ import { app, BrowserWindow, clipboard, dialog, Menu, nativeImage, shell, Tray }
 import { homedir } from "node:os";
 import { isLinuxAutostartEnabled, linuxAutostartEntry, linuxAutostartFile, migrateLinuxAutostart, setLinuxAutostart } from "./linux-autostart";
 import { resolveAppPaths } from "./paths";
+import { installQuitOnSignals } from "./quit-signals";
 import { HIDDEN_FLAG, shouldStartHidden } from "./startup";
 import { trayStrings, type TrayStrings } from "./tray-strings";
 
@@ -34,13 +35,18 @@ if (!app.requestSingleInstanceLock()) {
     event.preventDefault();
     const running = desktop;
     desktop = undefined;
+    log("Stopping the server…");
+    // The quit already ran its course up to here; a second app.quit() is ignored when it started
+    // from a signal (Chromium handles SIGTERM itself), so finish with app.exit().
     void running
       .close()
       .catch((error: unknown) => log(`Could not stop the server cleanly: ${String(error)}`))
-      .finally(() => app.quit());
+      .finally(() => app.exit(0));
   });
   // The server keeps running for OBS and the phone while the window is closed.
   app.on("window-all-closed", () => {});
+  // `kill`, Ctrl+C and logouts go through the same clean quit as "Quit" in the tray.
+  installQuitOnSignals({ process, quit: () => app.quit(), exit: (code) => app.exit(code) });
 
   app.whenReady().then(start, (error: unknown) => fail(error));
 }
@@ -87,8 +93,9 @@ function createWindow(port: number): BrowserWindow {
   // [::1], where another app could be listening on the same port.
   const origin = `http://127.0.0.1:${port}`;
   const created = new BrowserWindow({
-    width: 960,
-    height: 760,
+    // Wide enough for the three-pane board editor (1000px and up).
+    width: 1280,
+    height: 820,
     minWidth: 360,
     minHeight: 480,
     title: "Speed Deck",
