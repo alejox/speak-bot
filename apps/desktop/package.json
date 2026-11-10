@@ -1,5 +1,5 @@
 {
-  "name": "@speak-bot/desktop",
+  "name": "@speed-deck/desktop",
   "version": "0.0.0",
   "private": true,
   "description": "Local server that speaks through the computer and shows captions in OBS.",
@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@speak-bot/core": "0.0.0",
+    "@speed-deck/core": "0.0.0",
     "obs-websocket-js": "^5.0.8",
     "tsx": "^4.23.15",
     "ws": "^8.22.2"

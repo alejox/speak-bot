@@ -1,4 +1,4 @@
-import type { ServerEvent, SpeakOptions, Voice } from "@speak-bot/core";
+import type { ServerEvent, SpeakOptions, Voice } from "@speed-deck/core";
 import { mkdtemp, rm } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -22,7 +22,7 @@ describe("desktop HTTP API", () => {
   let settingsChanges: unknown[];
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "speak-bot-api-"));
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-api-"));
     synthesizer = new FakeSynthesizer();
     settingsChanges = [];
     let id = 0;
@@ -74,7 +74,7 @@ describe("desktop HTTP API", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       ok: true,
-      name: "speak-bot-desktop",
+      name: "speed-deck-desktop",
       capabilities: { platform: "test", engine: "fake", supportsDeviceSelection: true },
       instanceId: expect.any(String),
     });

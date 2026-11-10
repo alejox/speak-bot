@@ -25,9 +25,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build -w @speak-bot/mobile
+      - run: npm run build -w @speed-deck/mobile
         env:
-          SPEAK_BOT_BASE: /speak-bot/
+          SPEED_DECK_BASE: /speak-bot/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: apps/mobile/dist

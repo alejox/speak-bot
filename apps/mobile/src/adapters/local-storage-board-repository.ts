@@ -6,11 +6,11 @@ import {
   type BoardChange,
   type BoardRepository,
   type UiLanguage,
-} from "@speak-bot/core";
+} from "@speed-deck/core";
 import { getLocalStorage, readJson, writeJson } from "./browser-storage";
 import { isStoredPhrase, PHRASES_STORAGE_KEY } from "./local-storage-phrase-repository";
 
-export const BOARDS_STORAGE_KEY = "speak-bot:boards";
+export const BOARDS_STORAGE_KEY = "speed-deck:boards";
 const BOARDS_STORAGE_VERSION = 1;
 
 /**

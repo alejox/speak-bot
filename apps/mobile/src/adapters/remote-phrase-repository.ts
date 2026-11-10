@@ -1,4 +1,4 @@
-import type { Board, Phrase, PhraseRepository } from "@speak-bot/core";
+import type { Board, Phrase, PhraseRepository } from "@speed-deck/core";
 import type { DesktopApiClient } from "./desktop-api";
 
 const ID_PREFIX = "slot-";

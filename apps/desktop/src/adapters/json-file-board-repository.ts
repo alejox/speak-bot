@@ -1,4 +1,4 @@
-import { readStoredBoards, type Board, type BoardChange, type BoardRepository } from "@speak-bot/core";
+import { readStoredBoards, type Board, type BoardChange, type BoardRepository } from "@speed-deck/core";
 import { readJsonFile, SerialQueue, writeJsonFileAtomic } from "./json-file";
 
 /** Version of the boards file layout, so later versions can migrate it. */

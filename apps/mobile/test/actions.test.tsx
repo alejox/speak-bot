@@ -1,4 +1,4 @@
-import type { Phrase, PhraseRepository, SpeakOptions, Voice } from "@speak-bot/core";
+import type { Phrase, PhraseRepository, SpeakOptions, Voice } from "@speed-deck/core";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -144,7 +144,7 @@ function desktopRoute(overrides: Partial<Record<string, { status?: number; body?
     if (overrides[key]) return overrides[key];
     switch (key) {
       case "GET /api/health":
-        return { body: { ok: true, name: "speak-bot-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: false } } };
+        return { body: { ok: true, name: "speed-deck-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: false } } };
       case "GET /api/boards":
         return { body: boardsOf([{ id: "d1", text: "Water please", slot: 0, createdAt: 1 }]) };
       case "GET /api/voices":

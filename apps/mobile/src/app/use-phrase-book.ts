@@ -9,7 +9,7 @@ import {
   updatePhrase,
   type Phrase,
   type UiLanguage,
-} from "@speak-bot/core";
+} from "@speed-deck/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DesktopRequestError } from "../adapters/desktop-api";
 import type { Message } from "../i18n/messages";

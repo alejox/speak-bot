@@ -1,4 +1,4 @@
-import { assignMissingSlots, createKey, initializeBoards, type BoardRepository, type Phrase, type StoredPhrase, type UiLanguage } from "@speak-bot/core";
+import { assignMissingSlots, createKey, initializeBoards, type BoardRepository, type Phrase, type StoredPhrase, type UiLanguage } from "@speed-deck/core";
 import { rename } from "node:fs/promises";
 import { readJsonFile } from "./json-file";
 

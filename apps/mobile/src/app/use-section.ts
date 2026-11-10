@@ -4,7 +4,7 @@ import { getLocalStorage, readJson, writeJson } from "../adapters/browser-storag
 export const SECTIONS = ["speak", "phrases", "connect", "settings"] as const;
 export type Section = (typeof SECTIONS)[number];
 
-export const SECTION_STORAGE_KEY = "speak-bot:section";
+export const SECTION_STORAGE_KEY = "speed-deck:section";
 
 function isSection(value: unknown): value is Section {
   return typeof value === "string" && (SECTIONS as readonly string[]).includes(value);

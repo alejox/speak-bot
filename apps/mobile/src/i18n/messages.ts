@@ -1,4 +1,4 @@
-import type { UiLanguage } from "@speak-bot/core";
+import type { UiLanguage } from "@speed-deck/core";
 import { en, type MessageKey, type Messages } from "./en";
 import { es } from "./es";
 

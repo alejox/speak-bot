@@ -1,4 +1,4 @@
-import type { PhraseRepository, Phrase, Voice } from "@speak-bot/core";
+import type { PhraseRepository, Phrase, Voice } from "@speed-deck/core";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -35,7 +35,7 @@ const connection = {
 function route(request: RecordedRequest) {
   switch (`${request.method} ${request.url}`) {
     case "GET /api/health":
-      return { body: { ok: true, name: "speak-bot-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: false } } };
+      return { body: { ok: true, name: "speed-deck-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: false } } };
     case "GET /api/connection":
       return { body: connection };
     case "GET /api/boards":

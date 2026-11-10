@@ -25,7 +25,7 @@ describe("GET /api/connection", () => {
   let port: number;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "speak-bot-connection-"));
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-connection-"));
     server = createDesktopServer({
       repository: new JsonFileBoardRepository(join(dir, "boards.json")),
       settings: new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true }),

@@ -1,7 +1,7 @@
 import { startDesktop } from "./start-desktop";
 
 async function main(): Promise<void> {
-  const log = (message: string) => console.log(`[speak-bot] ${message}`);
+  const log = (message: string) => console.log(`[speed-deck] ${message}`);
   const desktop = await startDesktop({ argv: process.argv.slice(2), log });
 
   for (const url of desktop.urls) log(`Listening on ${url}`);
@@ -14,6 +14,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error(`[speak-bot] ${error instanceof Error ? error.message : String(error)}`);
+  console.error(`[speed-deck] ${error instanceof Error ? error.message : String(error)}`);
   process.exit(1);
 });

@@ -24,12 +24,12 @@ describe("build under /speak-bot/", () => {
   let outDir: string;
 
   beforeAll(async () => {
-    outDir = await mkdtemp(join(tmpdir(), "speak-bot-pages-"));
-    process.env.SPEAK_BOT_BASE = "/speak-bot/";
+    outDir = await mkdtemp(join(tmpdir(), "speed-deck-pages-"));
+    process.env.SPEED_DECK_BASE = "/speak-bot/";
     try {
       await build({ root, configFile: join(root, "vite.config.ts"), logLevel: "silent", build: { outDir, emptyOutDir: true } });
     } finally {
-      delete process.env.SPEAK_BOT_BASE;
+      delete process.env.SPEED_DECK_BASE;
     }
   }, 60_000);
 
@@ -41,6 +41,7 @@ describe("build under /speak-bot/", () => {
     const html = await readFile(join(outDir, "index.html"), "utf8");
     expect(html).toMatch(/src="\/speak-bot\/assets\/[^"]+\.js"/);
     expect(html).toContain('href="/speak-bot/icon.svg"');
+    expect(html).toContain('href="/speak-bot/icon-maskable.svg"');
     expect(html).toContain('href="/speak-bot/manifest.webmanifest"');
     expect(html).not.toMatch(/(src|href)="\/(assets|icon\.svg|manifest)/);
 

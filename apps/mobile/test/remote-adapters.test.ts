@@ -18,8 +18,8 @@ function setup(route: Parameters<typeof createFakeFetch>[0] = () => ({ status: 2
 afterEach(() => vi.useRealTimers());
 
 describe("DesktopApiClient.detect", () => {
-  it("returns the capabilities of a speak-bot desktop server", async () => {
-    const { api, requests } = setup(() => ({ body: { ok: true, name: "speak-bot-desktop", capabilities } }));
+  it("returns the capabilities of a Speed Deck desktop server", async () => {
+    const { api, requests } = setup(() => ({ body: { ok: true, name: "speed-deck-desktop", capabilities } }));
 
     expect(await api.detect()).toEqual(capabilities);
     expect(requests[0]).toMatchObject({ method: "GET", url: "/api/health" });

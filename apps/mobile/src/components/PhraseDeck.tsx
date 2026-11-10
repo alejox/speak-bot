@@ -1,4 +1,4 @@
-import type { Phrase } from "@speak-bot/core";
+import type { Phrase } from "@speed-deck/core";
 import { useEffect, useId, useRef, useState } from "react";
 import type { PhraseValues } from "../app/use-phrase-book";
 import { useT } from "../i18n/I18nProvider";

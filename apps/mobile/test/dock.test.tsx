@@ -1,4 +1,4 @@
-import type { Phrase, PhraseRepository, SpeakOptions, Voice } from "@speak-bot/core";
+import type { Phrase, PhraseRepository, SpeakOptions, Voice } from "@speed-deck/core";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -48,7 +48,7 @@ const localRepository: PhraseRepository = {
 function desktopRoute(request: RecordedRequest) {
   switch (`${request.method} ${request.url}`) {
     case "GET /api/health":
-      return { body: { ok: true, name: "speak-bot-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: true } } };
+      return { body: { ok: true, name: "speed-deck-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: true } } };
     case "GET /api/boards":
       return { body: boardsOf([{ id: "d1", text: "Hola desde la computadora", slot: 0, createdAt: 1 }]) };
     case "GET /api/voices":
@@ -140,7 +140,7 @@ describe("DockApp", () => {
   it("explains, in the interface language, that the desktop app was not found", async () => {
     const { local } = setup(() => undefined);
 
-    expect(await screen.findByText(/No se encontró la app de Speak Bot en la computadora/)).toBeInTheDocument();
+    expect(await screen.findByText(/No se encontró la app de Speed Deck en la computadora/)).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(local.spoken).toEqual([]);
   });

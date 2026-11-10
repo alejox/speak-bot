@@ -1,7 +1,7 @@
-import { assignMissingSlots, PhraseNotFoundError, type Phrase, type PhraseRepository, type StoredPhrase } from "@speak-bot/core";
+import { assignMissingSlots, PhraseNotFoundError, type Phrase, type PhraseRepository, type StoredPhrase } from "@speed-deck/core";
 import { getLocalStorage, readJson, writeJson } from "./browser-storage";
 
-export const PHRASES_STORAGE_KEY = "speak-bot:phrases";
+export const PHRASES_STORAGE_KEY = "speed-deck:phrases";
 
 /**
  * Persists phrases in localStorage. When storage is unavailable or a write fails,

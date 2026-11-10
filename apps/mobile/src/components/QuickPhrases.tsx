@@ -1,4 +1,4 @@
-import type { Phrase } from "@speak-bot/core";
+import type { Phrase } from "@speed-deck/core";
 import { useId } from "react";
 import { useT } from "../i18n/I18nProvider";
 

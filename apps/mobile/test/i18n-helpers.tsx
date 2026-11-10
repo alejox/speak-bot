@@ -1,4 +1,4 @@
-import type { UiLanguage } from "@speak-bot/core";
+import type { UiLanguage } from "@speed-deck/core";
 import { render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import type { LanguageStore } from "../src/adapters/local-storage-language-store";

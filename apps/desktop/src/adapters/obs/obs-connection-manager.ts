@@ -8,7 +8,7 @@ import {
   type ObsSceneItem,
   type ObsState,
   type ObsStatus,
-} from "@speak-bot/core";
+} from "@speed-deck/core";
 import type { ObsClient, ObsClientError } from "./obs-client";
 
 /** obs-websocket close code for a wrong or missing password. */

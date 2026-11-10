@@ -1,8 +1,9 @@
-import type { DesktopSettings } from "@speak-bot/core";
+import type { DesktopSettings } from "@speed-deck/core";
 import { randomUUID } from "node:crypto";
 import { homedir, networkInterfaces } from "node:os";
 import { join } from "node:path";
 import { prepareBoards } from "./adapters/board-migration";
+import { migrateLegacyDataDir } from "./adapters/legacy-data-dir";
 import { JsonFileBoardRepository } from "./adapters/json-file-board-repository";
 import { JsonFileSettingsStore } from "./adapters/json-file-settings-store";
 import { createObsWebSocketClient, type ObsClient } from "./adapters/obs/obs-client";
@@ -59,6 +60,8 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     homeDir: options.homeDir ?? homedir(),
   });
   const log = options.log ?? (() => {});
+  // Data saved before the rename to Speed Deck is copied to the new folder once.
+  await migrateLegacyDataDir(config, log);
 
   const repository = new JsonFileBoardRepository(join(config.dataDir, "boards.json"));
   const settings = new JsonFileSettingsStore(join(config.dataDir, "settings.json"), config.defaults);

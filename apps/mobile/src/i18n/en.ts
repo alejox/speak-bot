@@ -1,6 +1,6 @@
 /** English copy. Every key here must exist in every other dictionary (enforced by `Messages`). */
 export const en = {
-  "app.title": "Speak Bot",
+  "app.title": "Speed Deck",
   "app.speechUnsupported": "Speech is not supported in this browser. Try Chrome or Safari.",
 
   "nav.label": "Sections",
@@ -110,7 +110,7 @@ export const en = {
 
   "dock.checking": "Connecting to the computer…",
   "dock.noDesktop":
-    "The Speak Bot computer app was not found. Open this dock with the URL shown in the app (Connect section) while the app is running.",
+    "The Speed Deck computer app was not found. Open this dock with the URL shown in the app (Connect section) while the app is running.",
 } as const;
 
 export type MessageKey = keyof typeof en;

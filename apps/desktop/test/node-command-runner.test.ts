@@ -18,7 +18,7 @@ describe("NodeCommandRunner", () => {
 
   it("passes extra environment variables without a shell", async () => {
     const running = new NodeCommandRunner().run([
-      { command: node, args: ["-e", "process.stdout.write(process.env.SPEAK_BOT_TEST)"], env: { SPEAK_BOT_TEST: "a;b" } },
+      { command: node, args: ["-e", "process.stdout.write(process.env.SPEED_DECK_TEST)"], env: { SPEED_DECK_TEST: "a;b" } },
     ]);
 
     expect((await running.result).stdout).toBe("a;b");
@@ -58,7 +58,7 @@ describe("NodeCommandRunner", () => {
   });
 
   it("rejects with CommandNotFoundError when the binary is missing", async () => {
-    const running = new NodeCommandRunner().run([{ command: "speak-bot-missing-binary", args: [] }]);
+    const running = new NodeCommandRunner().run([{ command: "speed-deck-missing-binary", args: [] }]);
 
     await expect(running.result).rejects.toBeInstanceOf(CommandNotFoundError);
   });

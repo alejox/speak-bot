@@ -1,4 +1,4 @@
-import { DEFAULT_PHRASES_BY_LANGUAGE, type Board } from "@speak-bot/core";
+import { DEFAULT_PHRASES_BY_LANGUAGE, type Board } from "@speed-deck/core";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -20,7 +20,7 @@ describe("startDesktop", () => {
   });
 
   it("falls back to the next port when the configured one is busy and serves the API there", async () => {
-    dir = await mkdtemp(join(tmpdir(), "speak-bot-start-"));
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-start-"));
     blocker = createServer();
     await new Promise<void>((resolve) => blocker!.listen(0, "127.0.0.1", resolve));
     const busyPort = (blocker.address() as AddressInfo).port;
@@ -42,7 +42,7 @@ describe("startDesktop", () => {
   });
 
   it("skips a port another app holds on 127.0.0.1 even when the wildcard bind succeeds", async () => {
-    dir = await mkdtemp(join(tmpdir(), "speak-bot-start-"));
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-start-"));
     // On macOS binding 0.0.0.0 succeeds next to this server; on Linux/Windows it fails with EADDRINUSE.
     blocker = createServer((_request, response) => {
       response.writeHead(200, { "content-type": "text/plain" });
@@ -62,7 +62,7 @@ describe("startDesktop", () => {
   });
 
   it("creates the Spanish communication board on first run by default", async () => {
-    dir = await mkdtemp(join(tmpdir(), "speak-bot-start-"));
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-start-"));
     desktop = await startDesktop({ argv: ["--port", "0", "--host", "127.0.0.1", "--data-dir", dir], env: {} });
 
     expect(await phraseTexts(desktop.port)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
@@ -70,7 +70,7 @@ describe("startDesktop", () => {
   });
 
   it("creates the board in the language saved in the settings and reports settings changes", async () => {
-    dir = await mkdtemp(join(tmpdir(), "speak-bot-start-"));
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-start-"));
     await writeFile(join(dir, "settings.json"), JSON.stringify({ language: "en" }));
     desktop = await startDesktop({ argv: ["--port", "0", "--host", "127.0.0.1", "--data-dir", dir], env: {} });
     const changes: string[] = [];
@@ -87,7 +87,7 @@ describe("startDesktop", () => {
   });
 
   it("connects to OBS on start when enabled, without ever sending the password to clients", async () => {
-    dir = await mkdtemp(join(tmpdir(), "speak-bot-start-"));
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-start-"));
     await writeFile(join(dir, "settings.json"), JSON.stringify({ obs: { enabled: true, host: "127.0.0.1", port: 4455, password: "hunter2-obs" } }));
     FakeObsClient.created = [];
     desktop = await startDesktop({

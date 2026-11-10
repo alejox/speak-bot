@@ -1,4 +1,4 @@
-import { PhraseNotFoundError, type Phrase } from "@speak-bot/core";
+import { PhraseNotFoundError, type Phrase } from "@speed-deck/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   LocalStoragePhraseRepository,

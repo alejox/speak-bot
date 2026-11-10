@@ -1,7 +1,7 @@
-import { startDesktop, type RunningDesktop } from "@speak-bot/desktop";
+import { startDesktop, type RunningDesktop } from "@speed-deck/desktop";
 import { app, BrowserWindow, clipboard, dialog, Menu, nativeImage, shell, Tray } from "electron";
 import { homedir } from "node:os";
-import { isLinuxAutostartEnabled, linuxAutostartEntry, linuxAutostartFile, setLinuxAutostart } from "./linux-autostart";
+import { isLinuxAutostartEnabled, linuxAutostartEntry, linuxAutostartFile, migrateLinuxAutostart, setLinuxAutostart } from "./linux-autostart";
 import { resolveAppPaths } from "./paths";
 import { HIDDEN_FLAG, shouldStartHidden } from "./startup";
 import { trayStrings, type TrayStrings } from "./tray-strings";
@@ -12,7 +12,7 @@ const paths = resolveAppPaths({
   bundleDir: __dirname,
   platform: process.platform,
 });
-const log = (message: string) => console.log(`[speak-bot] ${message}`);
+const log = (message: string) => console.log(`[speed-deck] ${message}`);
 
 let desktop: RunningDesktop | undefined;
 let window: BrowserWindow | undefined;
@@ -59,6 +59,7 @@ async function start(): Promise<void> {
     strings = trayStrings(settings.language);
     refreshTrayMenu();
   });
+  if (process.platform === "linux") await migrateOldAutostart();
   createTray();
   const loginItem = process.platform === "linux" ? { wasOpenedAtLogin: false } : app.getLoginItemSettings();
   const hidden = shouldStartHidden(process.argv, loginItem.wasOpenedAtLogin);
@@ -90,7 +91,7 @@ function createWindow(port: number): BrowserWindow {
     height: 760,
     minWidth: 360,
     minHeight: 480,
-    title: "Speak Bot",
+    title: "Speed Deck",
     icon: paths.windowIcon,
     show: false,
     autoHideMenuBar: true,
@@ -130,7 +131,7 @@ function createTray(): void {
   const icon = nativeImage.createFromPath(paths.trayIcon);
   if (process.platform === "darwin") icon.setTemplateImage(true);
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
-  tray.setToolTip("Speak Bot");
+  tray.setToolTip("Speed Deck");
   tray.on("click", () => showWindow());
   refreshTrayMenu();
 }
@@ -166,6 +167,16 @@ function refreshTrayMenu(): void {
 function isStartAtLoginEnabled(): boolean {
   if (process.platform === "linux") return isLinuxAutostartEnabled(linuxAutostartFile(homedir(), process.env));
   return app.getLoginItemSettings({ args: [HIDDEN_FLAG] }).openAtLogin;
+}
+
+/** Keeps Start at login on after the rename from Speak Bot. */
+async function migrateOldAutostart(): Promise<void> {
+  try {
+    const entry = linuxAutostartEntry({ execPath: process.execPath, env: process.env });
+    if (await migrateLinuxAutostart(homedir(), process.env, entry)) log("Moved the Start at login entry to speed-deck.desktop.");
+  } catch (error) {
+    log(`Could not move the Start at login entry: ${String(error)}`);
+  }
 }
 
 async function setStartAtLogin(enabled: boolean): Promise<void> {

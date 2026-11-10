@@ -1,4 +1,4 @@
-import { UI_LANGUAGES, type AudioDevice, type UiLanguage, type Voice } from "@speak-bot/core";
+import { UI_LANGUAGES, type AudioDevice, type UiLanguage, type Voice } from "@speed-deck/core";
 import { MAX_RATE, MIN_RATE, type SpeechSettings } from "../adapters/local-storage-settings-store";
 import type { SpeakTarget } from "../adapters/local-storage-speak-target-store";
 import { useLanguage, useT } from "../i18n/I18nProvider";

@@ -1,4 +1,4 @@
-import type { ServerEvent } from "@speak-bot/core";
+import type { ServerEvent } from "@speed-deck/core";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
@@ -25,7 +25,7 @@ describe("OBS API", () => {
   let logs: string[];
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "speak-bot-obs-api-"));
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-obs-api-"));
     FakeObsClient.created = [];
     logs = [];
     obs = new ObsConnectionManager({ createClient: () => new FakeObsClient(null, obsResponses()), log: (message) => logs.push(message) });
@@ -184,7 +184,7 @@ describe("OBS API from other devices", () => {
   let handle: ReturnType<typeof createApiHandler>;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "speak-bot-obs-lan-"));
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-obs-lan-"));
     FakeObsClient.created = [];
     obs = new ObsConnectionManager({ createClient: () => new FakeObsClient(null, obsResponses()) });
     settings = new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true });

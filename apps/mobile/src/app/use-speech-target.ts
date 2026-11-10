@@ -7,7 +7,7 @@ import {
   type SpeechCapabilities,
   type UiLanguage,
   type Voice,
-} from "@speak-bot/core";
+} from "@speed-deck/core";
 import { useCallback, useEffect, useState } from "react";
 import type { SpeechSettings } from "../adapters/local-storage-settings-store";
 import type { SpeakTarget } from "../adapters/local-storage-speak-target-store";

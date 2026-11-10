@@ -2,7 +2,7 @@ import type { Messages } from "./en";
 
 /** Spanish copy (default language): neutral and professional, using "tú". */
 export const es: Messages = {
-  "app.title": "Speak Bot",
+  "app.title": "Speed Deck",
   "app.speechUnsupported": "Este navegador no permite la síntesis de voz. Prueba con Chrome o Safari.",
 
   "nav.label": "Secciones",
@@ -113,5 +113,5 @@ export const es: Messages = {
 
   "dock.checking": "Conectando con la computadora…",
   "dock.noDesktop":
-    "No se encontró la app de Speak Bot en la computadora. Abre este dock con la URL que aparece en la app (sección Conectar) mientras la app está abierta.",
+    "No se encontró la app de Speed Deck en la computadora. Abre este dock con la URL que aparece en la app (sección Conectar) mientras la app está abierta.",
 };

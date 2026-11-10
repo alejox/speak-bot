@@ -1,4 +1,4 @@
-import { DEFAULT_PHRASE_TEXTS, type Phrase, type PhraseRepository, type SpeakOptions, type Voice } from "@speak-bot/core";
+import { DEFAULT_PHRASE_TEXTS, type Phrase, type PhraseRepository, type SpeakOptions, type Voice } from "@speed-deck/core";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";

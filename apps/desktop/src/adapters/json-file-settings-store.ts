@@ -1,4 +1,4 @@
-import { isUiLanguage, type DesktopSettings, type ObsConnectionConfig } from "@speak-bot/core";
+import { isUiLanguage, type DesktopSettings, type ObsConnectionConfig } from "@speed-deck/core";
 import { readJsonFile, SerialQueue, writeJsonFileAtomic } from "./json-file";
 
 export const MIN_RATE = 0.5;

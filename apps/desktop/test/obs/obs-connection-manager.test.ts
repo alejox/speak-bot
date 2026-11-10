@@ -1,4 +1,4 @@
-import { ObsRequestError, ObsUnavailableError, type ObsControllerEvent } from "@speak-bot/core";
+import { ObsRequestError, ObsUnavailableError, type ObsControllerEvent } from "@speed-deck/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObsConnectionManager } from "../../src/adapters/obs/obs-connection-manager";
 import { FakeObsClient, obsResponses } from "../fake-obs-client";

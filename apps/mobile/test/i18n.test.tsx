@@ -5,7 +5,7 @@ import {
   type SpeakOptions,
   type UiLanguage,
   type Voice,
-} from "@speak-bot/core";
+} from "@speed-deck/core";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -173,7 +173,7 @@ function desktopRoute(language: UiLanguage) {
   return (request: RecordedRequest) => {
     switch (`${request.method} ${request.url}`) {
       case "GET /api/health":
-        return { body: { ok: true, name: "speak-bot-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: false } } };
+        return { body: { ok: true, name: "speed-deck-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: false } } };
       case "GET /api/boards":
         return { body: boardsOf([]) };
       case "GET /api/voices":

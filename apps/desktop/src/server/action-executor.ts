@@ -9,7 +9,7 @@ import {
   type SpeakErrorCode,
   type UiLanguage,
   type Voice,
-} from "@speak-bot/core";
+} from "@speed-deck/core";
 import type { JsonFileSettingsStore } from "../adapters/json-file-settings-store";
 import {
   SpeechEngineUnavailableError,

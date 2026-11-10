@@ -28,7 +28,7 @@ import {
   type ObsController,
   type ObsStatusResponse,
   type ServerEvent,
-} from "@speak-bot/core";
+} from "@speed-deck/core";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { networkInterfaces as osNetworkInterfaces } from "node:os";
 import { InvalidSettingsError, isValidRate, toPublicSettings, type JsonFileSettingsStore } from "../adapters/json-file-settings-store";

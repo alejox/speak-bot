@@ -17,7 +17,7 @@ import {
   type SpeechCapabilities,
   type UiLanguage,
   type Voice,
-} from "@speak-bot/core";
+} from "@speed-deck/core";
 
 export class DesktopRequestError extends Error {
   constructor(
@@ -48,7 +48,7 @@ const DETECT_TIMEOUT_MS = 1500;
 export class DesktopApiClient {
   constructor(private readonly fetchFn: typeof fetch = (input, init) => globalThis.fetch(input, init)) {}
 
-  /** Returns the desktop speech capabilities, or null when the page is not served by a speak-bot desktop. */
+  /** Returns the desktop speech capabilities, or null when the page is not served by a Speed Deck desktop. */
   async detect(timeoutMs = DETECT_TIMEOUT_MS): Promise<SpeechCapabilities | null> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);

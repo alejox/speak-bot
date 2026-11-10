@@ -9,7 +9,7 @@ export interface SpeakTargetStore {
   save(target: SpeakTarget): void;
 }
 
-export const SPEAK_TARGET_STORAGE_KEY = "speak-bot:speak-target";
+export const SPEAK_TARGET_STORAGE_KEY = "speed-deck:speak-target";
 
 export class LocalStorageSpeakTargetStore implements SpeakTargetStore {
   constructor(

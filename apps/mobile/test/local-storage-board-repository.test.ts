@@ -1,4 +1,4 @@
-import { createBoard, DEFAULT_BOARD_ID, DEFAULT_PHRASES_BY_LANGUAGE, listBoards, setKey, SlotOccupiedError } from "@speak-bot/core";
+import { createBoard, DEFAULT_BOARD_ID, DEFAULT_PHRASES_BY_LANGUAGE, listBoards, setKey, SlotOccupiedError } from "@speed-deck/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import { BOARDS_STORAGE_KEY, LocalStorageBoardRepository, prepareLocalBoards } from "../src/adapters/local-storage-board-repository";
 import { PHRASES_STORAGE_KEY } from "../src/adapters/local-storage-phrase-repository";

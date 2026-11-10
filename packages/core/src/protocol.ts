@@ -10,8 +10,8 @@ import type { Voice } from "./ports/speech-synthesizer";
 /** Longest text the desktop server accepts for a single utterance. */
 export const MAX_SPEAK_TEXT_LENGTH = 1000;
 
-/** Identifies a speak-bot desktop server in the health response. */
-export const DESKTOP_SERVER_NAME = "speak-bot-desktop";
+/** Identifies a Speed Deck desktop server in the health response. */
+export const DESKTOP_SERVER_NAME = "speed-deck-desktop";
 
 /** Languages the user interface is available in. */
 export const UI_LANGUAGES = ["es", "en"] as const;

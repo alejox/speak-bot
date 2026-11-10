@@ -1,4 +1,4 @@
-import { EmptyTextError, pickVoiceForLanguage, speakText, stopSpeaking, type UiLanguage } from "@speak-bot/core";
+import { EmptyTextError, pickVoiceForLanguage, speakText, stopSpeaking, type UiLanguage } from "@speed-deck/core";
 import { useRef, useState } from "react";
 import { DesktopRequestError } from "../adapters/desktop-api";
 import { DesktopSpeechError } from "../adapters/remote-speech-synthesizer";

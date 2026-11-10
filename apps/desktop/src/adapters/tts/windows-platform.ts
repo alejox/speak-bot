@@ -1,4 +1,4 @@
-import type { AudioDevice, Voice } from "@speak-bot/core";
+import type { AudioDevice, Voice } from "@speed-deck/core";
 import { readCommandOutput, type CommandSpec } from "./command-runner";
 import type { SpeechPlatform } from "./process-speech-synthesizer";
 
@@ -21,23 +21,23 @@ function Await($operation, [Type]$resultType) {
 
 const SPEAK_SCRIPT = `
 $ErrorActionPreference = 'Stop'
-$text = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:SPEAK_BOT_TEXT))
-$rate = [double]::Parse($env:SPEAK_BOT_RATE, [Globalization.CultureInfo]::InvariantCulture)
-if ($env:SPEAK_BOT_DEVICE) {
+$text = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:SPEED_DECK_TEXT))
+$rate = [double]::Parse($env:SPEED_DECK_RATE, [Globalization.CultureInfo]::InvariantCulture)
+if ($env:SPEED_DECK_DEVICE) {
   # WinRT path: synthesize to a stream and play it on the chosen render device.
   ${AWAIT_HELPER}
   [Windows.Media.SpeechSynthesis.SpeechSynthesizer, Windows.Media.SpeechSynthesis, ContentType = WindowsRuntime] | Out-Null
   [Windows.Media.Playback.MediaPlayer, Windows.Media.Playback, ContentType = WindowsRuntime] | Out-Null
   [Windows.Media.Core.MediaSource, Windows.Media.Core, ContentType = WindowsRuntime] | Out-Null
   $synth = New-Object Windows.Media.SpeechSynthesis.SpeechSynthesizer
-  if ($env:SPEAK_BOT_VOICE) {
+  if ($env:SPEED_DECK_VOICE) {
     $voice = [Windows.Media.SpeechSynthesis.SpeechSynthesizer]::AllVoices |
-      Where-Object { $env:SPEAK_BOT_VOICE.StartsWith($_.DisplayName) } | Select-Object -First 1
+      Where-Object { $env:SPEED_DECK_VOICE.StartsWith($_.DisplayName) } | Select-Object -First 1
     if ($voice) { $synth.Voice = $voice }
   }
   $synth.Options.SpeakingRate = [Math]::Max(0.5, [Math]::Min(6.0, $rate))
   $stream = Await ($synth.SynthesizeTextToStreamAsync($text)) ([Windows.Media.SpeechSynthesis.SpeechSynthesisStream])
-  $device = Await ([Windows.Devices.Enumeration.DeviceInformation]::CreateFromIdAsync($env:SPEAK_BOT_DEVICE)) ([Windows.Devices.Enumeration.DeviceInformation])
+  $device = Await ([Windows.Devices.Enumeration.DeviceInformation]::CreateFromIdAsync($env:SPEED_DECK_DEVICE)) ([Windows.Devices.Enumeration.DeviceInformation])
   $player = New-Object Windows.Media.Playback.MediaPlayer
   $player.AudioDevice = $device
   $player.Source = [Windows.Media.Core.MediaSource]::CreateFromStream($stream, $stream.ContentType)
@@ -55,7 +55,7 @@ if ($env:SPEAK_BOT_DEVICE) {
 } else {
   Add-Type -AssemblyName System.Speech
   $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
-  if ($env:SPEAK_BOT_VOICE) { $synth.SelectVoice($env:SPEAK_BOT_VOICE) }
+  if ($env:SPEED_DECK_VOICE) { $synth.SelectVoice($env:SPEED_DECK_VOICE) }
   $synth.Rate = [int][Math]::Max(-10, [Math]::Min(10, [Math]::Round([Math]::Log($rate, 2) * 10)))
   $synth.SetOutputToDefaultAudioDevice()
   $synth.Speak($text)
@@ -102,10 +102,10 @@ export const windowsSpeechPlatform: SpeechPlatform = {
   buildSpeakCommand(text, options) {
     return [
       powershell(SPEAK_SCRIPT, {
-        SPEAK_BOT_TEXT: Buffer.from(text, "utf8").toString("base64"),
-        SPEAK_BOT_VOICE: options.voiceId ?? "",
-        SPEAK_BOT_RATE: String(options.rate ?? 1),
-        SPEAK_BOT_DEVICE: options.deviceId ?? "",
+        SPEED_DECK_TEXT: Buffer.from(text, "utf8").toString("base64"),
+        SPEED_DECK_VOICE: options.voiceId ?? "",
+        SPEED_DECK_RATE: String(options.rate ?? 1),
+        SPEED_DECK_DEVICE: options.deviceId ?? "",
       }),
     ];
   },

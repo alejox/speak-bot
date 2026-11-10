@@ -1,4 +1,5 @@
-import type { AudioDevice, DesktopSettings, PhraseDependencies, SpeechCapabilities, UiLanguage } from "@speak-bot/core";
+import type { AudioDevice, DesktopSettings, PhraseDependencies, SpeechCapabilities, UiLanguage } from "@speed-deck/core";
+import { getLocalStorage, migrateLegacyStorageKeys } from "../adapters/browser-storage";
 import { copyText as copyToClipboard } from "../adapters/clipboard";
 import { DesktopApiClient, type ConnectionInfo } from "../adapters/desktop-api";
 import { DesktopEventSource, type WebSocketFactory } from "../adapters/desktop-events";
@@ -113,6 +114,7 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
 }
 
 export function createAppServices(): AppServices {
+  migrateLegacyStorageKeys(getLocalStorage());
   const repository = new LocalStoragePhraseRepository();
   return {
     synthesizer: new WebSpeechSynthesizer(),

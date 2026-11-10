@@ -1,4 +1,4 @@
-import { DEFAULT_BOARD_ID, DEFAULT_PHRASES_BY_LANGUAGE } from "@speak-bot/core";
+import { DEFAULT_BOARD_ID, DEFAULT_PHRASES_BY_LANGUAGE } from "@speed-deck/core";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -12,7 +12,7 @@ describe("prepareBoards", () => {
   let legacyFile: string;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "speak-bot-migrate-"));
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-migrate-"));
     repository = new JsonFileBoardRepository(join(dir, "boards.json"));
     legacyFile = join(dir, "phrases.json");
   });

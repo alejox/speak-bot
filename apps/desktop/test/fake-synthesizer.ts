@@ -1,4 +1,4 @@
-import type { Voice } from "@speak-bot/core";
+import type { Voice } from "@speed-deck/core";
 import type { DesktopSpeakOptions, DesktopSpeechSynthesizer } from "../src/adapters/tts/process-speech-synthesizer";
 
 /** A speech engine that records what it was asked to say; each utterance lasts until `finishCurrent()`. */

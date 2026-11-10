@@ -1,4 +1,4 @@
-import type { ObsController, ObsStatus } from "@speak-bot/core";
+import type { ObsController, ObsStatus } from "@speed-deck/core";
 import type { ObsConfig } from "../adapters/json-file-settings-store";
 
 /** OBS control is turned off in the settings. */

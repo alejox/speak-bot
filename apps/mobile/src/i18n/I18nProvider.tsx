@@ -1,4 +1,4 @@
-import { DEFAULT_UI_LANGUAGE, type UiLanguage } from "@speak-bot/core";
+import { DEFAULT_UI_LANGUAGE, type UiLanguage } from "@speed-deck/core";
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
 import { translate, type Message, type MessageKey, type MessageParams } from "./messages";
 

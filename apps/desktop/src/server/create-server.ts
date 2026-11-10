@@ -1,4 +1,4 @@
-import type { BoardRepository, DesktopSettings, ObsController, ServerEvent } from "@speak-bot/core";
+import type { BoardRepository, DesktopSettings, ObsController, ServerEvent } from "@speed-deck/core";
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { hostname as osHostname } from "node:os";

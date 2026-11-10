@@ -1,4 +1,4 @@
-import { MAX_PHRASE_TEXT_LENGTH, type Phrase } from "@speak-bot/core";
+import { MAX_PHRASE_TEXT_LENGTH, type Phrase } from "@speed-deck/core";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type SyntheticEvent } from "react";
 import type { PhraseValues } from "../app/use-phrase-book";
 import { useT } from "../i18n/I18nProvider";

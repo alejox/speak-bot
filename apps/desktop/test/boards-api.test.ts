@@ -1,4 +1,4 @@
-import { DEFAULT_BOARD_ID, MAX_BOARDS, type Board, type ServerEvent } from "@speak-bot/core";
+import { DEFAULT_BOARD_ID, MAX_BOARDS, type Board, type ServerEvent } from "@speed-deck/core";
 import { request as httpRequest } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
@@ -21,7 +21,7 @@ describe("boards and actions API", () => {
   let settingsChanges: unknown[];
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "speak-bot-boards-api-"));
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-boards-api-"));
     synthesizer = new FakeSynthesizer();
     settingsChanges = [];
     const repository = new JsonFileBoardRepository(join(dir, "boards.json"));

@@ -1,4 +1,4 @@
-import { DEFAULT_BOARD_ID, createBoard, listBoards, setKey, SlotOccupiedError, type Board } from "@speak-bot/core";
+import { DEFAULT_BOARD_ID, createBoard, listBoards, setKey, SlotOccupiedError, type Board } from "@speed-deck/core";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -12,7 +12,7 @@ describe("JsonFileBoardRepository", () => {
   let file: string;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "speak-bot-boards-"));
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-boards-"));
     file = join(dir, "boards.json");
   });
 

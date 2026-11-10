@@ -1,4 +1,4 @@
-import type { UiLanguage } from "@speak-bot/core";
+import type { UiLanguage } from "@speed-deck/core";
 import type { DeckAction } from "../components/ActionDeck";
 import { useLanguage, useT } from "../i18n/I18nProvider";
 import { LANGUAGE_NAMES, type Message } from "../i18n/messages";

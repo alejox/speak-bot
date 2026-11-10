@@ -1,4 +1,4 @@
-import type { AudioDevice, Voice } from "@speak-bot/core";
+import type { AudioDevice, Voice } from "@speed-deck/core";
 import { readCommandOutput } from "./command-runner";
 import { rateToWordsPerMinute, type SpeechPlatform } from "./process-speech-synthesizer";
 
