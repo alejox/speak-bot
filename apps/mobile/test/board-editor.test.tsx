@@ -74,6 +74,21 @@ describe("board editor on wide screens", () => {
     });
   });
 
+  it("keeps the key's label and icon when assigning an action without parameters", async () => {
+    const state = desktopState({ boards: [boardOf("main", "Main", [speakKey(0, "Hello", { label: "Hi", icon: "star", color: "#16a34a" })])] });
+    const { requests, user } = renderRemoteApp({ state });
+    await openEditor(user);
+    await user.click(within(grid()).getByRole("button", { name: "Edit key 1: Hi" }));
+    await user.click(within(library()).getByRole("button", { name: "Assign “Stop voice” to key 1" }));
+    await waitFor(() =>
+      expect(requests).toContainEqual({
+        method: "PUT",
+        url: "/api/boards/main/keys/0",
+        body: { label: "Hi", icon: "star", color: "#16a34a", action: { type: "voice.stop" }, replace: true },
+      }),
+    );
+  });
+
   it("drags an action with parameters onto an empty key, then saves it from the key editor", async () => {
     const state = desktopState({ boards: [boardOf("main", "Main")] });
     const { requests, user } = renderRemoteApp({ state });

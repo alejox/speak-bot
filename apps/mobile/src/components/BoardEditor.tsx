@@ -89,10 +89,11 @@ export function BoardEditor({ boards: boardsState, navigation, context, obs, lan
       report({ key: "editor.assigned", params: { action: t(ACTION_REGISTRY[type].labelKey as MessageKey), number: slot + 1 } });
       return;
     }
-    // Actions without parameters are saved right away; the key keeps its color.
+    // Actions without parameters are saved right away; the key keeps its label, icon and color.
     setAssignment(null);
+    const kept = { label: existing?.label, icon: existing?.icon, color: existing?.color ?? "" };
     await change(
-      (store) => store.setKey(board.id, { slot, color: existing?.color ?? "", action: { type } as Action }, { replace: true }),
+      (store) => store.setKey(board.id, { slot, ...kept, action: { type } as Action }, { replace: true }),
       () => ({ key: "editor.saved" }),
     );
   };
