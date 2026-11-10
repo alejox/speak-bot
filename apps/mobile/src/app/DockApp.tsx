@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { DOCK_BOARD_POSITION_STORAGE_KEY, LocalStorageBoardPositionStore } from "../adapters/local-storage-board-position-store";
+import { BoardMenu } from "../components/BoardMenu";
 import { BoardPlayer } from "../components/BoardPlayer";
 import { DockComposer } from "../components/DockComposer";
 import { KeyEditorDialog } from "../components/KeyEditorDialog";
@@ -46,7 +47,6 @@ function DockContent({ target }: { target: SpeechTarget }) {
   const [positionStore] = useState(() => new LocalStorageBoardPositionStore(DOCK_BOARD_POSITION_STORAGE_KEY));
   const deck = useDeck(target, speech, language, positionStore, setStatus);
   const [dialogSlot, setDialogSlot] = useState<number | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
   const [text, setText] = useState("");
   const board = deck.navigation.board;
 
@@ -74,11 +74,16 @@ function DockContent({ target }: { target: SpeechTarget }) {
         onEditKey={setDialogSlot}
         onDeleteKey={deck.clearKey}
         onMoveKey={deck.moveKey}
-        isEditing={isEditing}
         toolbar={
-          <button type="button" className="button button-small" aria-pressed={isEditing} onClick={() => setIsEditing((value) => !value)}>
-            {isEditing ? t("board.done") : t("board.edit")}
-          </button>
+          board && (
+            <BoardMenu
+              board={board}
+              boards={deck.boards}
+              language={language}
+              onSelect={(boardId) => deck.navigation.go({ boardId, page: 0 })}
+              statusText={statusText}
+            />
+          )
         }
       />
       {dialogSlot !== null && board && (

@@ -1,4 +1,4 @@
-/* Key editor (pane and phone dialog) and the board editor: boards | grid + key editor | action library. */
+/* Key editor, modals, the action picker and menus. */
 
 .key-editor {
   display: flex;
@@ -212,191 +212,124 @@
   font-weight: var(--weight-semibold);
 }
 
-.app-editing .app-main {
-  max-width: none;
-  /* The editor lays itself out from the room it really has, whatever the sidebar is doing. */
-  container: editor / inline-size;
+/* Dialog footers: the safe choice first, the main one last. */
+.modal-small {
+  width: min(420px, calc(100vw - var(--space-6)));
 }
 
-.editor-toolbar {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.board-editor {
-  display: grid;
-  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) minmax(260px, 320px);
-  gap: var(--space-4);
-  align-items: start;
-}
-
-/* The three panes are cards on the page background. */
-.board-list,
-.board-editor-side,
-.key-editor-panel {
-  padding: var(--space-3);
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
-}
-
-.board-list {
+.modal-form {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
 }
 
-.board-list ul {
-  list-style: none;
+.modal-form .field {
   margin: 0;
+}
+
+.modal-prompt {
+  margin: 0;
+  line-height: var(--leading-md);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+/* A destructive confirmation: plain text in the danger colour, never an outlined red button. */
+.button-danger-text {
+  color: var(--color-danger);
+  background: none;
+  border-color: transparent;
+}
+
+/* An icon-only button with no box of its own (the board menu). */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--size-control-sm);
+  height: var(--size-control-sm);
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
 }
 
-.board-list-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-1);
-  border-radius: var(--radius-md);
-}
-
-.board-list-item-selected {
-  background: var(--color-bg);
-  box-shadow: inset 3px 0 0 var(--color-accent);
-}
-
-.board-list-name {
-  min-height: var(--size-control-sm);
-  padding: var(--space-1) var(--space-2);
-  font: inherit;
-  font-weight: var(--weight-semibold);
-  text-align: left;
+.icon-button:hover,
+.icon-button[aria-expanded="true"] {
   color: var(--color-text);
+  background: var(--color-surface-sunken);
+}
+
+/* Menus float on one surface; items are plain text. */
+.popover {
+  position: absolute;
+  z-index: 10;
+  min-width: 11rem;
+  padding: var(--space-1);
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-3);
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--size-control-sm);
+  padding: 0 var(--space-3);
+  font: inherit;
+  text-align: left;
+  color: inherit;
   background: none;
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  overflow-wrap: anywhere;
 }
 
-/* Secondary actions inside a list row: quieter text, still a full touch target. */
-.board-list-actions .button-small,
-.library-item .button-small {
-  font-size: var(--text-sm);
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--color-surface-sunken);
 }
 
-.board-list-footer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.board-rename {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.board-editor-grid {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
-  /* Lets the key grid drop to 3 columns when its own pane is narrow, like the player does. */
-  container-type: inline-size;
-}
-
-/* Three panes need about 1100px. Below that the board list becomes a strip above the grid. */
-@container editor (max-width: 1099px) {
-  .board-editor {
-    grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
-  }
-
-  .board-list {
-    grid-column: 1 / -1;
-  }
-
-  .board-list ul,
-  .board-list-footer {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-}
-
-/* Too narrow for two panes: everything stacks and the action library scrolls with the page. */
-@container editor (max-width: 719px) {
-  .board-editor {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .board-editor-side {
-    position: static;
-    max-height: none;
-  }
-}
-
-.board-editor-grid .deck-grid,
-.board-editor-grid .deck-pager {
-  max-width: none;
-}
-
-.board-editor-side {
-  position: sticky;
-  top: var(--space-3);
-  max-height: calc(100vh - var(--space-6));
-  overflow-y: auto;
-}
-
-.action-library {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.library-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.library-group ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.library-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2);
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: grab;
-}
-
-.library-text {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.library-name {
-  font-weight: var(--weight-semibold);
-  font-size: var(--text-md);
-  line-height: var(--leading-tight);
-}
-
-.library-description {
+.menu-item[aria-disabled="true"] {
   color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.menu-item-danger {
+  color: var(--color-danger);
+  font-weight: var(--weight-semibold);
+}
+
+.menu-confirm p {
+  margin: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
+}
+
+.menu-confirm-actions {
+  display: flex;
+}
+
+.board-menu {
+  position: relative;
+}
+
+.board-menu-popover {
+  top: calc(100% + var(--space-1));
+  right: 0;
 }

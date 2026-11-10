@@ -1,4 +1,4 @@
-import { BOARD_KINDS, boardPageCount, keysOnPage, KEYS_PER_PAGE, type Action, type Board, type Key } from "@speed-deck/core";
+import { BOARD_KINDS, boardPageCount, keysOnPage, KEYS_PER_PAGE, MAX_BOARD_PAGES, type Action, type Board, type Key } from "@speed-deck/core";
 import { MoreHorizontal } from "lucide-react";
 import { useEffect, useId, useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import type { BoardNavigation } from "../app/use-boards";
@@ -34,9 +34,7 @@ interface BoardPlayerProps {
   onDeleteKey?: (slot: number) => Promise<boolean>;
   /** Moves a key to another slot, swapping with a key there; resolves true when moved. Used by drag and drop. */
   onMoveKey?: (from: number, to: number) => Promise<boolean>;
-  /** Edit mode, the only way into the key editor: tapping any key or empty space opens it. */
-  isEditing?: boolean;
-  /** Buttons shown next to the board selector (e.g. the Edit toggle). */
+  /** Buttons shown next to the board selector (e.g. the board menu). */
   toolbar?: ReactNode;
   /** "dock" is the compact layout for the OBS dock. */
   variant?: "full" | "dock";
@@ -53,7 +51,6 @@ export function BoardPlayer({
   onEditKey,
   onDeleteKey,
   onMoveKey,
-  isEditing = false,
   toolbar,
   variant = "full",
 }: BoardPlayerProps) {
@@ -72,6 +69,8 @@ export function BoardPlayer({
   const swallowClick = useRef(false);
   const canDrag = useMediaQuery(FINE_POINTER_QUERY) && onMoveKey !== undefined;
   const canEdit = onEditKey !== undefined;
+  // An empty page opened past the last one; it becomes a real page once a key is added there.
+  const [newPage, setNewPage] = useState<{ boardId: string; page: number } | null>(null);
 
   useEffect(() => {
     if (!isSpeaking) setSpoken(null);
@@ -89,8 +88,22 @@ export function BoardPlayer({
   if (!board || !position) return null;
 
   const pageCount = boardPageCount(board);
-  const page = position.page;
+  const showsNewPage = canEdit && newPage?.boardId === board.id && newPage.page === pageCount;
+  const page = showsNewPage ? pageCount : position.page;
   const keys = keysOnPage(board, page);
+  const shownPageCount = Math.max(pageCount, page + 1);
+  // Past the last page, "next" opens a new one for editors, up to the board limit.
+  const opensNewPage = canEdit && page >= shownPageCount - 1 && shownPageCount < MAX_BOARD_PAGES;
+
+  const goToPage = (next: number) => {
+    setNewPage(null);
+    navigation.go({ boardId: board.id, page: next });
+  };
+  const openNewPage = () => {
+    // Saved as the position too, so the page stays once its first key makes it real.
+    navigation.go({ boardId: board.id, page: pageCount });
+    setNewPage({ boardId: board.id, page: pageCount });
+  };
 
   const slotRef = (slot: number) => (element: HTMLButtonElement | null) => {
     if (element) slotButtons.current.set(slot, element);
@@ -170,7 +183,7 @@ export function BoardPlayer({
       swallowClick.current = false;
       return;
     }
-    if (isEditing || !key) {
+    if (!key) {
       onEditKey?.(slot);
       return;
     }
@@ -210,9 +223,7 @@ export function BoardPlayer({
         {toolbar}
       </div>
 
-      {isEditing && <p className="deck-hint">{t("board.editHint")}</p>}
-
-      <ol className={`deck-grid${isEditing ? " deck-grid-editing" : ""}`} aria-label={t("board.keys", { board: board.name })}>
+      <ol className="deck-grid" aria-label={t("board.keys", { board: board.name })}>
         {keys.map((key, index) => {
           const slot = page * KEYS_PER_PAGE + index;
           const dropClass = dropSlot === slot ? "deck-key-drop" : "";
@@ -243,7 +254,7 @@ export function BoardPlayer({
           const disabled = presentation.disabledReason !== undefined;
           const reason = presentation.disabledReason ? t(presentation.disabledReason) : undefined;
           const stateLabel = presentation.state && KEY_STATE_LABELS[presentation.state];
-          const speaking = !isEditing && isSpeaking && spoken?.boardId === board.id && spoken.slot === slot;
+          const speaking = isSpeaking && spoken?.boardId === board.id && spoken.slot === slot;
           // Why the key is offline, or that it is being said: hidden text the key points to.
           const description = reason ?? (speaking ? t("key.speaking") : undefined);
           const descriptionId = `${descriptionPrefix}-${slot}`;
@@ -260,8 +271,7 @@ export function BoardPlayer({
                 detail={presentation.detail ? t(presentation.detail.key, presentation.detail.params) : undefined}
                 speaking={speaking}
                 offline={disabled}
-                aria-label={isEditing ? t("board.editKey", { number: slot + 1, label }) : undefined}
-                aria-disabled={disabled && !isEditing ? true : undefined}
+                aria-disabled={disabled ? true : undefined}
                 aria-describedby={description ? descriptionId : undefined}
                 title={reason}
                 className={dropClass || undefined}
@@ -328,23 +338,23 @@ export function BoardPlayer({
         <button
           type="button"
           className="button button-small"
-          onClick={() => navigation.go({ boardId: board.id, page: page - 1 })}
+          onClick={() => goToPage(page - 1)}
           disabled={page === 0}
           aria-label={t("board.previous")}
         >
           <span aria-hidden="true">‹</span>
         </button>
         <span className="deck-page" aria-live="polite">
-          {t("board.page", { page: page + 1, count: pageCount })}
+          {t("board.page", { page: page + 1, count: shownPageCount })}
         </span>
         <button
           type="button"
           className="button button-small"
-          onClick={() => navigation.go({ boardId: board.id, page: page + 1 })}
-          disabled={page >= pageCount - 1}
-          aria-label={t("board.next")}
+          onClick={() => (opensNewPage ? openNewPage() : goToPage(page + 1))}
+          disabled={!opensNewPage && page >= shownPageCount - 1}
+          aria-label={opensNewPage ? t("board.addPage") : t("board.next")}
         >
-          <span aria-hidden="true">›</span>
+          <span aria-hidden="true">{opensNewPage ? "+" : "›"}</span>
         </button>
       </div>
     </section>

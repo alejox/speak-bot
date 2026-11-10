@@ -13,6 +13,3 @@ export function useMediaQuery(query: string): boolean {
   }, [query]);
   return matches;
 }
-
-/** Windows at least this wide get the three-pane board editor. */
-export const WIDE_EDITOR_QUERY = "(min-width: 1000px)";

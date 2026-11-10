@@ -52,7 +52,7 @@
   gap: var(--space-2);
 }
 
-/* The board selector takes the row; Edit / Done stays at its end and never wraps under it. */
+/* The board selector takes the row; the board menu stays at its end and never wraps under it. */
 .dock .deck-header {
   flex-wrap: nowrap;
   gap: var(--space-2);
@@ -67,13 +67,8 @@
   flex: none;
 }
 
-.dock .deck-hint {
-  font-size: var(--text-xs);
-}
-
 /* Compact deck: 4 columns of smaller keys. */
-.dock .deck-grid,
-.dock .deck-grid-editing {
+.dock .deck-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-2);
   padding: var(--space-2);

@@ -1,5 +1,5 @@
 import type { Key } from "@speed-deck/core";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { boardOf, desktopState, renderLocalApp, renderRemoteApp, speakKey } from "./app-fakes";
 import { goTo } from "./i18n-helpers";
@@ -97,8 +97,8 @@ describe("Voice and Deck spaces", () => {
   it("offer only boards of the same kind as targets of an “Open board” key", async () => {
     const { user } = renderLocalApp({ boards: mixedBoards() });
     await screen.findByRole("button", { name: "Hi" });
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    await user.click(screen.getByRole("button", { name: "Edit key 1: Hi" }));
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Hi" }));
+    await user.click(screen.getByRole("menuitem", { name: "Edit" }));
     const dialog = screen.getByRole("dialog");
     await user.selectOptions(within(dialog).getByRole("combobox", { name: "Action" }), "Open board");
     const targets = () => within(within(screen.getByRole("dialog")).getByRole("combobox", { name: "Board" })).getAllByRole("option").map((option) => option.textContent);
@@ -106,7 +106,8 @@ describe("Voice and Deck spaces", () => {
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
     await goTo(user, "Deck");
-    await user.click(screen.getByRole("button", { name: "Edit key 1: Main" }));
+    fireEvent.contextMenu(await screen.findByRole("button", { name: "Main" }));
+    await user.click(screen.getByRole("menuitem", { name: "Edit" }));
     await user.selectOptions(within(screen.getByRole("dialog")).getByRole("combobox", { name: "Action" }), "Open board");
     expect(targets()).toEqual(["Choose…", "Stream", "Games"]);
   });
@@ -114,8 +115,8 @@ describe("Voice and Deck spaces", () => {
   it("keep the saved target of an old key that opens a board of the other kind, by name", async () => {
     const { user } = renderLocalApp({ boards: [boardOf("talk", "Talk", [openBoardKey(0, "stream")]), boardOf("stream", "Stream", [], "deck")] });
     await screen.findByRole("button", { name: "Stream" });
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    await user.click(screen.getByRole("button", { name: "Edit key 1: Stream" }));
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Stream" }));
+    await user.click(screen.getByRole("menuitem", { name: "Edit" }));
     const target = within(screen.getByRole("dialog")).getByRole("combobox", { name: "Board" });
     expect(target).toHaveDisplayValue("Stream");
     expect(within(target).getAllByRole("option").map((option) => option.textContent)).toEqual(["Choose…", "Talk", "Stream"]);

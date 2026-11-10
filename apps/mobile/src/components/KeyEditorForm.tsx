@@ -12,7 +12,7 @@ import {
   type BoardKind,
   type Key,
 } from "@speed-deck/core";
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { KeyInput } from "../adapters/board-stores";
 import type { ObsServices } from "../app/composition-root";
 import { draftAction, draftOf, draftToKey, KEY_COLOR_PRESETS, type KeyDraft } from "../app/key-draft";
@@ -35,8 +35,6 @@ export interface KeyEditorFormProps {
   obs: ObsServices | null;
   /** Resolves true when saved. */
   onSave: (key: KeyInput) => Promise<boolean>;
-  /** Resolves true when deleted; without it the form offers no Delete (the key menu does). */
-  onDelete?: () => Promise<boolean>;
   /** Runs the draft action right away; called synchronously inside the tap. */
   onTest: (action: Action) => void;
   /** Moves the key to another 0-based slot; resolves true when moved. */
@@ -51,21 +49,15 @@ export interface KeyEditorFormProps {
   heading?: ReactNode;
 }
 
-/** Edits one key: action and its parameters, label, icon and color; tests, saves, moves and deletes it. */
-export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards, obs, onSave, onDelete, onTest, onMove, onCancel, cancelLabel, fixedAction = false, heading }: KeyEditorFormProps) {
+/** Edits one key: action and its parameters, label, icon and color; tests, saves and moves it. Deleting lives in the key menu. */
+export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards, obs, onSave, onTest, onMove, onCancel, cancelLabel, fixedAction = false, heading }: KeyEditorFormProps) {
   const t = useT();
-  const ids = { action: useId(), label: useId(), labelHint: useId(), hex: useId(), move: useId(), confirm: useId(), error: useId() };
+  const ids = { action: useId(), label: useId(), labelHint: useId(), hex: useId(), move: useId(), error: useId() };
   const form = useRef<HTMLFormElement>(null);
-  const keepButton = useRef<HTMLButtonElement>(null);
   const [draft, setDraft] = useState<KeyDraft>(() => draftOf(existing, assignedType));
   const [error, setError] = useState<{ message: Message; field: string } | null>(null);
-  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [moveTo, setMoveTo] = useState(String(slot + 1));
-
-  useEffect(() => {
-    if (isConfirmingDelete) keepButton.current?.focus();
-  }, [isConfirmingDelete]);
 
   const update = (patch: Partial<KeyDraft>) => {
     setDraft((current) => ({ ...current, ...patch }));
@@ -104,15 +96,6 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
     if (!Number.isInteger(to) || to < 0 || to >= MAX_KEY_SLOTS || !onMove) return;
     setIsBusy(true);
     void onMove(to).finally(() => setIsBusy(false));
-  };
-
-  const confirmDelete = () => {
-    if (!onDelete) return;
-    setIsBusy(true);
-    void onDelete().then((deleted) => {
-      setIsBusy(false);
-      if (!deleted) setIsConfirmingDelete(false);
-    });
   };
 
   // A key opens boards of its own space. A target saved before spaces stays, so editing the key does not lose it.
@@ -240,38 +223,19 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
         {error ? t(error.message.key, error.message.params) : ""}
       </p>
 
-      {isConfirmingDelete ? (
-        <div className="key-editor-confirm" role="group" aria-labelledby={ids.confirm}>
-          <p id={ids.confirm}>{t("editor.deleteConfirm")}</p>
-          <div className="key-editor-actions">
-            <button type="button" className="button button-small button-danger" onClick={confirmDelete} disabled={isBusy}>
-              {t("editor.deleteYes")}
-            </button>
-            <button ref={keepButton} type="button" className="button button-small" onClick={() => setIsConfirmingDelete(false)}>
-              {t("editor.deleteNo")}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="key-editor-actions">
-          <button type="submit" className="button button-small button-primary" disabled={isBusy}>
-            {t("editor.save")}
+      <div className="key-editor-actions">
+        <button type="submit" className="button button-small button-primary" disabled={isBusy}>
+          {t("editor.save")}
+        </button>
+        <button type="button" className="button button-small" onClick={test}>
+          {t("editor.test")}
+        </button>
+        {onCancel && (
+          <button type="button" className="button button-small" onClick={onCancel}>
+            {cancelLabel ?? t("editor.cancel")}
           </button>
-          <button type="button" className="button button-small" onClick={test}>
-            {t("editor.test")}
-          </button>
-          {existing && onDelete && (
-            <button type="button" className="button button-small button-danger" onClick={() => setIsConfirmingDelete(true)}>
-              {t("editor.delete")}
-            </button>
-          )}
-          {onCancel && (
-            <button type="button" className="button button-small" onClick={onCancel}>
-              {cancelLabel ?? t("editor.cancel")}
-            </button>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
       {existing && onMove && (
         <div className="field field-inline key-editor-move">

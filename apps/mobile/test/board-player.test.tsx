@@ -97,7 +97,9 @@ describe("board player in phone-only mode", () => {
     expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled();
     await user.click(screen.getAllByRole("button", { name: "Next page" }).at(-1)!);
     expect(screen.getByRole("button", { name: "Two" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Next page" }).at(-1)).toBeDisabled();
+    // Past the last page the pager offers a new one instead.
+    expect(screen.queryByRole("button", { name: "Next page" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New page" })).toBeEnabled();
   });
 
   it("shows custom key colors with readable text", async () => {
@@ -107,7 +109,7 @@ describe("board player in phone-only mode", () => {
   });
 });
 
-describe("key editing on the phone", () => {
+describe("key editing in the player", () => {
   afterEach(() => vi.useRealTimers());
 
   it("edits a key from its menu (right click) in a modal and returns focus to it", async () => {
@@ -266,14 +268,6 @@ describe("key editing on the phone", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Key moved to position 17.");
-  });
-
-  it("explains edit mode without mentioning holding a key or right-clicking", async () => {
-    const { user } = renderLocalApp();
-    await screen.findByRole("button", { name: "Hello" });
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    const hint = screen.getByText(/Tap a key to change it/);
-    expect(hint).not.toHaveTextContent(/hold|right-click/i);
   });
 });
 

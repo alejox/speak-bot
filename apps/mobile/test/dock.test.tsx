@@ -62,18 +62,16 @@ describe("DockApp", () => {
     expect(screen.getByRole("textbox", { name: "Texto para decir" })).toBeInTheDocument();
   });
 
-  it("edits a key from the dock only in edit mode, never with a right click", async () => {
+  it("edits a key from the dock through its menu", async () => {
     const state = desktopState({ boards: [boardOf("main", "Main", [speakKey(0, "Hi")])] });
     const { requests, user } = renderDock({ state });
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
     fireEvent.contextMenu(await screen.findByRole("button", { name: "Hi" }));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    await user.click(screen.getByRole("button", { name: "Edit key 1: Hi" }));
+    await user.click(screen.getByRole("menuitem", { name: "Edit" }));
     const dialog = screen.getByRole("dialog", { name: "Edit key 1" });
     await user.type(within(dialog).getByRole("textbox", { name: "Label (optional)" }), "Hey");
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    await user.click(screen.getByRole("button", { name: "Done" }));
     expect(screen.getByRole("button", { name: "Hey" })).toBeInTheDocument();
     expect(requests).toContainEqual(expect.objectContaining({ method: "PUT", url: "/api/boards/main/keys/0" }));
   });

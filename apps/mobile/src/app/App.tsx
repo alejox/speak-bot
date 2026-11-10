@@ -7,7 +7,7 @@ import {
   SPACE_BOARD_POSITION_STORAGE_KEYS,
   type BoardPositionStore,
 } from "../adapters/local-storage-board-position-store";
-import { BoardEditor } from "../components/BoardEditor";
+import { BoardMenu } from "../components/BoardMenu";
 import { BoardPlayer } from "../components/BoardPlayer";
 import { Composer, type ComposerHandle } from "../components/Composer";
 import { ConnectPanel } from "../components/ConnectPanel";
@@ -26,7 +26,6 @@ import { useAppearance, type AppearancePreference } from "./use-appearance";
 import { useConnection } from "./use-connection";
 import { useSpaceDecks } from "./use-deck";
 import { useLanguagePreference, type LanguagePreference } from "./use-language-preference";
-import { useMediaQuery, WIDE_EDITOR_QUERY } from "./use-media-query";
 import { SECTIONS, spaceOfSection, useNavCollapsed, useSection, type Section } from "./use-section";
 import { useSpeech } from "./use-speech";
 import { useSpeechTarget, type SpeechTarget } from "./use-speech-target";
@@ -82,8 +81,6 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const statusText = useMessageText(status);
   const speech = useSpeech(target, language, setStatus);
   const [positionStores] = useState(createSpacePositionStores);
-  const isWide = useMediaQuery(WIDE_EDITOR_QUERY);
-  const [isEditing, setIsEditing] = useState(false);
   const [dialogSlot, setDialogSlot] = useState<number | null>(null);
   const [storedSection, setSection] = useSection();
   const [navCollapsed, setNavCollapsed] = useNavCollapsed();
@@ -104,7 +101,6 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const space = spaceOfSection(section);
   const deck = space ? spaces[space] : null;
   const board = deck?.navigation.board ?? null;
-  const isEditorOpen = board !== null && isEditing && isWide;
   // Deck keys only run through the computer app; say so once instead of leaving every key to explain itself.
   const showDeckStatus = space === "deck" && target.detection !== "pending";
   const deckNote: MessageKey | null = !showDeckStatus || target.isRemote ? null : target.isDesktopAvailable ? "deck.computerNotChosen" : "deck.needsComputer";
@@ -134,19 +130,9 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
     );
   };
 
-  const editToggle = isWide ? (
-    <button type="button" className="button button-small" onClick={() => setIsEditing(true)}>
-      {t("board.editBoard")}
-    </button>
-  ) : (
-    <button type="button" className="button button-small" aria-pressed={isEditing} onClick={() => setIsEditing((value) => !value)}>
-      {isEditing ? t("board.done") : t("board.edit")}
-    </button>
-  );
-
   return (
     // data-space picks the accent colour: each space has its own, and the other sections share the Voice one.
-    <div className={["app", isEditorOpen ? "app-editing" : "", navCollapsed ? "app-nav-collapsed" : ""].filter(Boolean).join(" ")} data-space={space ?? "voice"}>
+    <div className={["app", navCollapsed ? "app-nav-collapsed" : ""].filter(Boolean).join(" ")} data-space={space ?? "voice"}>
       <header className="app-header">
         <h1>{t("app.title")}</h1>
       </header>
@@ -160,34 +146,12 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
           </p>
         )}
 
-        {!isEditorOpen && (
-          <p className="status" role="status" aria-live="polite">
-            {statusText || (target.error ? t(target.error) : "")}
-          </p>
-        )}
+        <p className="status" role="status" aria-live="polite">
+          {statusText || (target.error ? t(target.error) : "")}
+        </p>
 
         {space && deck && (
-          <SectionView key={space} title={isEditorOpen ? t("editor.title") : t(`nav.${space}`)} focusHeading={navigated}>
-            {isEditorOpen ? (
-              <>
-                <div className="editor-toolbar">
-                  <button type="button" className="button button-small" onClick={() => setIsEditing(false)}>
-                    {t("board.closeEditor")}
-                  </button>
-                </div>
-                <BoardEditor
-                  boards={deck.boards}
-                  spaceBoards={deck.spaceBoards}
-                  navigation={deck.navigation}
-                  context={deck.context}
-                  obs={target.obs}
-                  language={language}
-                  onTest={deck.run}
-                  statusText={statusText}
-                  report={setStatus}
-                />
-              </>
-            ) : (
+          <SectionView key={space} title={t(`nav.${space}`)} focusHeading={navigated}>
               <>
                 {space === "voice" && (
                   <>
@@ -241,11 +205,19 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   onEditKey={setDialogSlot}
                   onDeleteKey={deck.clearKey}
                   onMoveKey={deck.moveKey}
-                  isEditing={isEditing && !isWide}
-                  toolbar={editToggle}
+                  toolbar={
+                    board && (
+                      <BoardMenu
+                        board={board}
+                        boards={deck.boards}
+                        language={language}
+                        onSelect={(boardId) => deck.navigation.go({ boardId, page: 0 })}
+                        statusText={statusText}
+                      />
+                    )
+                  }
                 />
               </>
-            )}
           </SectionView>
         )}
 

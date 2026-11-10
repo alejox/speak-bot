@@ -25,10 +25,7 @@
   }
 
   .settings,
-  .connect,
-  .board-list,
-  .board-editor-side,
-  .key-editor-panel {
+  .connect {
     border: var(--border-width) solid var(--color-border);
   }
 
@@ -44,8 +41,7 @@
 @media (forced-colors: active) {
   :focus-visible,
   .picker-choice:has(input:focus-visible),
-  .deck-key-selected:focus-visible,
-  .deck-grid-editing .deck-key.deck-key-selected:focus-visible {
+  .deck-key-selected:focus-visible {
     outline-color: Highlight;
   }
 
@@ -59,9 +55,6 @@
 
   .settings,
   .connect,
-  .board-list,
-  .board-editor-side,
-  .key-editor-panel,
   .deck-grid {
     border: 1px solid CanvasText;
   }
@@ -86,12 +79,7 @@
     border: 4px solid Highlight;
   }
 
-  .board-editor .deck-key[aria-pressed="true"] {
-    border: 2px solid ButtonText;
-  }
-
-  .deck-key-selected,
-  .deck-grid-editing .deck-key.deck-key-selected {
+  .deck-key-selected {
     outline-color: Highlight;
   }
 
@@ -101,7 +89,6 @@
 
   /* Selected states that were a background or a shadow. */
   .side-nav-link[aria-current="page"],
-  .board-list-item-selected,
   .picker-choice:has(input:checked),
   .button[aria-pressed="true"] {
     outline: 2px solid Highlight;

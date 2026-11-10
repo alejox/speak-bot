@@ -33,13 +33,6 @@
   font-weight: var(--weight-semibold);
 }
 
-.deck-hint {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-}
-
 /* 5 columns × 3 rows on wide screens; 3 × 5 when the deck is narrow. Always 15 keys per page. */
 .deck-grid {
   list-style: none;
@@ -269,24 +262,13 @@ button.deck-key-empty {
   line-height: 1;
 }
 
-.deck-grid-editing .deck-key:not(.deck-key-empty) {
-  border-color: var(--color-focus);
-}
-
-/* The editor's grid is always editable; the selection outline is enough. */
-.board-editor .deck-grid-editing .deck-key:not(.deck-key-empty) {
-  border-color: var(--key-border);
-}
-
-.deck-key-selected,
-.deck-grid-editing .deck-key.deck-key-selected {
+.deck-key-selected {
   outline: var(--focus-ring-width) solid var(--color-accent);
   outline-offset: var(--focus-ring-offset);
 }
 
 /* Keyboard focus on the selected key turns its one ring into the focus ring instead of adding a second one. */
-.deck-key-selected:focus-visible,
-.deck-grid-editing .deck-key.deck-key-selected:focus-visible {
+.deck-key-selected:focus-visible {
   outline-color: var(--color-focus);
 }
 
@@ -361,52 +343,9 @@ button.deck-key-empty {
   }
 }
 
-/* The key menu: one small surface under the key, plain text items. */
+/* The key menu sits under its key (shared look in editor.css). */
 .key-menu {
-  position: absolute;
   top: calc(100% + var(--space-1));
   left: 50%;
-  z-index: 10;
-  min-width: 11rem;
-  padding: var(--space-1);
-  color: var(--color-text);
-  background: var(--color-surface-raised);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-3);
   transform: translateX(-50%);
-}
-
-.key-menu-item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: var(--size-control-sm);
-  padding: 0 var(--space-3);
-  font: inherit;
-  text-align: left;
-  color: inherit;
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.key-menu-item:hover,
-.key-menu-item:focus-visible {
-  background: var(--color-surface-sunken);
-}
-
-.key-menu-item-danger {
-  color: var(--color-danger);
-  font-weight: var(--weight-semibold);
-}
-
-.key-menu-confirm p {
-  margin: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-}
-
-.key-menu-confirm-actions {
-  display: flex;
 }

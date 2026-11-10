@@ -247,8 +247,6 @@
 .field select,
 .field input,
 .field textarea,
-.board-rename input,
-.library-search,
 .action-picker-search,
 .deck-board-select {
   width: 100%;
@@ -303,24 +301,7 @@
   accent-color: var(--color-accent);
 }
 
-/* Confirmations of something that cannot be undone. */
-.restore-confirm,
-.board-delete-confirm,
-.key-editor-confirm {
-  padding: var(--space-3);
-  border: 2px solid var(--color-danger);
-  border-radius: var(--radius-md);
-}
-
-.restore-confirm p,
-.board-delete-confirm p,
-.key-editor-confirm p {
-  margin: 0 0 var(--space-3);
-}
-
-.restore-actions,
 .key-editor-actions,
-.board-list-actions,
 .obs-actions {
   display: flex;
   flex-wrap: wrap;
