@@ -48,6 +48,9 @@ User feedback (2026-11-09) after testing the macOS app:
 - Parent spot check: `npm test` → 38, 101, 12, 90 passed. Local dmg rebuilt (`apps/electron/release/speak-bot-0.0.0-mac-arm64.dmg`).
 - Not verified visually: sidebar and bottom bar, phrase board, dock inside OBS, Spanish tray menu.
 - Release note: existing installs become Spanish by default; English phrases with an automatic voice are read by a Spanish voice.
+- T5 `c989ecf`, T6 `20dc9b1`, CSS fix `d73c15b`: RED→GREEN for every new test file. Tests 52/115/12/116, typecheck and build OK. Headless screenshots reviewed by the parent: 5×3 deck with "+" keys, editor modal. Local dmg rebuilt.
+- Independent verifier (T5/T6): PASS, 1 low finding, deferred: desktop slot check-then-write is not atomic, so concurrent adds can return a slot the phrase does not end up in; it self-heals through `assignMissingSlots`. Fix: run check and write in one queue operation.
+- Deferred nits (T5/T6): long-press without a click leaves `suppressClick` set, which swallows the next keyboard press once; the page after slot 1499 shows invalid empty keys; Repeat ignores per-request voice overrides; Repeat in remote mode does not enable the composer Stop button.
 - Deferred nits: the dock reads the language once; the voice cache never refreshes; phrase button accessible name vs label.
 
 ## Next step
