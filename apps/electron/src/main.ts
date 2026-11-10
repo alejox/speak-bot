@@ -5,7 +5,12 @@ import { isLinuxAutostartEnabled, linuxAutostartEntry, linuxAutostartFile, setLi
 import { resolveAppPaths } from "./paths";
 import { HIDDEN_FLAG, shouldStartHidden } from "./startup";
 
-const paths = resolveAppPaths({ isPackaged: app.isPackaged, resourcesPath: process.resourcesPath, bundleDir: __dirname });
+const paths = resolveAppPaths({
+  isPackaged: app.isPackaged,
+  resourcesPath: process.resourcesPath,
+  bundleDir: __dirname,
+  platform: process.platform,
+});
 const log = (message: string) => console.log(`[speak-bot] ${message}`);
 
 let desktop: RunningDesktop | undefined;
@@ -115,6 +120,7 @@ function openExternal(url: string): void {
 
 function createTray(): void {
   const icon = nativeImage.createFromPath(paths.trayIcon);
+  if (process.platform === "darwin") icon.setTemplateImage(true);
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
   tray.setToolTip("Speak Bot");
   tray.on("click", () => showWindow());
