@@ -4,6 +4,7 @@
  */
 import type { Action } from "./domain/actions";
 import type { Board, Key } from "./domain/board";
+import type { ObsConnectionStatus, ObsErrorCode, ObsInput, ObsSceneItem, ObsState } from "./ports/obs-controller";
 import type { Voice } from "./ports/speech-synthesizer";
 
 /** Longest text the desktop server accepts for a single utterance. */
@@ -67,13 +68,30 @@ export interface CaptionsVisibilityEvent {
   readonly at: number;
 }
 
+/** The desktop's connection to OBS changed. */
+export interface ObsStatusEvent {
+  readonly type: "obs-status";
+  readonly status: ObsConnectionStatus;
+  readonly code?: ObsErrorCode;
+  readonly at: number;
+}
+
+/** OBS changed scene, mute, stream or record state (only sent while connected). */
+export interface ObsStateEvent {
+  readonly type: "obs-state";
+  readonly state: ObsState;
+  readonly at: number;
+}
+
 export type ServerEvent =
   | CaptionEvent
   | SpeakingEvent
   | BoardsChangedEvent
   | SpeakErrorEvent
   | CaptionClearEvent
-  | CaptionsVisibilityEvent;
+  | CaptionsVisibilityEvent
+  | ObsStatusEvent
+  | ObsStateEvent;
 
 export function isServerEvent(value: unknown): value is ServerEvent {
   if (typeof value !== "object" || value === null) return false;
@@ -92,9 +110,25 @@ export function isServerEvent(value: unknown): value is ServerEvent {
       return true;
     case "captions-visibility":
       return typeof event.visible === "boolean";
+    case "obs-status":
+      return typeof event.status === "string" && (event.code === undefined || typeof event.code === "string");
+    case "obs-state":
+      return isObsState(event.state);
     default:
       return false;
   }
+}
+
+function isObsState(value: unknown): value is ObsState {
+  if (typeof value !== "object" || value === null) return false;
+  const state = value as Record<string, unknown>;
+  return (
+    (state.currentScene === null || typeof state.currentScene === "string") &&
+    Array.isArray(state.mutedInputs) &&
+    state.mutedInputs.every((name) => typeof name === "string") &&
+    typeof state.streaming === "boolean" &&
+    typeof state.recording === "boolean"
+  );
 }
 
 // ---- HTTP JSON API (prefix `/api`) ----
@@ -181,7 +215,7 @@ export interface AudioDevice {
 /** GET /api/devices */
 export type DevicesResponse = AudioDevice[];
 
-/** GET /api/settings; PUT /api/settings with a partial body → full settings. */
+/** GET /api/settings; PUT /api/settings with a `DesktopSettingsPatch` body → full settings. */
 export interface DesktopSettings {
   /** Empty string means the system default voice. */
   voiceId: string;
@@ -195,7 +229,42 @@ export interface DesktopSettings {
   captionsVisible: boolean;
   /** Language of the automatic voice; when absent it follows `language`. */
   voiceLanguage?: UiLanguage;
+  /** OBS connection; always sent by the desktop. */
+  obs?: ObsSettingsView;
 }
+
+/** OBS connection settings as the API shows them: the password itself is never sent. */
+export interface ObsSettingsView {
+  enabled: boolean;
+  host: string;
+  port: number;
+  hasPassword: boolean;
+}
+
+/** PUT /api/settings `obs` field: fields left out keep their value; an empty password removes it. */
+export interface ObsSettingsPatch {
+  enabled?: boolean;
+  host?: string;
+  port?: number;
+  password?: string;
+}
+
+/** PUT /api/settings body. */
+export type DesktopSettingsPatch = Partial<Omit<DesktopSettings, "obs">> & { obs?: ObsSettingsPatch };
+
+/** GET /api/obs/status */
+export interface ObsStatusResponse {
+  /** `obs.enabled` from the settings. */
+  readonly enabled: boolean;
+  readonly status: ObsConnectionStatus;
+  readonly code?: ObsErrorCode;
+  readonly state: ObsState;
+}
+
+/** GET /api/obs/scenes → scene names; GET /api/obs/inputs; GET /api/obs/scenes/:name/items. 409 "obs-unavailable" when not connected. */
+export type ObsScenesResponse = string[];
+export type ObsInputsResponse = ObsInput[];
+export type ObsSceneItemsResponse = ObsSceneItem[];
 
 /** The language the automatic voice should speak. */
 export function voiceLanguageOf(settings: { language: UiLanguage; voiceLanguage?: UiLanguage }): UiLanguage {
@@ -211,7 +280,9 @@ export type ApiErrorCode =
   | "last-board"
   | "invalid-board"
   | "client-action"
-  | "obs-unavailable";
+  | "obs-unavailable"
+  | "obs-disabled"
+  | "obs-request-failed";
 
 export interface ErrorResponse {
   /** Technical detail in English. */

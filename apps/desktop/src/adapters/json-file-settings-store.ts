@@ -1,4 +1,4 @@
-import { isUiLanguage, type DesktopSettings } from "@speak-bot/core";
+import { isUiLanguage, type DesktopSettings, type ObsConnectionConfig } from "@speak-bot/core";
 import { readJsonFile, SerialQueue, writeJsonFileAtomic } from "./json-file";
 
 export const MIN_RATE = 0.5;
@@ -11,39 +11,79 @@ export class InvalidSettingsError extends Error {
   }
 }
 
-/** Persists the desktop voice, rate, output device, languages and caption visibility in a JSON file. */
+export const MAX_PORT = 65_535;
+const MAX_HOST_LENGTH = 253;
+const MAX_PASSWORD_LENGTH = 500;
+
+/** How the desktop reaches OBS. Only stored in the settings file: the API shows `hasPassword` instead. */
+export interface ObsConfig extends ObsConnectionConfig {
+  enabled: boolean;
+}
+
+export const DEFAULT_OBS_CONFIG: ObsConfig = { enabled: false, host: "127.0.0.1", port: 4455, password: "" };
+
+/** The settings as stored, including secrets. Use `toPublicSettings` before sending them anywhere. */
+export type StoredSettings = Omit<DesktopSettings, "obs"> & { obs: ObsConfig };
+
+/** Default settings; `obs` defaults to `DEFAULT_OBS_CONFIG`. */
+export type SettingsDefaults = Omit<DesktopSettings, "obs"> & { obs?: ObsConfig };
+
+/** The settings as the API and the tray show them: the OBS password is replaced by `hasPassword`. */
+export function toPublicSettings({ obs, ...rest }: StoredSettings): DesktopSettings {
+  return { ...rest, obs: { enabled: obs.enabled, host: obs.host, port: obs.port, hasPassword: obs.password !== "" } };
+}
+
+/** Persists the desktop voice, rate, output device, languages, caption visibility and OBS connection in a JSON file. */
 export class JsonFileSettingsStore {
   private readonly queue = new SerialQueue();
+  private readonly defaults: StoredSettings;
 
   constructor(
     private readonly file: string,
-    private readonly defaults: DesktopSettings,
-  ) {}
+    defaults: SettingsDefaults,
+  ) {
+    this.defaults = { ...defaults, obs: { ...(defaults.obs ?? DEFAULT_OBS_CONFIG) } };
+  }
 
-  load(): Promise<DesktopSettings> {
+  /** The settings without secrets. */
+  async load(): Promise<DesktopSettings> {
+    return toPublicSettings(await this.loadStored());
+  }
+
+  /** The settings including the OBS password; never send these to a client. */
+  loadStored(): Promise<StoredSettings> {
     return this.queue.run(() => this.read());
   }
 
-  /** Merges a partial update, validating every provided field. */
-  update(patch: unknown): Promise<DesktopSettings> {
-    const changes = parseSettingsPatch(patch);
+  /** Merges a partial update, validating every provided field. Resolves with the settings without secrets. */
+  async update(patch: unknown): Promise<DesktopSettings> {
+    return toPublicSettings(await this.updateStored(patch));
+  }
+
+  /** Like `update`, resolving with the stored settings including secrets. */
+  updateStored(patch: unknown): Promise<StoredSettings> {
+    const { obs, ...changes } = parseSettingsPatch(patch);
     return this.queue.run(async () => {
-      const next = { ...(await this.read()), ...changes };
+      const current = await this.read();
+      const next: StoredSettings = { ...current, ...changes, obs: { ...current.obs, ...obs } };
       await writeJsonFileAtomic(this.file, next);
       return next;
     });
   }
 
-  private async read(): Promise<DesktopSettings> {
+  private async read(): Promise<StoredSettings> {
     const content = await readJsonFile(this.file);
-    if (content.status !== "ok" || typeof content.value !== "object" || content.value === null) return { ...this.defaults };
+    if (content.status !== "ok" || typeof content.value !== "object" || content.value === null) {
+      return { ...this.defaults, obs: { ...this.defaults.obs } };
+    }
     const stored = content.value as Record<string, unknown>;
-    const settings: DesktopSettings = {
+    const settings: StoredSettings = {
       voiceId: typeof stored.voiceId === "string" ? stored.voiceId : this.defaults.voiceId,
       rate: isValidRate(stored.rate) ? stored.rate : this.defaults.rate,
       deviceId: typeof stored.deviceId === "string" ? stored.deviceId : this.defaults.deviceId,
       language: isUiLanguage(stored.language) ? stored.language : this.defaults.language,
       captionsVisible: typeof stored.captionsVisible === "boolean" ? stored.captionsVisible : this.defaults.captionsVisible,
+      obs: readObsConfig(stored.obs, this.defaults.obs),
     };
     // Absent until chosen, so the automatic voice keeps following the interface language.
     const voiceLanguage = isUiLanguage(stored.voiceLanguage) ? stored.voiceLanguage : this.defaults.voiceLanguage;
@@ -56,12 +96,56 @@ export function isValidRate(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= MIN_RATE && value <= MAX_RATE;
 }
 
-function parseSettingsPatch(patch: unknown): Partial<DesktopSettings> {
+function readObsConfig(value: unknown, defaults: ObsConfig): ObsConfig {
+  if (typeof value !== "object" || value === null) return { ...defaults };
+  const stored = value as Record<string, unknown>;
+  return {
+    enabled: typeof stored.enabled === "boolean" ? stored.enabled : defaults.enabled,
+    host: isValidHost(stored.host) ? stored.host : defaults.host,
+    port: isValidPort(stored.port) ? stored.port : defaults.port,
+    password: typeof stored.password === "string" && stored.password.length <= MAX_PASSWORD_LENGTH ? stored.password : defaults.password,
+  };
+}
+
+export function isValidPort(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= MAX_PORT;
+}
+
+/** A host name or IP address: no spaces, slashes or other URL parts. */
+export function isValidHost(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= MAX_HOST_LENGTH && /^[A-Za-z0-9.:_-]+$/.test(value);
+}
+
+function parseObsPatch(patch: unknown): Partial<ObsConfig> {
+  if (typeof patch !== "object" || patch === null || Array.isArray(patch)) throw new InvalidSettingsError("obs must be an object.");
+  const { enabled, host, port, password } = patch as Record<string, unknown>;
+  const changes: Partial<ObsConfig> = {};
+  if (enabled !== undefined) {
+    if (typeof enabled !== "boolean") throw new InvalidSettingsError("obs.enabled must be true or false.");
+    changes.enabled = enabled;
+  }
+  if (host !== undefined) {
+    if (!isValidHost(host)) throw new InvalidSettingsError("obs.host must be a host name or IP address.");
+    changes.host = host;
+  }
+  if (port !== undefined) {
+    if (!isValidPort(port)) throw new InvalidSettingsError(`obs.port must be an integer from 1 to ${MAX_PORT}.`);
+    changes.port = port;
+  }
+  if (password !== undefined) {
+    if (typeof password !== "string" || password.length > MAX_PASSWORD_LENGTH) throw new InvalidSettingsError("obs.password must be a string.");
+    changes.password = password;
+  }
+  return changes;
+}
+
+function parseSettingsPatch(patch: unknown): Partial<Omit<DesktopSettings, "obs">> & { obs?: Partial<ObsConfig> } {
   if (typeof patch !== "object" || patch === null || Array.isArray(patch)) {
     throw new InvalidSettingsError("Settings must be a JSON object.");
   }
-  const { voiceId, rate, deviceId, language, captionsVisible, voiceLanguage } = patch as Record<string, unknown>;
-  const changes: Partial<DesktopSettings> = {};
+  const { voiceId, rate, deviceId, language, captionsVisible, voiceLanguage, obs } = patch as Record<string, unknown>;
+  const changes: Partial<Omit<DesktopSettings, "obs">> & { obs?: Partial<ObsConfig> } = {};
+  if (obs !== undefined) changes.obs = parseObsPatch(obs);
   if (voiceId !== undefined) {
     if (typeof voiceId !== "string" || voiceId.length > 200) throw new InvalidSettingsError("voiceId must be a string.");
     changes.voiceId = voiceId;

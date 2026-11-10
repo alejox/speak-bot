@@ -73,6 +73,28 @@ describe("DesktopApiClient boards", () => {
   });
 });
 
+describe("DesktopApiClient OBS", () => {
+  it("reads OBS status and lists, and re-tests the connection", async () => {
+    const { api, requests } = setup(() => ({ body: [] }));
+
+    await api.loadObsStatus();
+    await api.listObsScenes();
+    await api.listObsInputs();
+    await api.listObsSceneItems("Main / Live");
+    await api.connectObs();
+    await api.saveSettings({ obs: { enabled: true, password: "" } });
+
+    expect(requests).toEqual([
+      { method: "GET", url: "/api/obs/status", body: undefined },
+      { method: "GET", url: "/api/obs/scenes", body: undefined },
+      { method: "GET", url: "/api/obs/inputs", body: undefined },
+      { method: "GET", url: "/api/obs/scenes/Main%20%2F%20Live/items", body: undefined },
+      { method: "POST", url: "/api/obs/connect", body: {} },
+      { method: "PUT", url: "/api/settings", body: { obs: { enabled: true, password: "" } } },
+    ]);
+  });
+});
+
 describe("RemotePhraseRepository", () => {
   const route = (phrases: Parameters<typeof boardsOf>[0]) => (request: RecordedRequest) =>
     request.method === "GET" ? { body: boardsOf(phrases) } : { status: request.method === "DELETE" ? 204 : 200, body: {} };

@@ -23,6 +23,10 @@ describe("isServerEvent", () => {
       { type: "caption-clear", at: 8 },
       { type: "captions-visibility", visible: false, at: 9 },
       { type: "captions-visibility", visible: true, at: 10 },
+      { type: "obs-status", status: "connected", at: 11 },
+      { type: "obs-status", status: "error", code: "connection-lost", at: 12 },
+      { type: "obs-state", state: { currentScene: "Main", mutedInputs: ["Mic"], streaming: true, recording: false }, at: 13 },
+      { type: "obs-state", state: { currentScene: null, mutedInputs: [], streaming: false, recording: false }, at: 14 },
     ];
     for (const event of events) expect(isServerEvent(event)).toBe(true);
   });
@@ -38,6 +42,9 @@ describe("isServerEvent", () => {
     expect(isServerEvent({ type: "speak-error", message: "x", code: 3, at: 1 })).toBe(false);
     expect(isServerEvent({ type: "caption-clear" })).toBe(false);
     expect(isServerEvent({ type: "captions-visibility", at: 1 })).toBe(false);
+    expect(isServerEvent({ type: "obs-status", at: 1 })).toBe(false);
+    expect(isServerEvent({ type: "obs-state", state: { currentScene: 1, mutedInputs: [], streaming: false, recording: false }, at: 1 })).toBe(false);
+    expect(isServerEvent({ type: "obs-state", state: { currentScene: null, mutedInputs: [2], streaming: false, recording: false }, at: 1 })).toBe(false);
     expect(isServerEvent({ type: "captions-visibility", visible: "no", at: 1 })).toBe(false);
   });
 

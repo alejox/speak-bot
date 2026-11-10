@@ -7,7 +7,8 @@ export interface DesktopConfig {
   host: string;
   dataDir: string;
   /** Used until the user saves settings from the app. */
-  defaults: DesktopSettings;
+  /** Default settings; OBS connection defaults come from the settings store. */
+  defaults: Omit<DesktopSettings, "obs">;
   /** Extra trusted Host names (lowercase), for users who reach the server through a custom DNS name. */
   allowedHosts: string[];
 }

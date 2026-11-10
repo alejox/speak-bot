@@ -6,7 +6,12 @@ import {
   type AudioDevice,
   type Board,
   type DesktopSettings,
+  type DesktopSettingsPatch,
   type Key,
+  type ObsInput,
+  type ObsSceneItem,
+  type ObsStatus,
+  type ObsStatusResponse,
   type SetKeyRequest,
   type SpeakRequest,
   type SpeechCapabilities,
@@ -139,7 +144,31 @@ export class DesktopApiClient {
     return this.request("GET", "/api/settings") as Promise<DesktopSettings>;
   }
 
-  saveSettings(patch: Partial<DesktopSettings>): Promise<DesktopSettings> {
+  /** OBS connection status and state (scene, muted inputs, streaming, recording). */
+  loadObsStatus(): Promise<ObsStatusResponse> {
+    return this.request("GET", "/api/obs/status") as Promise<ObsStatusResponse>;
+  }
+
+  /** Rejects with code "obs-unavailable" while OBS is not connected (also the other OBS lists). */
+  listObsScenes(): Promise<string[]> {
+    return this.request("GET", "/api/obs/scenes") as Promise<string[]>;
+  }
+
+  listObsInputs(): Promise<ObsInput[]> {
+    return this.request("GET", "/api/obs/inputs") as Promise<ObsInput[]>;
+  }
+
+  listObsSceneItems(sceneName: string): Promise<ObsSceneItem[]> {
+    return this.request("GET", `/api/obs/scenes/${encodeURIComponent(sceneName)}/items`) as Promise<ObsSceneItem[]>;
+  }
+
+  /** Connects again with the saved OBS settings; resolves with the first attempt's status ("obs-disabled" when off). */
+  connectObs(): Promise<ObsStatus> {
+    return this.request("POST", "/api/obs/connect", {}) as Promise<ObsStatus>;
+  }
+
+  /** Fields left out keep their value; `obs.password` is write-only (an empty string removes it). */
+  saveSettings(patch: DesktopSettingsPatch): Promise<DesktopSettings> {
     return this.request("PUT", "/api/settings", patch) as Promise<DesktopSettings>;
   }
 

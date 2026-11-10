@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { startDesktop, type RunningDesktop } from "../src/start-desktop";
+import { FakeObsClient, obsResponses } from "./fake-obs-client";
 
 describe("startDesktop", () => {
   let dir: string | undefined;
@@ -83,6 +84,24 @@ describe("startDesktop", () => {
       body: JSON.stringify({ language: "es" }),
     });
     expect(changes).toEqual(["es"]);
+  });
+
+  it("connects to OBS on start when enabled, without ever sending the password to clients", async () => {
+    dir = await mkdtemp(join(tmpdir(), "speak-bot-start-"));
+    await writeFile(join(dir, "settings.json"), JSON.stringify({ obs: { enabled: true, host: "127.0.0.1", port: 4455, password: "hunter2-obs" } }));
+    FakeObsClient.created = [];
+    desktop = await startDesktop({
+      argv: ["--port", "0", "--host", "127.0.0.1", "--data-dir", dir],
+      env: {},
+      createObsClient: () => new FakeObsClient(null, obsResponses()),
+    });
+
+    for (let i = 0; i < 50 && FakeObsClient.created.length === 0; i += 1) await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(FakeObsClient.created[0]!.connects).toEqual([{ url: "ws://127.0.0.1:4455", password: "hunter2-obs" }]);
+    const settings = await (await fetch(`http://127.0.0.1:${desktop.port}/api/settings`)).text();
+    expect(settings).not.toContain("hunter2-obs");
+    expect(JSON.parse(settings)).toMatchObject({ obs: { enabled: true, hasPassword: true } });
+    expect(JSON.stringify(await desktop.loadSettings())).not.toContain("hunter2-obs");
   });
 });
 

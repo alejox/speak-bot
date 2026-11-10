@@ -10,8 +10,11 @@ import {
   KeyNotFoundError,
   LastBoardError,
   listBoards,
+  MAX_OBS_NAME_LENGTH,
   MAX_SPEAK_TEXT_LENGTH,
   moveKey,
+  ObsRequestError,
+  ObsUnavailableError,
   parseAction,
   renameBoard,
   restoreDefaultBoard,
@@ -21,20 +24,16 @@ import {
   type BoardRepository,
   type DesktopSettings,
   type HealthResponse,
+  type ObsController,
+  type ObsStatusResponse,
   type ServerEvent,
 } from "@speak-bot/core";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { networkInterfaces as osNetworkInterfaces } from "node:os";
-import { InvalidSettingsError, isValidRate, type JsonFileSettingsStore } from "../adapters/json-file-settings-store";
+import { InvalidSettingsError, isValidRate, toPublicSettings, type JsonFileSettingsStore } from "../adapters/json-file-settings-store";
 import type { DesktopSpeechSynthesizer } from "../adapters/tts/process-speech-synthesizer";
-import {
-  ClientActionError,
-  createActionExecutor,
-  NothingToRepeatError,
-  ObsUnavailableError,
-  type ActionExecutorDependencies,
-  type SpeechOverrides,
-} from "./action-executor";
+import { ClientActionError, createActionExecutor, NothingToRepeatError, type SpeechOverrides } from "./action-executor";
+import { applyObsSettings, ObsDisabledError } from "./obs-settings";
 import { asObject, HttpError, readJsonBody, sendEmpty, sendJson } from "./http-utils";
 import { connectionInfo, isLoopbackAddress, type NetworkInterfaces } from "./network";
 
@@ -52,8 +51,8 @@ export interface ApiDependencies {
   instanceId: string;
   /** Called after settings are saved through the API (e.g. to translate the tray menu). */
   onSettingsChanged?: (settings: DesktopSettings) => void;
-  /** Runs `obs.*` actions; absent means OBS control is not available. */
-  runObsAction?: ActionExecutorDependencies["runObsAction"];
+  /** Controls OBS; absent means OBS control is not available. */
+  obs?: ObsController;
 }
 
 type Params = Record<string, string>;
@@ -78,8 +77,12 @@ export function createApiHandler(deps: ApiDependencies) {
     now,
     log,
     onSettingsChanged: deps.onSettingsChanged,
-    runObsAction: deps.runObsAction,
+    obs: deps.obs,
   });
+  const requireObs = (): ObsController => {
+    if (!deps.obs) throw new ObsUnavailableError();
+    return deps.obs;
+  };
   const boardsChanged = () => broadcast({ type: "boards-changed", at: now() });
 
   // Exact paths are listed before `:param` paths that could also match them.
@@ -251,12 +254,60 @@ export function createApiHandler(deps: ApiDependencies) {
       path: "/api/settings",
       handler: async (request, response) => {
         const patch = await readJsonBody(request);
-        const updated = await settings.update(patch);
+        const stored = await settings.updateStored(patch);
+        const updated = toPublicSettings(stored);
         if (typeof (patch as { captionsVisible?: unknown }).captionsVisible === "boolean") {
           broadcast({ type: "captions-visibility", visible: updated.captionsVisible, at: now() });
         }
+        // New OBS settings reconnect in the background; the status arrives as obs-status events.
+        if (deps.obs && (patch as { obs?: unknown }).obs !== undefined) {
+          void applyObsSettings(deps.obs, stored.obs).catch((error: unknown) => log(`Applying OBS settings failed: ${String(error)}`));
+        }
         deps.onSettingsChanged?.(updated);
         sendJson(response, 200, updated);
+      },
+    },
+
+    // ---- OBS ----
+    {
+      method: "GET",
+      path: "/api/obs/status",
+      handler: async (_request, response) => {
+        const { obs } = await settings.loadStored();
+        const status = deps.obs?.status() ?? { status: "disconnected" as const };
+        const state = deps.obs?.state() ?? { currentScene: null, mutedInputs: [], streaming: false, recording: false };
+        const body: ObsStatusResponse = { enabled: obs.enabled, ...status, state };
+        sendJson(response, 200, body);
+      },
+    },
+    {
+      /** Connects again with the saved settings and answers with the outcome of the first attempt. */
+      method: "POST",
+      path: "/api/obs/connect",
+      handler: async (request, response) => {
+        asObject(await readJsonBody(request));
+        const obs = requireObs();
+        const { obs: config } = await settings.loadStored();
+        if (!config.enabled) throw new ObsDisabledError();
+        sendJson(response, 200, await applyObsSettings(obs, config));
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/obs/scenes",
+      handler: async (_request, response) => sendJson(response, 200, await requireObs().listScenes()),
+    },
+    {
+      method: "GET",
+      path: "/api/obs/inputs",
+      handler: async (_request, response) => sendJson(response, 200, await requireObs().listInputs()),
+    },
+    {
+      method: "GET",
+      path: "/api/obs/scenes/:name/items",
+      handler: async (_request, response, { name }) => {
+        if (name!.length > MAX_OBS_NAME_LENGTH) throw new HttpError(400, "Scene name is too long.");
+        sendJson(response, 200, await requireObs().listSceneItems(name!));
       },
     },
   ];
@@ -316,6 +367,8 @@ function describeFailure(error: unknown): { status: number; message: string; cod
   if (error instanceof SlotOccupiedError) return { status: 409, message: error.message, code: "slot-occupied" };
   if (error instanceof LastBoardError) return { status: 409, message: error.message, code: "last-board" };
   if (error instanceof ObsUnavailableError) return { status: 409, message: error.message, code: "obs-unavailable" };
+  if (error instanceof ObsDisabledError) return { status: 409, message: error.message, code: "obs-disabled" };
+  if (error instanceof ObsRequestError) return { status: 502, message: error.message, code: "obs-request-failed" };
   return null;
 }
 

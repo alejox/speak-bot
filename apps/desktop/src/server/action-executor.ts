@@ -1,8 +1,10 @@
 import {
+  ObsUnavailableError,
   pickVoiceForLanguage,
   voiceLanguageOf,
   type Action,
   type DesktopSettings,
+  type ObsController,
   type ServerEvent,
   type SpeakErrorCode,
   type UiLanguage,
@@ -30,14 +32,6 @@ export class NothingToRepeatError extends Error {
   }
 }
 
-/** An OBS action was requested while OBS is not connected. */
-export class ObsUnavailableError extends Error {
-  constructor(message = "OBS is not connected.") {
-    super(message);
-    this.name = "ObsUnavailableError";
-  }
-}
-
 export interface ActionExecutorDependencies {
   settings: JsonFileSettingsStore;
   synthesizer: DesktopSpeechSynthesizer;
@@ -47,7 +41,7 @@ export interface ActionExecutorDependencies {
   /** Called after an action changed the saved settings. */
   onSettingsChanged?: (settings: DesktopSettings) => void;
   /** Runs `obs.*` actions; absent means OBS control is not available. */
-  runObsAction?: (action: Extract<Action, { type: `obs.${string}` }>) => Promise<void>;
+  obs?: ObsController;
 }
 
 /** Per-request speech overrides; anything left out comes from the saved settings. */
@@ -135,6 +129,11 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
     return updated;
   }
 
+  function requireObs(): ObsController {
+    if (!deps.obs) throw new ObsUnavailableError();
+    return deps.obs;
+  }
+
   async function execute(action: Action): Promise<ExecuteResult> {
     switch (action.type) {
       case "voice.speak":
@@ -165,12 +164,19 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
       case "nav.goToBoard":
         throw new ClientActionError(action.type);
       case "obs.switchScene":
+        await requireObs().switchScene(action.sceneName);
+        return { status: 200, body: { ok: true } };
       case "obs.toggleMute":
+        await requireObs().toggleMute(action.inputName);
+        return { status: 200, body: { ok: true } };
       case "obs.toggleStream":
+        await requireObs().toggleStream();
+        return { status: 200, body: { ok: true } };
       case "obs.toggleRecord":
+        await requireObs().toggleRecord();
+        return { status: 200, body: { ok: true } };
       case "obs.toggleSourceVisibility":
-        if (!deps.runObsAction) throw new ObsUnavailableError();
-        await deps.runObsAction(action);
+        await requireObs().toggleSourceVisibility(action.sceneName, action.sourceName);
         return { status: 200, body: { ok: true } };
     }
   }

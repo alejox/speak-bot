@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@speak-bot/core": "0.0.0",
+    "obs-websocket-js": "^5.0.8",
     "tsx": "^4.23.15",
     "ws": "^8.22.2"
   },

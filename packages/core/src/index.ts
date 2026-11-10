@@ -62,6 +62,19 @@ export {
 export { boardFromPhrases, buildDefaultBoard, COMMUNICATION_ACTIONS, DEFAULT_BOARD_ID, DEFAULT_BOARD_NAMES } from "./domain/default-board";
 export type { BoardChange, BoardRepository } from "./ports/board-repository";
 export {
+  ObsRequestError,
+  ObsUnavailableError,
+  type ObsConnectionConfig,
+  type ObsConnectionStatus,
+  type ObsController,
+  type ObsControllerEvent,
+  type ObsErrorCode,
+  type ObsInput,
+  type ObsSceneItem,
+  type ObsState,
+  type ObsStatus,
+} from "./ports/obs-controller";
+export {
   clearKey,
   createBoard,
   deleteBoard,
@@ -102,6 +115,15 @@ export {
   type CaptionEvent,
   type CaptionsVisibilityEvent,
   type DesktopSettings,
+  type DesktopSettingsPatch,
+  type ObsInputsResponse,
+  type ObsSceneItemsResponse,
+  type ObsScenesResponse,
+  type ObsSettingsPatch,
+  type ObsSettingsView,
+  type ObsStateEvent,
+  type ObsStatusEvent,
+  type ObsStatusResponse,
   type DevicesResponse,
   type ErrorResponse,
   type HealthResponse,

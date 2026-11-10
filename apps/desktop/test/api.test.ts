@@ -11,6 +11,9 @@ import { SpeechEngineUnavailableError } from "../src/adapters/tts/process-speech
 import { createDesktopServer, type DesktopServer } from "../src/server/create-server";
 import { FakeSynthesizer } from "./fake-synthesizer";
 
+/** OBS settings as the API shows them by default: the password is never sent. */
+const OBS_OFF = { enabled: false, host: "127.0.0.1", port: 4455, hasPassword: false };
+
 describe("desktop HTTP API", () => {
   let dir: string;
   let server: DesktopServer;
@@ -153,13 +156,13 @@ describe("desktop HTTP API", () => {
     ]);
     expect(await (await fetch(`${baseUrl}/api/devices`)).json()).toEqual([{ id: "BlackHole 2ch", name: "BlackHole 2ch" }]);
 
-    expect(await (await fetch(`${baseUrl}/api/settings`)).json()).toEqual({ voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true });
+    expect(await (await fetch(`${baseUrl}/api/settings`)).json()).toEqual({ voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true, obs: OBS_OFF });
     const updated = await post("/api/settings", { deviceId: "BlackHole 2ch" }, "PUT");
-    expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch", language: "es", captionsVisible: true });
+    expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch", language: "es", captionsVisible: true, obs: OBS_OFF });
     expect((await post("/api/settings", { rate: "fast" }, "PUT")).status).toBe(400);
 
     const reopened = new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true });
-    expect(await reopened.load()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch", language: "es", captionsVisible: true });
+    expect(await reopened.load()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch", language: "es", captionsVisible: true, obs: OBS_OFF });
   });
 
   it("returns 404 JSON for unknown API routes", async () => {
@@ -173,8 +176,8 @@ describe("desktop HTTP API", () => {
     expect((await post("/api/settings", { language: 1 }, "PUT")).status).toBe(400);
 
     const updated = await post("/api/settings", { language: "en", captionsVisible: true }, "PUT");
-    expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true });
-    expect(settingsChanges).toEqual([{ voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true }]);
+    expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true, obs: OBS_OFF });
+    expect(settingsChanges).toEqual([{ voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true, obs: OBS_OFF }]);
   });
 
   it("uses a voice matching the interface language when no voice is chosen, listing voices once", async () => {
