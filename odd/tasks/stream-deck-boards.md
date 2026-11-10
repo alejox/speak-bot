@@ -34,14 +34,14 @@ System actions (open URL or app, play sound), keyboard shortcuts (native per OS)
 - **Look**: original styling and icons (an open-source icon set or our own glyphs). No Elgato or Deckboard branding, and no copied visuals.
 
 ## Tasks
-- [ ] T8 — Core boards/keys/actions model + registry + migration from phrases; desktop BoardRepository + `/api/boards` CRUD + `/api/actions/execute` (voice, captions); remove the phrases API; fold the deferred slot-race fix. Tests.
-- [ ] T9 — OBS integration in the desktop: settings, connection manager, actions, scenes/inputs endpoints, state events, connection status. Tests with a fake OBS client.
-- [ ] T9b — Rename the app to **Speed Deck** (`speed-deck`), chosen by the user on 2026-11-09 (first "speak-deck", then corrected by the user to "Speed Deck"), with a new original icon (app, tray, PWA, favicon). Icon direction (user, 2026-11-09): a button-board or keypad look (a grid of rounded keys, deck style), with at most a subtle speech hint on one key. Original artwork; Deckboard's or Elgato's logos are not copied. **Chosen: option C** (2×3 deck inside a dark rounded square, a blue key with voice waves and a green key). Source: scratchpad `icons/c.svg`, to be committed as `apps/electron/build/icon.svg`. macOS tray: a monochrome template version. Changes:
+- [x] T8 — Core boards/keys/actions model + registry + migration from phrases; desktop BoardRepository + `/api/boards` CRUD + `/api/actions/execute` (voice, captions); remove the phrases API; fold the deferred slot-race fix. Tests.
+- [x] T9 — OBS integration in the desktop: settings, connection manager, actions, scenes/inputs endpoints, state events, connection status. Tests with a fake OBS client.
+- [x] T9b — Rename the app to **Speed Deck** (`speed-deck`), chosen by the user on 2026-11-09 (first "speak-deck", then corrected by the user to "Speed Deck"), with a new original icon (app, tray, PWA, favicon). Icon direction (user, 2026-11-09): a button-board or keypad look (a grid of rounded keys, deck style), with at most a subtle speech hint on one key. Original artwork; Deckboard's or Elgato's logos are not copied. **Chosen: option C** (2×3 deck inside a dark rounded square, a blue key with voice waves and a green key). Source: scratchpad `icons/c.svg`, to be committed as `apps/electron/build/icon.svg`. macOS tray: a monochrome template version. Changes:
   - Rename `productName`, `appId` (`io.github.alejox.speeddeck`), workspace package scope `@speed-deck/*`, window and manifest titles, i18n strings, overlay title and artifact names.
   - Data dir becomes `speed-deck`, with a one-time migration from `speak-bot`.
   - `SPEED_DECK_*` env vars, with the `SPEAK_BOT_*` names still accepted as fallbacks.
   - The GitHub repo name and Pages base (`/speak-bot/`) are unchanged until the user decides on a repo rename.
-- [ ] T10 — UI: board editor (3 panes, drag and drop plus click-to-assign, key editor with icon, color, label and parameters), boards CRUD, playback in phone, dock and local mode, navigation actions, OBS state on keys, OBS settings form, i18n es/en. Fold the `suppressClick` nit. Tests and screenshots.
+- [x] T10 — UI: board editor (3 panes, drag and drop plus click-to-assign, key editor with icon, color, label and parameters), boards CRUD, playback in phone, dock and local mode, navigation actions, OBS state on keys, OBS settings form, i18n es/en. Fold the `suppressClick` nit. Tests and screenshots.
 - [ ] T11 — README: boards, actions, OBS connection setup (Tools → WebSocket Server Settings).
 
 ## Constraints
@@ -65,6 +65,12 @@ System actions (open URL or app, play sound), keyboard shortcuts (native per OS)
   - `9323ff5`: invalid legacy phrases are skipped and no longer block startup.
   - Finding 5 (the phrase bridge hides action keys) is left for T10, which removes the bridge.
 - T9b `6a0ec22`: renamed to Speed Deck; icon C, colored and macOS template tray icons, maskable PWA icon; one-time copy of the `speak-bot` data dir; migration of `speak-bot:` storage keys and Linux autostart; `SPEED_DECK_*` env vars with `SPEAK_BOT_*` fallback. Tests 94/152/13/126; packaged "Speed Deck.app" smoke OK; a LAN client changing OBS settings gets 403.
+- T10 `0e3c75d`, `6a409af`, `42b9b4b` (UI writer, with the collapsible side menu the user added): board player, key editor dialog, three-pane editor, OBS settings. `84ee09a` fixes the quit on SIGTERM (resolves the open item below). RED observed for core navigation, settings-changed, key-presentation, collapsible nav and quit-signals; other UI tests were written after the code. Tests 105/153/16/145, typecheck and build OK, packaged quit on SIGTERM OK. Screenshots reviewed by the parent. Local dmg `speed-deck-0.0.0-mac-arm64.dmg` built.
+- Independent verifier (T10): PASS with 2 low findings, batched with the user's feedback:
+  - The editor "+" page can exceed `MAX_BOARD_PAGES`.
+  - Assigning an action without parameters drops the key's label and icon.
+  - Parent observation: the selected key shows a double ring (blue plus orange focus).
+- Verifier nits: a stale `selectedSlot` after a board is deleted elsewhere; the draft remounts when another client changes the slot; captions toggle pressed semantics; double announcement on the menu toggle; OBS lists linger after OBS disconnects.
 - Open: the packaged Electron app did not exit on SIGTERM (needed kill -9); check the quit path in T10. Remaining verifier nits: stale OBS state after a disconnect, no rename events for scenes or inputs, non-atomic settings toggles, corrupt `boards.json` overwrites its `.bak`, dangling `nav.goToBoard` keys.
 
 ## Next step
