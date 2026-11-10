@@ -40,6 +40,10 @@ export class LocalStoragePhraseRepository implements PhraseRepository {
     this.write(this.read().filter((phrase) => phrase.id !== id));
   }
 
+  async replaceAll(phrases: Phrase[]): Promise<void> {
+    this.write([...phrases]);
+  }
+
   private read(): Phrase[] {
     if (this.useMemory) return this.memory;
     const stored = readJson(this.storage, this.key);

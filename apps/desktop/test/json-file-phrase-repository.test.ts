@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -53,6 +53,35 @@ describe("JsonFilePhraseRepository", () => {
 
     await repository.save({ id: "a", text: "Hello", createdAt: 1 });
     expect(JSON.parse(await readFile(file, "utf8"))).toEqual([{ id: "a", text: "Hello", createdAt: 1 }]);
+  });
+
+  it("replaces every phrase in one write", async () => {
+    const repository = new JsonFilePhraseRepository(file);
+    await repository.save({ id: "a", text: "Mine", createdAt: 1 });
+
+    await repository.replaceAll([
+      { id: "x", text: "Hola", createdAt: 10 },
+      { id: "y", text: "Gracias", createdAt: 11 },
+    ]);
+
+    expect(await new JsonFilePhraseRepository(file).list()).toEqual([
+      { id: "x", text: "Hola", createdAt: 10 },
+      { id: "y", text: "Gracias", createdAt: 11 },
+    ]);
+    expect(await readdir(dir)).toEqual(["phrases.json"]);
+  });
+
+  it("keeps the previous phrases when replacing them fails", async () => {
+    const repository = new JsonFilePhraseRepository(file);
+    await repository.save({ id: "a", text: "Mine", createdAt: 1 });
+    await chmod(dir, 0o555);
+    try {
+      await expect(repository.replaceAll([{ id: "x", text: "Hola", createdAt: 10 }])).rejects.toThrow();
+    } finally {
+      await chmod(dir, 0o755);
+    }
+
+    expect(await repository.list()).toEqual([{ id: "a", text: "Mine", createdAt: 1 }]);
   });
 
   it("ignores entries that are not valid phrases", async () => {

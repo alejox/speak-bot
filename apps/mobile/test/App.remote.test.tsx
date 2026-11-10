@@ -36,6 +36,9 @@ class MemoryRepository implements PhraseRepository {
   async delete(id: string) {
     this.phrases = this.phrases.filter((p) => p.id !== id);
   }
+  async replaceAll(phrases: Phrase[]) {
+    this.phrases = [...phrases];
+  }
 }
 
 function desktopRoute(supportsDeviceSelection = true) {

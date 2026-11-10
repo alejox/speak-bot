@@ -46,6 +46,23 @@ describe("LocalStoragePhraseRepository", () => {
     expect(repository.isInitialized()).toBe(true);
   });
 
+  it("replaces every phrase with a single storage write", async () => {
+    await new LocalStoragePhraseRepository(localStorage).save(hello);
+    const writes: string[] = [];
+    const countingStorage = {
+      getItem: (key: string) => localStorage.getItem(key),
+      setItem: (key: string, value: string) => {
+        writes.push(key);
+        localStorage.setItem(key, value);
+      },
+    } as unknown as Storage;
+
+    await new LocalStoragePhraseRepository(countingStorage).replaceAll([thanks]);
+
+    expect(writes).toEqual([PHRASES_STORAGE_KEY]);
+    expect(await new LocalStoragePhraseRepository(localStorage).list()).toEqual([thanks]);
+  });
+
   it("treats corrupt JSON as an empty list", async () => {
     localStorage.setItem(PHRASES_STORAGE_KEY, "{not json");
 

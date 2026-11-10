@@ -281,6 +281,20 @@ describe("desktop HTTP API", () => {
     expect(english.map((p) => p.text)).toEqual([...DEFAULT_PHRASES.en]);
   });
 
+  it("ends with exactly the default phrases when two restores run at the same time", async () => {
+    await post("/api/phrases", { text: "Mine" });
+
+    const responses = await Promise.all([
+      post("/api/phrases/restore", { language: "es" }),
+      post("/api/phrases/restore", { language: "es" }),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    const listed = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
+    expect(listed).toHaveLength(DEFAULT_PHRASES.es.length);
+    expect(listed.map((p) => p.text)).toEqual([...DEFAULT_PHRASES.es]);
+  });
+
   it("validates the restore language and keeps the phrases on error", async () => {
     await post("/api/phrases", { text: "Mine" });
 

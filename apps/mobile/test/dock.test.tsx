@@ -41,6 +41,7 @@ const localRepository: PhraseRepository = {
   list: async (): Promise<Phrase[]> => [{ id: "l1", text: "Local phrase", createdAt: 1 }],
   save: async () => {},
   delete: async () => {},
+  replaceAll: async () => {},
 };
 
 function desktopRoute(request: RecordedRequest) {

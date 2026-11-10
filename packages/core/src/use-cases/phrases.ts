@@ -48,18 +48,29 @@ export async function seedDefaultPhrases(
   return saveInOrder({ repository, generateId, now }, texts);
 }
 
-/** Deletes every saved phrase and saves `texts` (in order) instead. Returns the phrases created. */
-export async function restoreDefaultPhrases(deps: PhraseDependencies, texts: readonly string[]): Promise<Phrase[]> {
-  for (const phrase of await deps.repository.list()) await deps.repository.delete(phrase.id);
-  return saveInOrder(deps, texts);
+/**
+ * Replaces every saved phrase with `texts` (in order) in a single repository write, so concurrent
+ * restores never mix their lists and a failed write keeps the previous phrases. Returns the phrases created.
+ */
+export async function restoreDefaultPhrases(
+  { repository, generateId, now }: PhraseDependencies,
+  texts: readonly string[],
+): Promise<Phrase[]> {
+  const created = buildInOrder(generateId, now, texts);
+  await repository.replaceAll(created);
+  return created;
 }
 
 async function saveInOrder({ repository, generateId, now }: PhraseDependencies, texts: readonly string[]): Promise<Phrase[]> {
+  const created = buildInOrder(generateId, now, texts);
+  for (const phrase of created) await repository.save(phrase);
+  return created;
+}
+
+function buildInOrder(generateId: () => string, now: () => number, texts: readonly string[]): Phrase[] {
   const start = now();
-  const created = texts.map((text, index) =>
+  return texts.map((text, index) =>
     // Offset createdAt so the given order survives sorting.
     createPhrase({ id: generateId(), text, createdAt: start + index }),
   );
-  for (const phrase of created) await repository.save(phrase);
-  return created;
 }

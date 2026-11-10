@@ -65,6 +65,13 @@ describe("RemotePhraseRepository", () => {
 
     await expect(repository.save({ id: "x", text: "Hi", createdAt: 1 })).rejects.toThrow("text too long");
   });
+
+  it("refuses to replace every phrase and sends nothing to the desktop", async () => {
+    const { api, requests } = setup();
+
+    await expect(new RemotePhraseRepository(api).replaceAll([])).rejects.toThrow("restorePhrases");
+    expect(requests).toEqual([]);
+  });
 });
 
 describe("RemoteSpeechSynthesizer", () => {

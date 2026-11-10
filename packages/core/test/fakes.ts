@@ -3,7 +3,11 @@ import type { PhraseRepository } from "../src/ports/phrase-repository";
 import type { SpeakOptions, SpeechSynthesizer, Voice } from "../src/ports/speech-synthesizer";
 
 export class InMemoryPhraseRepository implements PhraseRepository {
-  private readonly phrases = new Map<string, Phrase>();
+  private phrases = new Map<string, Phrase>();
+  /** Names of the write operations performed, in order. */
+  readonly writes: string[] = [];
+  /** When set, `replaceAll` rejects with this error and changes nothing. */
+  failReplaceAll: Error | undefined;
 
   constructor(initial: Phrase[] = []) {
     for (const phrase of initial) this.phrases.set(phrase.id, phrase);
@@ -14,11 +18,19 @@ export class InMemoryPhraseRepository implements PhraseRepository {
   }
 
   async save(phrase: Phrase): Promise<void> {
+    this.writes.push("save");
     this.phrases.set(phrase.id, phrase);
   }
 
   async delete(id: string): Promise<void> {
+    this.writes.push("delete");
     this.phrases.delete(id);
+  }
+
+  async replaceAll(phrases: Phrase[]): Promise<void> {
+    this.writes.push("replaceAll");
+    if (this.failReplaceAll) throw this.failReplaceAll;
+    this.phrases = new Map(phrases.map((phrase) => [phrase.id, phrase]));
   }
 }
 

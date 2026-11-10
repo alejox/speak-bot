@@ -30,6 +30,11 @@ export class JsonFilePhraseRepository implements PhraseRepository {
     });
   }
 
+  /** One atomic file write inside the queue, so it never interleaves with other writes. */
+  replaceAll(phrases: Phrase[]): Promise<void> {
+    return this.queue.run(() => writeJsonFileAtomic(this.file, [...phrases]));
+  }
+
   private async read(): Promise<Phrase[]> {
     const content = await readJsonFile(this.file);
     if (content.status !== "ok" || !Array.isArray(content.value)) return [];

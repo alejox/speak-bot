@@ -18,4 +18,12 @@ export class RemotePhraseRepository implements PhraseRepository {
   delete(id: string): Promise<void> {
     return this.api.deletePhrase(id);
   }
+
+  /**
+   * Not supported remotely: the desktop owns its phrase list and restores it atomically through
+   * `DesktopApiClient.restorePhrases` (POST /api/phrases/restore).
+   */
+  async replaceAll(_phrases: Phrase[]): Promise<void> {
+    throw new Error("RemotePhraseRepository cannot replace all phrases; use DesktopApiClient.restorePhrases instead.");
+  }
 }

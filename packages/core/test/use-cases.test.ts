@@ -159,4 +159,32 @@ describe("restoreDefaultPhrases", () => {
 
     expect((await repository.list()).map((phrase) => phrase.text)).toEqual(["Hello"]);
   });
+
+  it("replaces the whole list in a single write", async () => {
+    const repository = new InMemoryPhraseRepository([{ id: "a", text: "Mine", createdAt: 1 }]);
+
+    await restoreDefaultPhrases({ repository, generateId: sequentialIds(), now: () => 100 }, ["Hola", "Gracias"]);
+
+    expect(repository.writes).toEqual(["replaceAll"]);
+  });
+
+  it("ends with exactly the defaults when two restores run at the same time", async () => {
+    const repository = new InMemoryPhraseRepository([{ id: "a", text: "Mine", createdAt: 1 }]);
+    const deps = { repository, generateId: sequentialIds(), now: () => 100 };
+
+    await Promise.all([restoreDefaultPhrases(deps, ["Hola", "Gracias"]), restoreDefaultPhrases(deps, ["Hola", "Gracias"])]);
+
+    expect((await listPhrases(repository)).map((phrase) => phrase.text)).toEqual(["Hola", "Gracias"]);
+  });
+
+  it("keeps the previous phrases when the write fails", async () => {
+    const repository = new InMemoryPhraseRepository([{ id: "a", text: "Mine", createdAt: 1 }]);
+    repository.failReplaceAll = new Error("disk full");
+
+    await expect(
+      restoreDefaultPhrases({ repository, generateId: sequentialIds(), now: () => 100 }, ["Hola", "Gracias"]),
+    ).rejects.toThrow("disk full");
+
+    expect(await repository.list()).toEqual([{ id: "a", text: "Mine", createdAt: 1 }]);
+  });
 });
