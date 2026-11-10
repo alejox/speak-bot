@@ -9,11 +9,12 @@
     "apps/*"
   ],
   "scripts": {
+    "start": "npm run build -w @speak-bot/mobile && npm start -w @speak-bot/desktop",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspaces --if-present"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   }
 }
