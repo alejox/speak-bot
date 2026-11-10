@@ -14,7 +14,7 @@ import { networkInterfaces as osNetworkInterfaces } from "node:os";
 import { InvalidSettingsError, isValidRate, type JsonFileSettingsStore } from "../adapters/json-file-settings-store";
 import type { DesktopSpeakOptions, DesktopSpeechSynthesizer } from "../adapters/tts/process-speech-synthesizer";
 import { asObject, HttpError, readJsonBody, sendEmpty, sendJson } from "./http-utils";
-import { connectionInfo, type NetworkInterfaces } from "./network";
+import { connectionInfo, isLoopbackAddress, type NetworkInterfaces } from "./network";
 
 export interface ApiDependencies {
   repository: PhraseRepository;
@@ -47,6 +47,8 @@ export function createApiHandler(deps: ApiDependencies) {
     },
 
     "GET /api/connection": async (request, response) => {
+      // Only the desktop's own window needs these URLs; phones on the LAN are refused.
+      if (!isLoopbackAddress(request.socket.remoteAddress)) throw new HttpError(403, "Only available on this computer.");
       // The port the request actually arrived on, which may differ from the configured one after a fallback.
       sendJson(response, 200, connectionInfo(request.socket.localPort ?? 0, listInterfaces()));
     },

@@ -6,6 +6,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { JsonFilePhraseRepository } from "../src/adapters/json-file-phrase-repository";
 import { JsonFileSettingsStore } from "../src/adapters/json-file-settings-store";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { createApiHandler } from "../src/server/api";
 import { createDesktopServer, type DesktopServer } from "../src/server/create-server";
 
 const wifi: NetworkInterfaceInfo = {
@@ -60,5 +62,39 @@ describe("GET /api/connection", () => {
   it("is protected by the request guard like every other route", async () => {
     const response = await fetch(`http://127.0.0.1:${port}/api/connection`, { headers: { origin: "http://evil.example" } });
     expect(response.status).toBe(403);
+  });
+
+  it("answers only clients on this computer", async () => {
+    const handle = createApiHandler({
+      repository: undefined as never,
+      settings: undefined as never,
+      synthesizer: undefined as never,
+      broadcast: () => {},
+      generateId: () => "id",
+      now: () => 1,
+      instanceId: "test",
+      networkInterfaces: () => ({ en0: [wifi] }),
+    });
+    const ask = async (remoteAddress: string) => {
+      let status = 0;
+      const request = { method: "GET", socket: { remoteAddress, localPort: 4545 } } as unknown as IncomingMessage;
+      const response = {
+        headersSent: false,
+        writeHead: (code: number) => {
+          status = code;
+        },
+        end: () => {},
+      } as unknown as ServerResponse;
+      await handle(request, response, "/api/connection");
+      return status;
+    };
+
+    expect(await ask("127.0.0.1")).toBe(200);
+    expect(await ask("127.12.0.3")).toBe(200);
+    expect(await ask("::1")).toBe(200);
+    expect(await ask("::ffff:127.0.0.1")).toBe(200);
+    expect(await ask("192.168.1.30")).toBe(403);
+    expect(await ask("::ffff:192.168.1.30")).toBe(403);
+    expect(await ask("fe80::1")).toBe(403);
   });
 });

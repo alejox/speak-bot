@@ -46,3 +46,10 @@ export function connectionInfo(port: number, interfaces: NetworkInterfaces): Con
     overlayUrl: `http://localhost:${port}/overlay`,
   };
 }
+
+/** True for a client on this computer: 127.0.0.0/8, ::1, or IPv4 loopback mapped into IPv6. */
+export function isLoopbackAddress(address: string | undefined): boolean {
+  if (!address) return false;
+  const ipv4 = address.toLowerCase().startsWith("::ffff:") ? address.slice(7) : address;
+  return /^127(\.\d{1,3}){3}$/.test(ipv4) || address === "::1" || address === "0:0:0:0:0:0:0:1";
+}
