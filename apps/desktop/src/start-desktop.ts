@@ -125,7 +125,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     close: () => {
       closing ??= (async () => {
         synthesizer.cancel();
-        await obs.disconnect();
+        await obs.close();
         await server.close();
       })();
       return closing;

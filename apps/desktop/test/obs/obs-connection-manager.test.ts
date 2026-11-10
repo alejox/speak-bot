@@ -190,4 +190,124 @@ describe("ObsConnectionManager", () => {
     expect(JSON.stringify(logs)).not.toContain(config.password);
     expect(JSON.stringify(events)).not.toContain(config.password);
   });
+
+  describe("overlapping lifecycle calls", () => {
+    /** A promise the test settles by hand. */
+    const deferred = () => {
+      let resolve!: () => void;
+      const promise = new Promise<void>((done) => {
+        resolve = done;
+      });
+      return { promise, resolve };
+    };
+    let log: string[];
+    let pendingConnects: Array<() => void>;
+    let pendingDisconnects: Array<() => void>;
+    let holdConnect: boolean;
+    let holdDisconnect: boolean;
+
+    beforeEach(() => {
+      log = [];
+      pendingConnects = [];
+      pendingDisconnects = [];
+      holdConnect = false;
+      holdDisconnect = false;
+      manager = new ObsConnectionManager({
+        createClient: () => {
+          const client = new FakeObsClient(null, obsResponses());
+          const index = FakeObsClient.created.length - 1;
+          client.connect = async (url, password) => {
+            client.connects.push({ url, password });
+            if (holdConnect) {
+              const gate = deferred();
+              pendingConnects.push(gate.resolve);
+              await gate.promise;
+            }
+            log.push(`connected ${index}`);
+          };
+          client.disconnect = async () => {
+            log.push(`disconnect ${index}`);
+            client.disconnected = true;
+            if (holdDisconnect) {
+              const gate = deferred();
+              pendingDisconnects.push(gate.resolve);
+              await gate.promise;
+            }
+          };
+          return client;
+        },
+        log: () => {},
+      });
+      manager.subscribe((event) => events.push(event));
+    });
+
+    afterEach(() => {
+      holdConnect = false;
+      holdDisconnect = false;
+      for (const release of [...pendingConnects, ...pendingDisconnects]) release();
+    });
+
+    it("keeps a disconnect that arrives while a reconnect is still stopping the old connection", async () => {
+      await manager.connect(config);
+      holdDisconnect = true;
+
+      const reconnecting = manager.connect({ ...config, host: "10.0.0.5" });
+      const disconnecting = manager.disconnect();
+      for (const release of pendingDisconnects) release();
+      await Promise.all([reconnecting, disconnecting]);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(FakeObsClient.created).toHaveLength(1);
+      expect(manager.status()).toEqual({ status: "disconnected" });
+    });
+
+    it("closes a connection that succeeds after it was superseded", async () => {
+      holdConnect = true;
+      const first = manager.connect(config);
+      await vi.waitFor(() => expect(pendingConnects).toHaveLength(1));
+
+      holdConnect = false;
+      await manager.connect({ ...config, host: "10.0.0.5" });
+      pendingConnects[0]!();
+      await first;
+
+      const stale = FakeObsClient.created[0]!;
+      expect(log.lastIndexOf("disconnect 0")).toBeGreaterThan(log.indexOf("connected 0"));
+      expect(stale.disconnected).toBe(true);
+      expect(manager.status()).toEqual({ status: "connected" });
+      expect(FakeObsClient.created[1]!.disconnected).toBe(false);
+    });
+
+    it("never connects or retries again once closed, even with a connection attempt in flight", async () => {
+      vi.useFakeTimers();
+      holdConnect = true;
+      const pending = manager.connect(config);
+      await vi.waitFor(() => expect(pendingConnects).toHaveLength(1));
+
+      await manager.close();
+      pendingConnects[0]!();
+      await pending;
+      expect(log.lastIndexOf("disconnect 0")).toBeGreaterThan(log.indexOf("connected 0"));
+
+      holdConnect = false;
+      expect(await manager.connect(config)).toEqual({ status: "disconnected" });
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(FakeObsClient.created).toHaveLength(1);
+      expect(manager.status()).toEqual({ status: "disconnected" });
+    });
+
+    it("does not start a connection that was waiting for the old one to stop when closed", async () => {
+      await manager.connect(config);
+      holdDisconnect = true;
+
+      const reconnecting = manager.connect(config);
+      const closing = manager.close();
+      for (const release of pendingDisconnects) release();
+      await Promise.all([reconnecting, closing]);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(FakeObsClient.created).toHaveLength(1);
+      expect(manager.status()).toEqual({ status: "disconnected" });
+    });
+  });
 });

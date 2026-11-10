@@ -39,6 +39,9 @@ export class ObsConnectionManager implements ObsController {
   private client: ObsClient | null = null;
   /** Increases on every attempt and disconnect; events from older clients are ignored. */
   private generation = 0;
+  /** Increases on every connect and disconnect, so a connect that waited for `stop` knows it was superseded. */
+  private lifecycleRequests = 0;
+  private closed = false;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
   private retryDelay = FIRST_RETRY_MS;
   private currentStatus: ObsStatus = { status: "disconnected" };
@@ -50,16 +53,27 @@ export class ObsConnectionManager implements ObsController {
   }
 
   async connect(config: ObsConnectionConfig): Promise<ObsStatus> {
+    if (this.closed) return this.currentStatus;
+    const request = ++this.lifecycleRequests;
     await this.stop();
+    // A later connect, disconnect or close arrived while the old connection was stopping: it wins.
+    if (this.closed || request !== this.lifecycleRequests) return this.currentStatus;
     this.config = { ...config };
     this.retryDelay = FIRST_RETRY_MS;
     return this.attempt();
   }
 
   async disconnect(): Promise<void> {
+    this.lifecycleRequests += 1;
     this.config = null;
     await this.stop();
     this.setStatus({ status: "disconnected" });
+  }
+
+  /** Disconnects for good: later `connect` calls, retries and pending attempts never open a connection. */
+  async close(): Promise<void> {
+    this.closed = true;
+    await this.disconnect();
   }
 
   status(): ObsStatus {
@@ -131,7 +145,7 @@ export class ObsConnectionManager implements ObsController {
 
   private async attempt(): Promise<ObsStatus> {
     const config = this.config;
-    if (!config) return this.currentStatus;
+    if (!config || this.closed) return this.currentStatus;
     const generation = ++this.generation;
     const client = this.options.createClient();
     this.client = client;
@@ -141,7 +155,7 @@ export class ObsConnectionManager implements ObsController {
     try {
       await withTimeout(client.connect(webSocketUrl(config), config.password || undefined), this.attemptTimeoutMs);
     } catch (error) {
-      if (generation !== this.generation) return this.currentStatus;
+      if (generation !== this.generation) return this.discardStale(client);
       this.client = null;
       void client.disconnect().catch(() => {});
       const failure = asClientError(error);
@@ -156,10 +170,17 @@ export class ObsConnectionManager implements ObsController {
       return this.currentStatus;
     }
 
-    if (generation !== this.generation) return this.currentStatus;
+    // Superseded while connecting: close this socket instead of leaving it open and unused.
+    if (generation !== this.generation) return this.discardStale(client);
     this.retryDelay = FIRST_RETRY_MS;
     this.setStatus({ status: "connected" });
     await this.refreshState(client, generation);
+    return this.currentStatus;
+  }
+
+  private discardStale(client: ObsClient): ObsStatus {
+    if (this.client === client) this.client = null;
+    void client.disconnect().catch(() => {});
     return this.currentStatus;
   }
 
@@ -226,7 +247,7 @@ export class ObsConnectionManager implements ObsController {
   }
 
   private scheduleRetry(): void {
-    if (!this.config) return;
+    if (!this.config || this.closed) return;
     clearTimeout(this.retryTimer);
     const delay = this.retryDelay;
     this.retryDelay = Math.min(this.retryDelay * 2, MAX_RETRY_MS);
