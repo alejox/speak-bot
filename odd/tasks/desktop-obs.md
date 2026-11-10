@@ -36,6 +36,7 @@ Native installer/packaging, cloud TTS, authentication (LAN only; documented risk
 - [x] T3 — Mobile remote mode (remote adapters, mode toggle, auto-detect) with tests.
 - [x] T4 — README: desktop usage, OBS Browser Source, virtual mic (BlackHole / VB-Cable), LAN security note.
 - [ ] T5 — Manual verification: real speech + OBS on macOS (user); Windows and Linux on real machines or CI.
+  - 2026-11-09: macOS verified by the user: captions appear in OBS, and the voice plays and is captured by OBS. Windows and Linux pending (real machines or CI).
 
 ## Acceptance criteria
 - `npm test`, `npm run typecheck`, `npm run build` pass from the root.
