@@ -1,4 +1,5 @@
 import type { Phrase } from "@speak-bot/core";
+import { useT } from "../i18n/I18nProvider";
 
 interface PhraseGridProps {
   phrases: Phrase[];
@@ -9,17 +10,18 @@ interface PhraseGridProps {
 }
 
 export function PhraseGrid({ phrases, isEditing, onSpeak, onDelete, onToggleEditing }: PhraseGridProps) {
+  const t = useT();
   return (
     <section className="phrases" aria-labelledby="phrases-heading">
       <div className="phrases-header">
-        <h2 id="phrases-heading">Saved phrases</h2>
+        <h2 id="phrases-heading">{t("phrases.title")}</h2>
         <button type="button" className="button button-small" aria-pressed={isEditing} onClick={onToggleEditing}>
-          {isEditing ? "Done" : "Edit"}
+          {isEditing ? t("phrases.done") : t("phrases.edit")}
         </button>
       </div>
 
       {phrases.length === 0 ? (
-        <p className="empty">No saved phrases yet. Type something and press “Save as phrase”.</p>
+        <p className="empty">{t("phrases.empty")}</p>
       ) : (
         <ul className="phrase-grid">
           {phrases.map((phrase) => {
@@ -30,7 +32,7 @@ export function PhraseGrid({ phrases, isEditing, onSpeak, onDelete, onToggleEdit
                   <button
                     type="button"
                     className="phrase phrase-delete"
-                    aria-label={`Delete phrase: ${title}`}
+                    aria-label={t("phrases.deleteLabel", { text: title })}
                     onClick={() => onDelete(phrase)}
                   >
                     <span aria-hidden="true">✕ </span>
@@ -40,7 +42,7 @@ export function PhraseGrid({ phrases, isEditing, onSpeak, onDelete, onToggleEdit
                   <button
                     type="button"
                     className="phrase"
-                    aria-label={`Speak: ${phrase.text}`}
+                    aria-label={t("phrases.speakLabel", { text: phrase.text })}
                     onClick={() => onSpeak(phrase)}
                   >
                     {title}

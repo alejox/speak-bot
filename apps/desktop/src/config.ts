@@ -1,4 +1,4 @@
-import type { DesktopSettings } from "@speak-bot/core";
+import { DEFAULT_UI_LANGUAGE, type DesktopSettings } from "@speak-bot/core";
 import { posix, win32 } from "node:path";
 import { MAX_RATE, MIN_RATE } from "./adapters/json-file-settings-store";
 
@@ -46,6 +46,7 @@ export function loadConfig({ argv, env, platform, homeDir }: ConfigSources): Des
       voiceId: pick("voice", "SPEAK_BOT_VOICE") ?? "",
       rate,
       deviceId: pick("device", "SPEAK_BOT_DEVICE") ?? "",
+      language: DEFAULT_UI_LANGUAGE,
     },
     allowedHosts: (pick("allowed-host", "SPEAK_BOT_ALLOWED_HOSTS") ?? "")
       .split(",")

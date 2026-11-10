@@ -7,6 +7,7 @@ import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesize
 import { App } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
 import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
+import { memoryLanguageStore } from "./i18n-helpers";
 
 const synthesizer: AppSpeechSynthesizer = {
   isSupported: true,
@@ -53,6 +54,7 @@ function setup({ hostname = "localhost", answer = route } = {}) {
     phrases: { repository, generateId: () => "x", now: () => 1 },
     settings: { load: () => DEFAULT_SETTINGS, save: () => {} },
     isFirstRun: () => false,
+    language: memoryLanguageStore("en"),
     desktop: createDesktopServices({
       fetch,
       createSocket: (url) => new FakeSocket(url),

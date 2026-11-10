@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isServerEvent, MAX_SPEAK_TEXT_LENGTH, type ServerEvent } from "../src/protocol";
+import { DEFAULT_UI_LANGUAGE, isServerEvent, isUiLanguage, MAX_SPEAK_TEXT_LENGTH, UI_LANGUAGES, type ServerEvent } from "../src/protocol";
 
 describe("isServerEvent", () => {
   it("accepts every known event shape", () => {
@@ -10,6 +10,8 @@ describe("isServerEvent", () => {
       { type: "speaking", state: "end", at: 3 },
       { type: "phrases-changed", at: 4 },
       { type: "speak-error", message: "espeak-ng is not installed", at: 5 },
+      { type: "speak-error", message: "espeak-ng is not installed", code: "engine-unavailable", at: 6 },
+      { type: "speak-error", message: "exit code 1", code: "speech-failed", at: 7 },
     ];
     for (const event of events) expect(isServerEvent(event)).toBe(true);
   });
@@ -22,9 +24,25 @@ describe("isServerEvent", () => {
     expect(isServerEvent({ type: "unknown", at: 1 })).toBe(false);
     expect(isServerEvent({ type: "phrases-changed" })).toBe(false);
     expect(isServerEvent({ type: "speak-error", at: 1 })).toBe(false);
+    expect(isServerEvent({ type: "speak-error", message: "x", code: 3, at: 1 })).toBe(false);
   });
 
   it("exposes the maximum speakable text length", () => {
     expect(MAX_SPEAK_TEXT_LENGTH).toBe(1000);
+  });
+});
+
+describe("UI languages", () => {
+  it("supports Spanish (default) and English", () => {
+    expect(UI_LANGUAGES).toEqual(["es", "en"]);
+    expect(DEFAULT_UI_LANGUAGE).toBe("es");
+  });
+
+  it("recognises only supported language codes", () => {
+    expect(isUiLanguage("es")).toBe(true);
+    expect(isUiLanguage("en")).toBe(true);
+    expect(isUiLanguage("fr")).toBe(false);
+    expect(isUiLanguage("ES")).toBe(false);
+    expect(isUiLanguage(undefined)).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { seedDefaultPhrases } from "@speak-bot/core";
+import { seedDefaultPhrases, type DesktopSettings } from "@speak-bot/core";
 import { randomUUID } from "node:crypto";
 import { homedir, networkInterfaces } from "node:os";
 import { join } from "node:path";
@@ -6,6 +6,7 @@ import { JsonFilePhraseRepository } from "./adapters/json-file-phrase-repository
 import { JsonFileSettingsStore } from "./adapters/json-file-settings-store";
 import { createSystemSynthesizer } from "./adapters/tts/create-system-synthesizer";
 import { loadConfig, type ConfigSources } from "./config";
+import { DEFAULT_PHRASES } from "./default-phrases";
 import { createDesktopServer } from "./server/create-server";
 import { connectionInfo } from "./server/network";
 import { listenWithFallback } from "./server/port-fallback";
@@ -32,6 +33,10 @@ export interface RunningDesktop {
   /** Every URL the app can be opened at, localhost first. */
   urls: string[];
   overlayUrl: string;
+  /** The saved desktop settings (voice, rate, device, interface language). */
+  loadSettings(): Promise<DesktopSettings>;
+  /** Notifies after settings are saved from any client. Returns an unsubscribe function. */
+  onSettingsChanged(listener: (settings: DesktopSettings) => void): () => void;
   /** Stops speech and the server. Safe to call more than once. */
   close(): Promise<void>;
 }
@@ -53,13 +58,26 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
   const synthesizer = createSystemSynthesizer();
   const phraseDeps = { repository, generateId: randomUUID, now: () => Date.now() };
 
-  if (!(await repository.exists())) await seedDefaultPhrases(phraseDeps);
+  if (!(await repository.exists())) {
+    await seedDefaultPhrases(phraseDeps, DEFAULT_PHRASES[(await settings.load()).language]);
+  }
+  const settingsListeners = new Set<(next: DesktopSettings) => void>();
 
   const pageHandler = createPageHandler({
     mobileDistDir: options.mobileDistDir ?? MOBILE_DIST_DIR,
     overlayFile: options.overlayFile ?? OVERLAY_FILE,
   });
-  const server = createDesktopServer({ ...phraseDeps, settings, synthesizer, log, pageHandler, allowedHosts: config.allowedHosts });
+  const server = createDesktopServer({
+    ...phraseDeps,
+    settings,
+    synthesizer,
+    log,
+    pageHandler,
+    allowedHosts: config.allowedHosts,
+    onSettingsChanged: (next) => {
+      for (const listener of [...settingsListeners]) listener(next);
+    },
+  });
 
   const listeningPort = () => (server.httpServer.address() as { port: number }).port;
   const port = await listenWithFallback((candidate) => server.listen(candidate, config.host), {
@@ -84,6 +102,11 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     dataDir: config.dataDir,
     urls: serverUrls(config.host, actualPort),
     overlayUrl: connectionInfo(actualPort, {}).overlayUrl,
+    loadSettings: () => settings.load(),
+    onSettingsChanged: (listener) => {
+      settingsListeners.add(listener);
+      return () => settingsListeners.delete(listener);
+    },
     close: () => {
       closing ??= (async () => {
         synthesizer.cancel();

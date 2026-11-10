@@ -4,15 +4,23 @@ import {
   InvalidPhraseError,
   listPhrases,
   MAX_SPEAK_TEXT_LENGTH,
+  pickVoiceForLanguage,
+  type DesktopSettings,
   type HealthResponse,
   type Phrase,
   type PhraseRepository,
   type ServerEvent,
+  type SpeakErrorCode,
+  type Voice,
 } from "@speak-bot/core";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { networkInterfaces as osNetworkInterfaces } from "node:os";
 import { InvalidSettingsError, isValidRate, type JsonFileSettingsStore } from "../adapters/json-file-settings-store";
-import type { DesktopSpeakOptions, DesktopSpeechSynthesizer } from "../adapters/tts/process-speech-synthesizer";
+import {
+  SpeechEngineUnavailableError,
+  type DesktopSpeakOptions,
+  type DesktopSpeechSynthesizer,
+} from "../adapters/tts/process-speech-synthesizer";
 import { asObject, HttpError, readJsonBody, sendEmpty, sendJson } from "./http-utils";
 import { connectionInfo, isLoopbackAddress, type NetworkInterfaces } from "./network";
 
@@ -28,6 +36,8 @@ export interface ApiDependencies {
   networkInterfaces?: () => NetworkInterfaces;
   /** Reported by GET /api/health so the desktop can recognise its own server. */
   instanceId: string;
+  /** Called after settings are saved through the API (e.g. to translate the tray menu). */
+  onSettingsChanged?: (settings: DesktopSettings) => void;
 }
 
 const MAX_LABEL_LENGTH = 100;
@@ -39,6 +49,15 @@ export function createApiHandler(deps: ApiDependencies) {
   const listInterfaces = deps.networkInterfaces ?? osNetworkInterfaces;
   // Only the latest utterance may report "end", so a cancelled one never hides a newer caption.
   let speechRequest = 0;
+  // Listing system voices spawns a process, so a non-empty list is kept for the server's lifetime.
+  let cachedVoices: Promise<Voice[]> | undefined;
+  const listVoices = (): Promise<Voice[]> => {
+    cachedVoices ??= synthesizer.listVoices().then((voices) => {
+      if (voices.length === 0) cachedVoices = undefined;
+      return voices;
+    });
+    return cachedVoices;
+  };
 
   const routes: Record<string, (request: IncomingMessage, response: ServerResponse, param?: string) => Promise<void>> = {
     "GET /api/health": async (_request, response) => {
@@ -74,7 +93,7 @@ export function createApiHandler(deps: ApiDependencies) {
     "POST /api/speak": async (request, response) => {
       const body = asObject(await readJsonBody(request));
       const { text, phraseId } = await resolveSpeakText(body, repository);
-      const options = await speakOptions(body, settings);
+      const options = await speakOptions(body, settings, listVoices);
 
       const current = ++speechRequest;
       broadcast(phraseId ? { type: "caption", text, phraseId, at: now() } : { type: "caption", text, at: now() });
@@ -84,7 +103,8 @@ export function createApiHandler(deps: ApiDependencies) {
         .catch((error: unknown) => {
           const message = error instanceof Error ? error.message : String(error);
           log(`Speech failed: ${message}`);
-          if (current === speechRequest) broadcast({ type: "speak-error", message, at: now() });
+          const code: SpeakErrorCode = error instanceof SpeechEngineUnavailableError ? "engine-unavailable" : "speech-failed";
+          if (current === speechRequest) broadcast({ type: "speak-error", message, code, at: now() });
         })
         .finally(() => {
           if (current === speechRequest) broadcast({ type: "speaking", state: "end", at: now() });
@@ -100,7 +120,7 @@ export function createApiHandler(deps: ApiDependencies) {
     },
 
     "GET /api/voices": async (_request, response) => {
-      sendJson(response, 200, await synthesizer.listVoices());
+      sendJson(response, 200, await listVoices());
     },
 
     "GET /api/devices": async (_request, response) => {
@@ -112,7 +132,9 @@ export function createApiHandler(deps: ApiDependencies) {
     },
 
     "PUT /api/settings": async (request, response) => {
-      sendJson(response, 200, await settings.update(await readJsonBody(request)));
+      const updated = await settings.update(await readJsonBody(request));
+      deps.onSettingsChanged?.(updated);
+      sendJson(response, 200, updated);
     },
   };
 
@@ -173,8 +195,15 @@ async function resolveSpeakText(
   return { text: text.trim() };
 }
 
-/** Request overrides win; otherwise the saved desktop settings apply. */
-async function speakOptions(body: Record<string, unknown>, settings: JsonFileSettingsStore): Promise<DesktopSpeakOptions> {
+/**
+ * Request overrides win; otherwise the saved desktop settings apply. Without any chosen voice,
+ * a voice speaking the interface language is used so Spanish text is not read by an English voice.
+ */
+async function speakOptions(
+  body: Record<string, unknown>,
+  settings: JsonFileSettingsStore,
+  listVoices: () => Promise<Voice[]>,
+): Promise<DesktopSpeakOptions> {
   const { voiceId, rate } = body;
   if (voiceId !== undefined && (typeof voiceId !== "string" || voiceId.length > 200)) {
     throw new HttpError(400, "voiceId must be a string.");
@@ -183,7 +212,7 @@ async function speakOptions(body: Record<string, unknown>, settings: JsonFileSet
 
   const saved = await settings.load();
   const options: DesktopSpeakOptions = {};
-  const voice = voiceId ?? saved.voiceId;
+  const voice = voiceId || saved.voiceId || pickVoiceForLanguage(await listVoices(), saved.language)?.id;
   if (voice) options.voiceId = voice;
   options.rate = rate ?? saved.rate;
   if (saved.deviceId) options.deviceId = saved.deviceId;

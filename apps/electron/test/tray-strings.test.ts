@@ -1,0 +1,22 @@
+import { describe, expect, it } from "vitest";
+import { TRAY_STRINGS, trayStrings } from "../src/tray-strings";
+
+describe("trayStrings", () => {
+  it("is Spanish by default", () => {
+    expect(trayStrings(undefined).open).toBe("Abrir Speak Bot");
+    expect(trayStrings("es").quit).toBe("Salir de Speak Bot");
+  });
+
+  it("follows the language saved in the desktop settings", () => {
+    expect(trayStrings("en").open).toBe("Open Speak Bot");
+    expect(trayStrings("en").startAtLogin).toBe("Start at login");
+  });
+
+  it("falls back to Spanish for unknown languages", () => {
+    expect(trayStrings("fr")).toEqual(TRAY_STRINGS.es);
+  });
+
+  it("has the same entries in every language", () => {
+    expect(Object.keys(TRAY_STRINGS.en).sort()).toEqual(Object.keys(TRAY_STRINGS.es).sort());
+  });
+});

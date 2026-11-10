@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { isLinuxAutostartEnabled, linuxAutostartEntry, linuxAutostartFile, setLinuxAutostart } from "./linux-autostart";
 import { resolveAppPaths } from "./paths";
 import { HIDDEN_FLAG, shouldStartHidden } from "./startup";
+import { trayStrings, type TrayStrings } from "./tray-strings";
 
 const paths = resolveAppPaths({
   isPackaged: app.isPackaged,
@@ -17,6 +18,7 @@ let desktop: RunningDesktop | undefined;
 let window: BrowserWindow | undefined;
 let tray: Tray | undefined;
 let isQuitting = false;
+let strings: TrayStrings = trayStrings(undefined);
 
 if (!app.requestSingleInstanceLock()) {
   // Another copy is running: it receives "second-instance" and shows its window.
@@ -51,6 +53,12 @@ async function start(): Promise<void> {
     return;
   }
   log(`Listening on port ${desktop.port}`);
+  strings = trayStrings((await desktop.loadSettings().catch(() => undefined))?.language);
+  // The menu follows the language chosen in the app.
+  desktop.onSettingsChanged((settings) => {
+    strings = trayStrings(settings.language);
+    refreshTrayMenu();
+  });
   createTray();
   const loginItem = process.platform === "linux" ? { wasOpenedAtLogin: false } : app.getLoginItemSettings();
   const hidden = shouldStartHidden(process.argv, loginItem.wasOpenedAtLogin);
@@ -60,7 +68,7 @@ async function start(): Promise<void> {
 
 function fail(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
-  dialog.showErrorBox("Speak Bot could not start", message);
+  dialog.showErrorBox(strings.startupFailed, message);
   app.exit(1);
 }
 
@@ -131,21 +139,21 @@ function refreshTrayMenu(): void {
   if (!tray) return;
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: "Open Speak Bot", click: () => showWindow() },
+      { label: strings.open, click: () => showWindow() },
       {
-        label: "Copy OBS URL",
+        label: strings.copyObsUrl,
         enabled: desktop !== undefined,
         click: () => desktop && clipboard.writeText(desktop.overlayUrl),
       },
       { type: "separator" },
       {
-        label: "Start at login",
+        label: strings.startAtLogin,
         type: "checkbox",
         checked: isStartAtLoginEnabled(),
         click: (item) => void setStartAtLogin(item.checked).finally(refreshTrayMenu),
       },
       { type: "separator" },
-      { label: "Quit Speak Bot", click: () => app.quit() },
+      { label: strings.quit, click: () => app.quit() },
     ]),
   );
 }

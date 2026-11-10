@@ -11,6 +11,15 @@ export const MAX_SPEAK_TEXT_LENGTH = 1000;
 /** Identifies a speak-bot desktop server in the health response. */
 export const DESKTOP_SERVER_NAME = "speak-bot-desktop";
 
+/** Languages the user interface is available in. */
+export const UI_LANGUAGES = ["es", "en"] as const;
+export type UiLanguage = (typeof UI_LANGUAGES)[number];
+export const DEFAULT_UI_LANGUAGE: UiLanguage = "es";
+
+export function isUiLanguage(value: unknown): value is UiLanguage {
+  return typeof value === "string" && (UI_LANGUAGES as readonly string[]).includes(value);
+}
+
 // ---- Server → client WebSocket events (path `/ws`) ----
 
 export interface CaptionEvent {
@@ -32,10 +41,15 @@ export interface PhrasesChangedEvent {
   readonly at: number;
 }
 
+/** Why the desktop could not speak, so clients can show a message in their own language. */
+export type SpeakErrorCode = "engine-unavailable" | "speech-failed";
+
 /** The desktop could not speak, e.g. because the TTS engine is not installed. */
 export interface SpeakErrorEvent {
   readonly type: "speak-error";
+  /** Technical detail in English (e.g. how to install the engine). */
   readonly message: string;
+  readonly code?: SpeakErrorCode;
   readonly at: number;
 }
 
@@ -53,7 +67,7 @@ export function isServerEvent(value: unknown): value is ServerEvent {
     case "phrases-changed":
       return true;
     case "speak-error":
-      return typeof event.message === "string";
+      return typeof event.message === "string" && (event.code === undefined || typeof event.code === "string");
     default:
       return false;
   }
@@ -120,6 +134,8 @@ export interface DesktopSettings {
   rate: number;
   /** Empty string means the system default output device. */
   deviceId: string;
+  /** Interface language; also picks the default voice and the first-run phrases. */
+  language: UiLanguage;
 }
 
 export interface ErrorResponse {

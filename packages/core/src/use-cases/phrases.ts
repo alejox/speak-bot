@@ -7,6 +7,7 @@ export interface PhraseDependencies {
   now: () => number;
 }
 
+/** English default phrases. Apps pass localized lists to `seedDefaultPhrases`. */
 export const DEFAULT_PHRASE_TEXTS = [
   "Hello",
   "Thank you",
@@ -36,13 +37,16 @@ export async function deletePhrase(repository: PhraseRepository, id: string): Pr
   await repository.delete(id);
 }
 
-/** Saves the default phrases when the repository is empty. Returns the phrases created. */
-export async function seedDefaultPhrases({ repository, generateId, now }: PhraseDependencies): Promise<Phrase[]> {
+/** Saves the default phrases (`texts`, in order) when the repository is empty. Returns the phrases created. */
+export async function seedDefaultPhrases(
+  { repository, generateId, now }: PhraseDependencies,
+  texts: readonly string[] = DEFAULT_PHRASE_TEXTS,
+): Promise<Phrase[]> {
   const existing = await repository.list();
   if (existing.length > 0) return [];
 
   const start = now();
-  const seeded = DEFAULT_PHRASE_TEXTS.map((text, index) =>
+  const seeded = texts.map((text, index) =>
     // Offset createdAt so the default order survives sorting.
     createPhrase({ id: generateId(), text, createdAt: start + index }),
   );

@@ -8,6 +8,7 @@ import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesize
 import { App } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
 import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
+import { memoryLanguageStore } from "./i18n-helpers";
 
 class LocalSynthesizer implements AppSpeechSynthesizer {
   readonly isSupported = true;
@@ -78,6 +79,7 @@ function setup({ route = desktopRoute(), storedTarget = null as SpeakTarget | nu
     phrases: { repository: new MemoryRepository([{ id: "l1", text: "Local phrase", createdAt: 1 }]), generateId: () => "x", now: () => 1 },
     settings: { load: () => DEFAULT_SETTINGS, save: () => {} },
     isFirstRun: () => false,
+    language: memoryLanguageStore("en"),
     desktop: createDesktopServices({
       fetch: fake.fetch,
       createSocket: (url) => new FakeSocket(url),

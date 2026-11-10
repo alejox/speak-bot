@@ -7,7 +7,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
 import { JsonFilePhraseRepository } from "../src/adapters/json-file-phrase-repository";
 import { JsonFileSettingsStore } from "../src/adapters/json-file-settings-store";
-import type { DesktopSpeakOptions, DesktopSpeechSynthesizer } from "../src/adapters/tts/process-speech-synthesizer";
+import {
+  SpeechEngineUnavailableError,
+  type DesktopSpeakOptions,
+  type DesktopSpeechSynthesizer,
+} from "../src/adapters/tts/process-speech-synthesizer";
 import { createDesktopServer, type DesktopServer } from "../src/server/create-server";
 
 class FakeSynthesizer implements DesktopSpeechSynthesizer {
@@ -15,6 +19,8 @@ class FakeSynthesizer implements DesktopSpeechSynthesizer {
   failNext: Error | undefined;
   readonly spoken: Array<{ text: string; options: DesktopSpeakOptions | undefined }> = [];
   cancelCount = 0;
+  voiceListCount = 0;
+  voices: Voice[] = [{ id: "Alex", name: "Alex", lang: "en-US", isDefault: false }];
   private finish: (() => void) | undefined;
 
   speak(text: string, options?: DesktopSpeakOptions): Promise<void> {
@@ -30,7 +36,8 @@ class FakeSynthesizer implements DesktopSpeechSynthesizer {
     this.finish?.();
   }
   async listVoices(): Promise<Voice[]> {
-    return [{ id: "Alex", name: "Alex", lang: "en-US", isDefault: false }];
+    this.voiceListCount += 1;
+    return this.voices;
   }
   async listDevices() {
     return [{ id: "BlackHole 2ch", name: "BlackHole 2ch" }];
@@ -42,17 +49,20 @@ describe("desktop HTTP API", () => {
   let server: DesktopServer;
   let synthesizer: FakeSynthesizer;
   let baseUrl: string;
+  let settingsChanges: unknown[];
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), "speak-bot-api-"));
     synthesizer = new FakeSynthesizer();
+    settingsChanges = [];
     let id = 0;
     server = createDesktopServer({
       repository: new JsonFilePhraseRepository(join(dir, "phrases.json")),
-      settings: new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "" }),
+      settings: new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es" }),
       synthesizer,
       generateId: () => `id-${++id}`,
       now: () => 1000 + id,
+      onSettingsChanged: (settings) => settingsChanges.push(settings),
     });
     await server.listen(0, "127.0.0.1");
     baseUrl = `http://127.0.0.1:${(server.httpServer.address() as AddressInfo).port}`;
@@ -210,19 +220,57 @@ describe("desktop HTTP API", () => {
     ]);
     expect(await (await fetch(`${baseUrl}/api/devices`)).json()).toEqual([{ id: "BlackHole 2ch", name: "BlackHole 2ch" }]);
 
-    expect(await (await fetch(`${baseUrl}/api/settings`)).json()).toEqual({ voiceId: "", rate: 1, deviceId: "" });
+    expect(await (await fetch(`${baseUrl}/api/settings`)).json()).toEqual({ voiceId: "", rate: 1, deviceId: "", language: "es" });
     const updated = await post("/api/settings", { deviceId: "BlackHole 2ch" }, "PUT");
-    expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch" });
+    expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch", language: "es" });
     expect((await post("/api/settings", { rate: "fast" }, "PUT")).status).toBe(400);
 
-    const reopened = new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "" });
-    expect(await reopened.load()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch" });
+    const reopened = new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es" });
+    expect(await reopened.load()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch", language: "es" });
   });
 
   it("returns 404 JSON for unknown API routes", async () => {
     const response = await fetch(`${baseUrl}/api/nope`);
     expect(response.status).toBe(404);
     expect(await response.json()).toHaveProperty("error");
+  });
+
+  it("validates and persists the interface language and reports settings changes", async () => {
+    expect((await post("/api/settings", { language: "fr" }, "PUT")).status).toBe(400);
+    expect((await post("/api/settings", { language: 1 }, "PUT")).status).toBe(400);
+
+    const updated = await post("/api/settings", { language: "en" }, "PUT");
+    expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "", language: "en" });
+    expect(settingsChanges).toEqual([{ voiceId: "", rate: 1, deviceId: "", language: "en" }]);
+  });
+
+  it("uses a voice matching the interface language when no voice is chosen, listing voices once", async () => {
+    synthesizer.voices = [
+      { id: "Alex", name: "Alex", lang: "en_US", isDefault: false },
+      { id: "Monica", name: "Monica", lang: "es_ES", isDefault: false },
+    ];
+
+    await post("/api/speak", { text: "Hola" });
+    synthesizer.finishCurrent();
+    await post("/api/settings", { language: "en" }, "PUT");
+    await post("/api/speak", { text: "Hello" });
+    synthesizer.finishCurrent();
+    await post("/api/settings", { voiceId: "Chosen" }, "PUT");
+    await post("/api/speak", { text: "Mine" });
+
+    expect(synthesizer.spoken.map((entry) => entry.options?.voiceId)).toEqual(["Monica", "Alex", "Chosen"]);
+    expect(synthesizer.voiceListCount).toBe(1);
+  });
+
+  it("tells clients why speech failed with an error code", async () => {
+    synthesizer.failNext = new SpeechEngineUnavailableError("Command not found: espeak-ng. Install espeak-ng.");
+    const client = await connect();
+
+    await post("/api/speak", { text: "Hello" });
+
+    const events = await client.next(3);
+    expect(events[2]).toMatchObject({ type: "speak-error", code: "engine-unavailable" });
+    client.close();
   });
 });
 

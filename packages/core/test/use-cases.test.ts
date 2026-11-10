@@ -117,6 +117,16 @@ describe("seedDefaultPhrases", () => {
     expect(await repository.list()).toEqual([existing]);
   });
 
+  it("seeds the given localized texts in order", async () => {
+    const repository = new InMemoryPhraseRepository();
+    const texts = ["Hola", "Gracias", "¿Me puedes ayudar?"];
+
+    const seeded = await seedDefaultPhrases({ repository, generateId: sequentialIds(), now: () => 100 }, texts);
+
+    expect(seeded.map((phrase) => phrase.text)).toEqual(texts);
+    expect((await listPhrases(repository)).map((phrase) => phrase.text)).toEqual(texts);
+  });
+
   it("includes the essential phrases", () => {
     expect(DEFAULT_PHRASE_TEXTS).toEqual(
       expect.arrayContaining(["Hello", "Thank you", "Yes", "No", "One moment please", "I can't speak but I can hear you"]),

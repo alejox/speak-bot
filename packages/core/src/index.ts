@@ -10,9 +10,13 @@ export {
   seedDefaultPhrases,
   type PhraseDependencies,
 } from "./use-cases/phrases";
+export { languageOfTag, pickVoiceForLanguage } from "./voices";
 export {
+  DEFAULT_UI_LANGUAGE,
   DESKTOP_SERVER_NAME,
   isServerEvent,
+  isUiLanguage,
+  UI_LANGUAGES,
   MAX_SPEAK_TEXT_LENGTH,
   type AudioDevice,
   type CaptionEvent,
@@ -24,9 +28,11 @@ export {
   type PhrasesResponse,
   type SavePhraseRequest,
   type ServerEvent,
+  type SpeakErrorCode,
   type SpeakErrorEvent,
   type SpeakingEvent,
   type SpeechCapabilities,
   type SpeakRequest,
+  type UiLanguage,
   type VoicesResponse,
 } from "./protocol";

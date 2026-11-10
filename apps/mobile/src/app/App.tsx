@@ -2,6 +2,7 @@ import {
   deletePhrase,
   EmptyTextError,
   listPhrases,
+  pickVoiceForLanguage,
   savePhrase,
   seedDefaultPhrases,
   speakText,
@@ -16,23 +17,48 @@ import { Composer } from "../components/Composer";
 import { ConnectPanel } from "../components/ConnectPanel";
 import { PhraseGrid } from "../components/PhraseGrid";
 import { SettingsPanel } from "../components/SettingsPanel";
+import { I18nProvider, useMessageText, useT } from "../i18n/I18nProvider";
+import { DEFAULT_PHRASES, type Message } from "../i18n/messages";
 import type { AppServices } from "./composition-root";
 import { useConnection } from "./use-connection";
-import { useSpeechTarget } from "./use-speech-target";
+import { useLanguagePreference, type LanguagePreference } from "./use-language-preference";
+import { useSpeechTarget, type SpeechTarget } from "./use-speech-target";
 
-/** Container: owns state and wires the UI to the core use cases. */
+/** Container: chooses the speech target and interface language, then renders the app in that language. */
 export function App({ services }: { services: AppServices }) {
   const target = useSpeechTarget(services);
+  const preference = useLanguagePreference(services.language, target);
+  return (
+    <I18nProvider language={preference.language}>
+      <AppContent services={services} target={target} preference={preference} />
+    </I18nProvider>
+  );
+}
+
+interface AppContentProps {
+  services: AppServices;
+  target: SpeechTarget;
+  preference: LanguagePreference;
+}
+
+/** Container: owns state and wires the UI to the core use cases. */
+function AppContent({ services, target, preference }: AppContentProps) {
+  const t = useT();
+  const { language } = preference;
   const connection = useConnection(services.desktop?.connection, target.isDesktopAvailable);
   const { synthesizer, phrases: phraseDeps, settings, isFirstRun, onPhrasesChanged } = target;
   const [text, setText] = useState("");
   const [phrases, setPhrases] = useState<Phrase[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState<Message | null>(null);
+  const statusText = useMessageText(status);
   const speechRequest = useRef(0);
   // Shared across StrictMode's double effect run so defaults are seeded once, before the first list.
   const seeding = useRef<Promise<unknown> | null>(null);
+  // Read when seeding, without reloading phrases on every language change.
+  const languageRef = useRef(language);
+  languageRef.current = language;
 
   const refreshPhrases = useCallback(async () => {
     setPhrases(await listPhrases(phraseDeps.repository));
@@ -46,12 +72,14 @@ export function App({ services }: { services: AppServices }) {
     };
     void (async () => {
       if (!target.isRemote) {
-        seeding.current ??= isFirstRun() ? seedDefaultPhrases(phraseDeps) : Promise.resolve();
+        seeding.current ??= isFirstRun()
+          ? seedDefaultPhrases(phraseDeps, DEFAULT_PHRASES[languageRef.current])
+          : Promise.resolve();
         await seeding.current;
       }
       await refresh();
     })().catch(() => {
-      if (active) setStatus("Could not load phrases.");
+      if (active) setStatus({ key: "status.loadFailed" });
     });
     const unsubscribe = onPhrasesChanged(() => void refresh().catch(() => {}));
     return () => {
@@ -60,12 +88,15 @@ export function App({ services }: { services: AppServices }) {
     };
   }, [phraseDeps, target.isRemote, isFirstRun, onPhrasesChanged]);
 
+  // The desktop picks its own voice for the language; on this device it is picked here.
+  const voiceId = settings.voiceId || (target.isRemote ? undefined : pickVoiceForLanguage(target.voices, language)?.id);
+
   // Must not await before speakText: mobile browsers only allow speech inside the tap handler.
   const speak = (value: string) => {
     const request = ++speechRequest.current;
-    setStatus("");
+    setStatus(null);
     setIsSpeaking(true);
-    speakText(synthesizer, value, { voiceId: settings.voiceId || undefined, rate: settings.rate })
+    speakText(synthesizer, value, { voiceId: voiceId || undefined, rate: settings.rate })
       .catch((error: unknown) => setStatus(describeSpeechError(error)))
       .finally(() => {
         if (request === speechRequest.current) setIsSpeaking(false);
@@ -81,35 +112,35 @@ export function App({ services }: { services: AppServices }) {
   const saveCurrentText = async () => {
     const trimmed = text.trim();
     if (trimmed === "") {
-      setStatus("Type something to save it as a phrase.");
+      setStatus({ key: "status.typeToSave" });
       return;
     }
     if (phrases.some((phrase) => phrase.text === trimmed)) {
-      setStatus("That phrase is already saved.");
+      setStatus({ key: "status.duplicate" });
       return;
     }
     await savePhrase(phraseDeps, { text: trimmed });
     await refreshPhrases();
-    setStatus("Phrase saved.");
+    setStatus({ key: "status.saved" });
   };
 
   const removePhrase = async (phrase: Phrase) => {
     await deletePhrase(phraseDeps.repository, phrase.id);
     await refreshPhrases();
-    setStatus(`Deleted "${phrase.label ?? phrase.text}".`);
+    setStatus({ key: "status.deleted", params: { text: phrase.label ?? phrase.text } });
   };
 
   return (
     <main className="app">
       <header className="app-header">
-        <h1>Speak Bot</h1>
+        <h1>{t("app.title")}</h1>
       </header>
 
       {connection && <ConnectPanel {...connection} />}
 
       {!synthesizer.isSupported && (
         <p className="notice" role="alert">
-          Speech is not supported in this browser. Try Chrome or Safari.
+          {t("app.speechUnsupported")}
         </p>
       )}
 
@@ -119,18 +150,18 @@ export function App({ services }: { services: AppServices }) {
         onTextChange={setText}
         onSpeak={() => speak(text)}
         onStop={stop}
-        onSave={() => void saveCurrentText().catch(() => setStatus("Could not save the phrase."))}
+        onSave={() => void saveCurrentText().catch(() => setStatus({ key: "status.saveFailed" }))}
       />
 
       <p className="status" role="status" aria-live="polite">
-        {status || target.error}
+        {statusText || (target.error ? t(target.error) : "")}
       </p>
 
       <PhraseGrid
         phrases={phrases}
         isEditing={isEditing}
         onSpeak={(phrase) => speak(phrase.text)}
-        onDelete={(phrase) => void removePhrase(phrase).catch(() => setStatus("Could not delete the phrase."))}
+        onDelete={(phrase) => void removePhrase(phrase).catch(() => setStatus({ key: "status.deleteFailed" }))}
         onToggleEditing={() => setIsEditing((editing) => !editing)}
       />
 
@@ -138,6 +169,7 @@ export function App({ services }: { services: AppServices }) {
         voices={target.voices}
         settings={settings}
         onChange={target.updateSettings}
+        onLanguageChange={preference.setLanguage}
         speakOn={target.speakOn}
         outputDevice={target.outputDevice}
       />
@@ -145,9 +177,15 @@ export function App({ services }: { services: AppServices }) {
   );
 }
 
-function describeSpeechError(error: unknown): string {
-  if (error instanceof EmptyTextError) return "Type something to speak first.";
-  if (error instanceof SpeechUnsupportedError) return error.message;
-  if (error instanceof DesktopSpeechError || error instanceof DesktopRequestError) return error.message;
-  return "Could not speak that. Please try again.";
+/** Maps a speech failure to a message in the interface language. */
+export function describeSpeechError(error: unknown): Message {
+  if (error instanceof EmptyTextError) return { key: "error.emptyText" };
+  if (error instanceof SpeechUnsupportedError) return { key: "error.speechUnsupported" };
+  if (error instanceof DesktopSpeechError) {
+    return error.code === "engine-unavailable"
+      ? { key: "error.engineUnavailable", params: { detail: error.message } }
+      : { key: "error.desktopSpeechFailed" };
+  }
+  if (error instanceof DesktopRequestError) return { key: "error.desktopRequestFailed" };
+  return { key: "error.speechFailed" };
 }

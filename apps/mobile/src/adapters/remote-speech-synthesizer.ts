@@ -1,11 +1,15 @@
-import type { SpeakOptions, Voice } from "@speak-bot/core";
+import type { SpeakErrorCode, SpeakOptions, Voice } from "@speak-bot/core";
 import type { DesktopApiClient } from "./desktop-api";
 import type { DesktopEventSource } from "./desktop-events";
 import type { AppSpeechSynthesizer } from "./web-speech-synthesizer";
 
 /** The desktop reported that it could not speak (for example, its TTS engine is missing). */
 export class DesktopSpeechError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    /** Lets the UI explain the failure in its own language. */
+    readonly code?: SpeakErrorCode,
+  ) {
     super(message);
     this.name = "DesktopSpeechError";
   }
@@ -68,7 +72,7 @@ export class RemoteSpeechSynthesizer implements AppSpeechSynthesizer {
   private listen(): void {
     this.unsubscribe ??= this.events.subscribe((event) => {
       if (event.type === "speaking" && event.state === "end") this.settle();
-      else if (event.type === "speak-error") this.settle(this.pending, new DesktopSpeechError(event.message));
+      else if (event.type === "speak-error") this.settle(this.pending, new DesktopSpeechError(event.message, event.code));
     });
   }
 

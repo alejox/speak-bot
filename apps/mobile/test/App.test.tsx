@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, type SpeechSettings } from "../src/adapters/local-storage-settings-store";
 import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesizer";
 import { App } from "../src/app/App";
+import { memoryLanguageStore } from "./i18n-helpers";
 import type { AppServices } from "../src/app/composition-root";
 
 class FakeSynthesizer implements AppSpeechSynthesizer {
@@ -49,6 +50,7 @@ function setup({ phrases, firstRun = false, settings = DEFAULT_SETTINGS }: {
     phrases: { repository, generateId: () => `id-${++nextId}`, now: () => nextId },
     settings: { load: () => saved, save: (next) => void (saved = next) },
     isFirstRun: () => firstRun,
+    language: memoryLanguageStore("en"),
   };
   render(<App services={services} />);
   return { synthesizer, repository, user: userEvent.setup(), getSavedSettings: () => saved };

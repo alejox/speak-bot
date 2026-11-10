@@ -2,6 +2,7 @@ import type { AudioDevice, DesktopSettings, PhraseDependencies, SpeechCapabiliti
 import { copyText as copyToClipboard } from "../adapters/clipboard";
 import { DesktopApiClient, type ConnectionInfo } from "../adapters/desktop-api";
 import { DesktopEventSource, type WebSocketFactory } from "../adapters/desktop-events";
+import { LocalStorageLanguageStore, type LanguageStore } from "../adapters/local-storage-language-store";
 import { LocalStoragePhraseRepository } from "../adapters/local-storage-phrase-repository";
 import { LocalStorageSettingsStore, type SettingsStore } from "../adapters/local-storage-settings-store";
 import { LocalStorageSpeakTargetStore, type SpeakTargetStore } from "../adapters/local-storage-speak-target-store";
@@ -41,6 +42,8 @@ export interface AppServices {
   synthesizer: AppSpeechSynthesizer;
   phrases: PhraseDependencies;
   settings: SettingsStore;
+  /** The interface language chosen on this device. */
+  language: LanguageStore;
   /** True when default phrases should be seeded (first run on this device). */
   isFirstRun: () => boolean;
   /** Present when the app may be served by the desktop companion. */
@@ -98,6 +101,7 @@ export function createAppServices(): AppServices {
     synthesizer: new WebSpeechSynthesizer(),
     phrases: { repository, generateId: createId, now: () => Date.now() },
     settings: new LocalStorageSettingsStore(),
+    language: new LocalStorageLanguageStore(),
     isFirstRun: () => !repository.isInitialized(),
     desktop: createDesktopServices(),
   };

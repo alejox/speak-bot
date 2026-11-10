@@ -72,7 +72,7 @@ describe("desktop server boundary", () => {
     dir = await mkdtemp(join(tmpdir(), "speak-bot-boundary-"));
     server = createDesktopServer({
       repository: new JsonFilePhraseRepository(join(dir, "phrases.json")),
-      settings: new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "" }),
+      settings: new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es" }),
       synthesizer: silentSynthesizer,
       generateId: () => "id",
       now: () => 1000,

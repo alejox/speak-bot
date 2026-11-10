@@ -1,8 +1,17 @@
-import type { AudioDevice, DesktopSettings, PhraseDependencies, SpeechCapabilities, Voice } from "@speak-bot/core";
+import {
+  isUiLanguage,
+  type AudioDevice,
+  type DesktopSettings,
+  type PhraseDependencies,
+  type SpeechCapabilities,
+  type UiLanguage,
+  type Voice,
+} from "@speak-bot/core";
 import { useCallback, useEffect, useState } from "react";
 import type { SpeechSettings } from "../adapters/local-storage-settings-store";
 import type { SpeakTarget } from "../adapters/local-storage-speak-target-store";
 import type { AppSpeechSynthesizer } from "../adapters/web-speech-synthesizer";
+import type { MessageKey } from "../i18n/messages";
 import type { AppServices } from "./composition-root";
 
 export interface SpeechTarget {
@@ -22,8 +31,12 @@ export interface SpeechTarget {
   /** Null unless speaking on a desktop that can route audio to a chosen device. */
   outputDevice: { devices: AudioDevice[]; selectedId: string; onChange: (deviceId: string) => void } | null;
   onPhrasesChanged: (listener: () => void) => () => void;
+  /** Interface language saved on the desktop; null unless speaking on the desktop and loaded. */
+  desktopLanguage: UiLanguage | null;
+  /** Saves the interface language on the desktop (no-op unless speaking on the desktop). */
+  saveDesktopLanguage: (language: UiLanguage) => void;
   /** Last error from talking to the desktop, if any. */
-  error: string;
+  error: MessageKey | null;
 }
 
 const noSubscription = () => () => {};
@@ -38,7 +51,7 @@ export function useSpeechTarget(services: AppServices): SpeechTarget {
   const [desktopSettings, setDesktopSettings] = useState<DesktopSettings | null>(null);
   const [devices, setDevices] = useState<AudioDevice[]>([]);
   const [voices, setVoices] = useState<Voice[]>([]);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<MessageKey | null>(null);
 
   useEffect(() => {
     if (!desktop) return;
@@ -61,7 +74,7 @@ export function useSpeechTarget(services: AppServices): SpeechTarget {
     let active = true;
     remote.loadSettings().then(
       (loaded) => active && setDesktopSettings(loaded),
-      () => active && setError("Could not load the computer settings."),
+      () => active && setError("error.loadDesktopSettings"),
     );
     return () => {
       active = false;
@@ -99,7 +112,7 @@ export function useSpeechTarget(services: AppServices): SpeechTarget {
     (patch: Partial<DesktopSettings>) => {
       if (!remote) return;
       setDesktopSettings((current) => (current ? { ...current, ...patch } : current));
-      remote.saveSettings(patch).then(setDesktopSettings, () => setError("Could not save the computer settings."));
+      remote.saveSettings(patch).then(setDesktopSettings, () => setError("error.saveDesktopSettings"));
     },
     [remote],
   );
@@ -147,6 +160,8 @@ export function useSpeechTarget(services: AppServices): SpeechTarget {
         }
       : null,
     onPhrasesChanged: remote ? remote.onPhrasesChanged : noSubscription,
+    desktopLanguage: isRemote && isUiLanguage(desktopSettings?.language) ? desktopSettings.language : null,
+    saveDesktopLanguage: (language) => saveDesktopSettings({ language }),
     error,
   };
 }

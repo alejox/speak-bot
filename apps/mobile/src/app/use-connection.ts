@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ConnectionInfo } from "../adapters/desktop-api";
+import type { MessageKey } from "../i18n/messages";
 import type { ConnectionServices } from "./composition-root";
 
 export interface ConnectionState {
@@ -8,7 +9,7 @@ export interface ConnectionState {
   onSelectUrl: (url: string) => void;
   qrImage: string | null;
   overlayUrl: string;
-  copyStatus: string;
+  copyStatus: MessageKey | null;
   onCopyOverlayUrl: () => void;
 }
 
@@ -22,7 +23,7 @@ export function useConnection(connection: ConnectionServices | undefined, isDesk
   const [info, setInfo] = useState<ConnectionInfo | null>(null);
   const [selectedUrl, setSelectedUrl] = useState("");
   const [qrImage, setQrImage] = useState<string | null>(null);
-  const [copyStatus, setCopyStatus] = useState("");
+  const [copyStatus, setCopyStatus] = useState<MessageKey | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -69,9 +70,9 @@ export function useConnection(connection: ConnectionServices | undefined, isDesk
     copyStatus,
     onCopyOverlayUrl: () => {
       void connection.copyText(info.overlayUrl).then((copied) => {
-        setCopyStatus(copied ? "Copied!" : "Could not copy. Select the URL and copy it by hand.");
+        setCopyStatus(copied ? "connect.copied" : "connect.copyFailed");
         clearTimeout(copyTimer.current);
-        copyTimer.current = setTimeout(() => setCopyStatus(""), COPY_STATUS_MS);
+        copyTimer.current = setTimeout(() => setCopyStatus(null), COPY_STATUS_MS);
       });
     },
   };
