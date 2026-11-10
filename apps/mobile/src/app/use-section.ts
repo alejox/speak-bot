@@ -25,3 +25,16 @@ export function useSection(storage: Storage | null = getLocalStorage()): [Sectio
   ];
 }
 
+export const NAV_COLLAPSED_STORAGE_KEY = "speed-deck:nav-collapsed";
+
+/** Whether the side menu shows icons only (wide screens), remembered on this device; expanded by default. */
+export function useNavCollapsed(storage: Storage | null = getLocalStorage()): [boolean, (collapsed: boolean) => void] {
+  const [collapsed, setCollapsed] = useState(() => readJson(storage, NAV_COLLAPSED_STORAGE_KEY) === true);
+  return [
+    collapsed,
+    (next) => {
+      setCollapsed(next);
+      writeJson(storage, NAV_COLLAPSED_STORAGE_KEY, next);
+    },
+  ];
+}

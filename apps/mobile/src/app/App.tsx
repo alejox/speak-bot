@@ -2,10 +2,12 @@ import { MAX_KEY_SLOTS, type Board } from "@speed-deck/core";
 import { LayoutGrid, MessageSquare, Settings, Smartphone } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { LocalStorageBoardPositionStore } from "../adapters/local-storage-board-position-store";
+import { BoardEditor } from "../components/BoardEditor";
 import { BoardPlayer } from "../components/BoardPlayer";
 import { Composer } from "../components/Composer";
 import { ConnectPanel } from "../components/ConnectPanel";
 import { KeyEditorDialog } from "../components/KeyEditorDialog";
+import { ObsSettings } from "../components/ObsSettings";
 import { QuickKeys } from "../components/QuickKeys";
 import { SectionView } from "../components/SectionView";
 import { SettingsPanel } from "../components/SettingsPanel";
@@ -13,10 +15,12 @@ import { SideNav, type NavItem } from "../components/SideNav";
 import { I18nProvider, useMessageText, useT } from "../i18n/I18nProvider";
 import type { Message } from "../i18n/messages";
 import type { AppServices } from "./composition-root";
+import { describeRequestError } from "./describe-error";
 import { useConnection } from "./use-connection";
 import { useDeck } from "./use-deck";
 import { useLanguagePreference, type LanguagePreference } from "./use-language-preference";
-import { useSection, type Section } from "./use-section";
+import { useMediaQuery, WIDE_EDITOR_QUERY } from "./use-media-query";
+import { useNavCollapsed, useSection, type Section } from "./use-section";
 import { useSpeech } from "./use-speech";
 import { useSpeechTarget, type SpeechTarget } from "./use-speech-target";
 
@@ -64,9 +68,11 @@ function AppContent({ services, target, preference }: AppContentProps) {
   const speech = useSpeech(target, language, setStatus);
   const [positionStore] = useState(() => new LocalStorageBoardPositionStore());
   const deck = useDeck(target, speech, language, positionStore, setStatus);
+  const isWide = useMediaQuery(WIDE_EDITOR_QUERY);
   const [isEditing, setIsEditing] = useState(false);
   const [dialogSlot, setDialogSlot] = useState<number | null>(null);
   const [storedSection, setSection] = useSection();
+  const [navCollapsed, setNavCollapsed] = useNavCollapsed();
   const [navigated, setNavigated] = useState(false);
   const [text, setText] = useState("");
 
@@ -75,6 +81,7 @@ function AppContent({ services, target, preference }: AppContentProps) {
   const navItems: NavItem<Section>[] = (["board", "speak", "connect", "settings"] as const)
     .filter((id) => id !== "connect" || connection)
     .map((id) => ({ id, label: t(`nav.${id}`), icon: SECTION_ICONS[id] }));
+  const isEditorOpen = section === "board" && isEditing && isWide;
   const board = deck.navigation.board;
 
   const select = (next: Section) => {
@@ -94,19 +101,23 @@ function AppContent({ services, target, preference }: AppContentProps) {
     );
   };
 
-  const editToggle = (
+  const editToggle = isWide ? (
+    <button type="button" className="button button-small" onClick={() => setIsEditing(true)}>
+      {t("board.editBoard")}
+    </button>
+  ) : (
     <button type="button" className="button button-small" aria-pressed={isEditing} onClick={() => setIsEditing((value) => !value)}>
       {isEditing ? t("board.done") : t("board.edit")}
     </button>
   );
 
   return (
-    <div className="app">
+    <div className={["app", isEditorOpen ? "app-editing" : "", navCollapsed ? "app-nav-collapsed" : ""].filter(Boolean).join(" ")}>
       <header className="app-header">
         <h1>{t("app.title")}</h1>
       </header>
 
-      <SideNav items={navItems} active={section} onSelect={select} />
+      <SideNav items={navItems} active={section} onSelect={select} collapsed={navCollapsed} onCollapsedChange={setNavCollapsed} />
 
       <main className="app-main">
         {!target.synthesizer.isSupported && (
@@ -115,22 +126,44 @@ function AppContent({ services, target, preference }: AppContentProps) {
           </p>
         )}
 
-        <p className="status" role="status" aria-live="polite">
-          {statusText || (target.error ? t(target.error) : "")}
-        </p>
+        {!isEditorOpen && (
+          <p className="status" role="status" aria-live="polite">
+            {statusText || (target.error ? t(target.error) : "")}
+          </p>
+        )}
 
         {section === "board" && (
-          <SectionView key="board" title={t("nav.board")} focusHeading={navigated}>
+          <SectionView key="board" title={isEditorOpen ? t("editor.title") : t("nav.board")} focusHeading={navigated}>
             {!deck.boards.isLoaded && <p className="empty">{t("board.loading")}</p>}
-            <BoardPlayer
-              boards={deck.boards.boards}
-              navigation={deck.navigation}
-              context={deck.context}
-              onRun={deck.run}
-              onEditKey={setDialogSlot}
-              isEditing={isEditing}
-              toolbar={editToggle}
-            />
+            {isEditorOpen ? (
+              <>
+                <div className="editor-toolbar">
+                  <button type="button" className="button button-small" onClick={() => setIsEditing(false)}>
+                    {t("board.closeEditor")}
+                  </button>
+                </div>
+                <BoardEditor
+                  boards={deck.boards}
+                  navigation={deck.navigation}
+                  context={deck.context}
+                  obs={target.obs}
+                  language={language}
+                  onTest={deck.run}
+                  statusText={statusText}
+                  report={setStatus}
+                />
+              </>
+            ) : (
+              <BoardPlayer
+                boards={deck.boards.boards}
+                navigation={deck.navigation}
+                context={deck.context}
+                onRun={deck.run}
+                onEditKey={setDialogSlot}
+                isEditing={isEditing && !isWide}
+                toolbar={editToggle}
+              />
+            )}
           </SectionView>
         )}
 
@@ -163,7 +196,31 @@ function AppContent({ services, target, preference }: AppContentProps) {
               onLanguageChange={preference.setLanguage}
               speakOn={target.speakOn}
               outputDevice={target.outputDevice}
-            />
+            >
+              {target.obsSettings && (
+                <ObsSettings
+                  settings={target.obsSettings}
+                  live={deck.obs}
+                  canEdit={target.isOnComputer}
+                  onSave={(patch) =>
+                    target.saveObsSettings(patch).then(
+                      () => {
+                        setStatus({ key: "obs.saved" });
+                        return true;
+                      },
+                      (error: unknown) => {
+                        setStatus(describeRequestError(error));
+                        return false;
+                      },
+                    )
+                  }
+                  onTest={() => {
+                    setStatus(null);
+                    target.obs?.connect().catch((error: unknown) => setStatus(describeRequestError(error)));
+                  }}
+                />
+              )}
+            </SettingsPanel>
           </SectionView>
         )}
       </main>
