@@ -159,12 +159,10 @@ body {
   gap: 16px;
 }
 
-.section-title:focus {
-  outline: none;
-}
-
+/* Section headings receive focus programmatically (for screen readers) but are not interactive, so no ring. */
+.section-title:focus,
 .section-title:focus-visible {
-  outline: 3px solid var(--focus);
+  outline: none;
 }
 
 h1 {
