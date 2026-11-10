@@ -209,118 +209,121 @@ export function BoardPlayer({
     <section className={`deck deck-${variant}`} aria-label={board.name}>
       {toolbar && <div className="deck-header">{toolbar}</div>}
 
-      <ol className="deck-grid" aria-label={t("board.keys", { board: board.name })}>
-        {keys.map((key, index) => {
-          const slot = page * KEYS_PER_PAGE + index;
-          const dropClass = dropSlot === slot ? "deck-key-drop" : "";
-          if (!key) {
+      {/* The grid's own box, so wide layouts can size the keys to the room it gets. */}
+      <div className="deck-grid-area">
+        <ol className="deck-grid" aria-label={t("board.keys", { board: board.name })}>
+          {keys.map((key, index) => {
+            const slot = page * KEYS_PER_PAGE + index;
+            const dropClass = dropSlot === slot ? "deck-key-drop" : "";
+            if (!key) {
+              return (
+                <li key={slot}>
+                  {onEditKey && index === plusIndex ? (
+                    <button
+                      ref={slotRef(slot)}
+                      type="button"
+                      className={["deck-key", "deck-key-empty", dropClass].filter(Boolean).join(" ")}
+                      aria-label={t("board.addKey", { number: slot + 1 })}
+                      onClick={() => press(slot, undefined, false)}
+                      {...dropHandlers(slot)}
+                    >
+                      <span className="deck-key-plus" aria-hidden="true">
+                        +
+                      </span>
+                    </button>
+                  ) : (
+                    // A blank space: still a place to drop a dragged key.
+                    <div className="deck-key-blank" aria-hidden="true" {...dropHandlers(slot)} />
+                  )}
+                </li>
+              );
+            }
+            const label = keyLabel(key, context.boards, t);
+            const presentation = presentKey(key.action, context);
+            const disabled = presentation.disabledReason !== undefined;
+            const reason = presentation.disabledReason ? t(presentation.disabledReason) : undefined;
+            const stateLabel = presentation.state && KEY_STATE_LABELS[presentation.state];
+            const speaking = isSpeaking && spoken?.boardId === board.id && spoken.slot === slot;
+            // Why the key is offline, or that it is being said: hidden text the key points to.
+            const description = reason ?? (speaking ? t("key.speaking") : undefined);
+            const descriptionId = `${descriptionPrefix}-${slot}`;
             return (
-              <li key={slot}>
-                {onEditKey && index === plusIndex ? (
+              <li key={slot} className={canEdit ? "deck-slot" : undefined}>
+                <BoardKey
+                  ref={slotRef(slot)}
+                  label={label}
+                  {...keyLook(key, presentation.iconId)}
+                  color={key.color}
+                  pressed={presentation.pressed}
+                  state={presentation.state}
+                  stateLabel={stateLabel ? t(stateLabel) : undefined}
+                  detail={presentation.detail ? t(presentation.detail.key, presentation.detail.params) : undefined}
+                  speaking={speaking}
+                  offline={disabled}
+                  aria-disabled={disabled ? true : undefined}
+                  aria-describedby={description ? descriptionId : undefined}
+                  title={reason}
+                  selected={selectedSlot === slot}
+                  className={dropClass || undefined}
+                  aria-keyshortcuts={canEdit ? "Shift+F10" : undefined}
+                  onClick={() => press(slot, key, disabled)}
+                  draggable={canDrag || undefined}
+                  onDragStart={
+                    canDrag
+                      ? (event) => {
+                          cancelLongPress();
+                          setMenuSlot(null);
+                          event.dataTransfer.setData(SLOT_DRAG_TYPE, String(slot));
+                          event.dataTransfer.effectAllowed = "move";
+                        }
+                      : undefined
+                  }
+                  {...keyMenuHandlers(slot)}
+                  {...dropHandlers(slot)}
+                />
+                {canEdit && (
+                  // A visible way into the menu for mouse users; keyboards use Shift+F10 on the key itself.
                   <button
-                    ref={slotRef(slot)}
                     type="button"
-                    className={["deck-key", "deck-key-empty", dropClass].filter(Boolean).join(" ")}
-                    aria-label={t("board.addKey", { number: slot + 1 })}
-                    onClick={() => press(slot, undefined, false)}
-                    {...dropHandlers(slot)}
+                    className="deck-key-more"
+                    tabIndex={-1}
+                    aria-label={t("keyMenu.options", { number: slot + 1 })}
+                    aria-haspopup="menu"
+                    aria-expanded={menuSlot === slot}
+                    onClick={() => openMenu(slot)}
                   >
-                    <span className="deck-key-plus" aria-hidden="true">
-                      +
-                    </span>
+                    <MoreHorizontal size={18} aria-hidden="true" />
                   </button>
-                ) : (
-                  // A blank space: still a place to drop a dragged key.
-                  <div className="deck-key-blank" aria-hidden="true" {...dropHandlers(slot)} />
+                )}
+                {menuSlot === slot && onEditKey && (
+                  <KeyMenu
+                    slot={slot}
+                    label={label}
+                    onEdit={() => {
+                      closeMenu(true);
+                      onEditKey(slot);
+                    }}
+                    onDelete={async () => {
+                      const deleted = (await onDeleteKey?.(slot)) ?? false;
+                      if (deleted) {
+                        setMenuSlot(null);
+                        setFocusSlot(slot);
+                      }
+                      return deleted;
+                    }}
+                    onClose={closeMenu}
+                  />
+                )}
+                {description && (
+                  <span id={descriptionId} hidden>
+                    {description}
+                  </span>
                 )}
               </li>
             );
-          }
-          const label = keyLabel(key, context.boards, t);
-          const presentation = presentKey(key.action, context);
-          const disabled = presentation.disabledReason !== undefined;
-          const reason = presentation.disabledReason ? t(presentation.disabledReason) : undefined;
-          const stateLabel = presentation.state && KEY_STATE_LABELS[presentation.state];
-          const speaking = isSpeaking && spoken?.boardId === board.id && spoken.slot === slot;
-          // Why the key is offline, or that it is being said: hidden text the key points to.
-          const description = reason ?? (speaking ? t("key.speaking") : undefined);
-          const descriptionId = `${descriptionPrefix}-${slot}`;
-          return (
-            <li key={slot} className={canEdit ? "deck-slot" : undefined}>
-              <BoardKey
-                ref={slotRef(slot)}
-                label={label}
-                {...keyLook(key, presentation.iconId)}
-                color={key.color}
-                pressed={presentation.pressed}
-                state={presentation.state}
-                stateLabel={stateLabel ? t(stateLabel) : undefined}
-                detail={presentation.detail ? t(presentation.detail.key, presentation.detail.params) : undefined}
-                speaking={speaking}
-                offline={disabled}
-                aria-disabled={disabled ? true : undefined}
-                aria-describedby={description ? descriptionId : undefined}
-                title={reason}
-                selected={selectedSlot === slot}
-                className={dropClass || undefined}
-                aria-keyshortcuts={canEdit ? "Shift+F10" : undefined}
-                onClick={() => press(slot, key, disabled)}
-                draggable={canDrag || undefined}
-                onDragStart={
-                  canDrag
-                    ? (event) => {
-                        cancelLongPress();
-                        setMenuSlot(null);
-                        event.dataTransfer.setData(SLOT_DRAG_TYPE, String(slot));
-                        event.dataTransfer.effectAllowed = "move";
-                      }
-                    : undefined
-                }
-                {...keyMenuHandlers(slot)}
-                {...dropHandlers(slot)}
-              />
-              {canEdit && (
-                // A visible way into the menu for mouse users; keyboards use Shift+F10 on the key itself.
-                <button
-                  type="button"
-                  className="deck-key-more"
-                  tabIndex={-1}
-                  aria-label={t("keyMenu.options", { number: slot + 1 })}
-                  aria-haspopup="menu"
-                  aria-expanded={menuSlot === slot}
-                  onClick={() => openMenu(slot)}
-                >
-                  <MoreHorizontal size={18} aria-hidden="true" />
-                </button>
-              )}
-              {menuSlot === slot && onEditKey && (
-                <KeyMenu
-                  slot={slot}
-                  label={label}
-                  onEdit={() => {
-                    closeMenu(true);
-                    onEditKey(slot);
-                  }}
-                  onDelete={async () => {
-                    const deleted = (await onDeleteKey?.(slot)) ?? false;
-                    if (deleted) {
-                      setMenuSlot(null);
-                      setFocusSlot(slot);
-                    }
-                    return deleted;
-                  }}
-                  onClose={closeMenu}
-                />
-              )}
-              {description && (
-                <span id={descriptionId} hidden>
-                  {description}
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+          })}
+        </ol>
+      </div>
 
       <div className="deck-pager">
         <button

@@ -11,7 +11,7 @@ import { BoardMenu } from "../components/BoardMenu";
 import { BoardPlayer } from "../components/BoardPlayer";
 import { Composer, type ComposerHandle } from "../components/Composer";
 import { ConnectPanel } from "../components/ConnectPanel";
-import { DeckStatus } from "../components/DeckStatus";
+import { DeckStatus, DeckStatusIndicator } from "../components/DeckStatus";
 import { ActionPickerDialog, KeyEditorDialog } from "../components/KeyEditorDialog";
 import { KeyInspector } from "../components/KeyInspector";
 import { KeyInspectorEmpty } from "../components/KeyInspectorEmpty";
@@ -44,6 +44,20 @@ const SECTION_ICONS: Record<Section, ReactNode> = {
   connect: <Smartphone size={ICON_SIZE} />,
   settings: <Settings size={ICON_SIZE} />,
 };
+
+/** The app's mark: a small deck of keys, decorative next to its name. */
+function AppMark() {
+  return (
+    <svg className="app-mark" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" focusable="false">
+      <rect x="2" y="5" width="6" height="6" rx="1.6" />
+      <rect x="9" y="5" width="6" height="6" rx="1.6" opacity="0.55" />
+      <rect x="16" y="5" width="6" height="6" rx="1.6" opacity="0.55" />
+      <rect x="2" y="13" width="6" height="6" rx="1.6" opacity="0.55" />
+      <rect x="9" y="13" width="6" height="6" rx="1.6" />
+      <rect x="16" y="13" width="6" height="6" rx="1.6" opacity="0.55" />
+    </svg>
+  );
+}
 
 /** Container: chooses the speech target and interface language, then renders the app in that language. */
 export function App({ services }: { services: AppServices }) {
@@ -147,6 +161,9 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   // Deck keys only run through the computer app; say so once instead of leaving every key to explain itself.
   const showDeckStatus = space === "deck" && target.detection !== "pending";
   const deckNote: MessageKey | null = !showDeckStatus || target.isRemote ? null : target.isDesktopAvailable ? "deck.computerNotChosen" : "deck.needsComputer";
+  // Wide screens keep the Deck workspace to keys and controls: texts stay for screen readers or move into the indicator.
+  const isDeckWorkspace = isWide && space === "deck";
+  const hasPanel = Boolean(inspection) || reservesPanel;
 
   // Only what is typed here is remembered; phrases on board keys are already one tap away.
   const speakComposerText = () => {
@@ -173,11 +190,23 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
     );
   };
 
+  const deckIndicator = showDeckStatus && isDeckWorkspace && deck && (
+    <DeckStatusIndicator
+      isComputerConnected={target.isRemote}
+      obs={deck.obs}
+      note={deckNote ? t(deckNote) : undefined}
+      onOpenSettings={() => select("settings")}
+    />
+  );
+
   return (
     // data-space picks the accent colour: each space has its own, and the other sections share the Voice one.
-    <div className={["app", navCollapsed ? "app-nav-collapsed" : ""].filter(Boolean).join(" ")} data-space={space ?? "voice"}>
+    <div className={["app", navCollapsed ? "app-nav-collapsed" : "", hasPanel ? "app-inspecting" : ""].filter(Boolean).join(" ")} data-space={space ?? "voice"}>
       <header className="app-header">
-        <h1>{t("app.title")}</h1>
+        <h1 className="app-brand">
+          <AppMark />
+          <span className="app-brand-name">{t("app.title")}</span>
+        </h1>
       </header>
 
       <SideNav items={navItems} active={section} onSelect={select} collapsed={navCollapsed} onCollapsedChange={setNavCollapsed} />
@@ -189,12 +218,12 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
           </p>
         )}
 
-        <p className="status" role="status" aria-live="polite">
+        <p className={isDeckWorkspace ? "status visually-hidden" : "status"} role="status" aria-live="polite">
           {statusText || (target.error ? t(target.error) : "")}
         </p>
 
         {space && deck && (
-          <SectionView key={space} title={t(`nav.${space}`)} focusHeading={navigated}>
+          <SectionView key={space} title={t(`nav.${space}`)} focusHeading={navigated} hideTitle={isDeckWorkspace}>
             <>
               {space === "voice" && (
                 <>
@@ -210,8 +239,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   <RecentPhrases phrases={recentPhrases} onSpeak={speech.speak} onClear={clearRecentPhrases} />
                 </>
               )}
-              {showDeckStatus && <DeckStatus isComputerConnected={target.isRemote} obs={deck.obs} />}
-              {deckNote && (
+              {showDeckStatus && !isDeckWorkspace && <DeckStatus isComputerConnected={target.isRemote} obs={deck.obs} />}
+              {deckNote && !isDeckWorkspace && (
                 <div className="deck-note">
                   <p className="empty">{t(deckNote)}</p>
                   {deckNote === "deck.computerNotChosen" && (
@@ -221,6 +250,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   )}
                 </div>
               )}
+              {/* Without a board there is no deck header to hold the indicator, so it gets a row of its own. */}
+              {deckIndicator && !board && <div className="deck-header">{deckIndicator}</div>}
               {!deck.boards.isLoaded && <p className="empty">{t("board.loading")}</p>}
               {deck.boards.isLoaded && !board && (
                 <div className="space-empty">
@@ -239,7 +270,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   </button>
                 </div>
               )}
-              <div className={inspection || reservesPanel ? "deck-layout deck-layout-inspecting" : "deck-layout"}>
+              <div className="deck-layout">
                 <BoardPlayer
                   navigation={deck.navigation}
                   context={deck.context}
@@ -252,41 +283,20 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   onMoveKey={deck.moveKey}
                   toolbar={
                     board && (
-                      <BoardMenu
-                        board={board}
-                        offered={deck.spaceBoards}
-                        boards={deck.boards}
-                        language={language}
-                        onSelect={(boardId) => deck.navigation.go({ boardId, page: 0 })}
-                        statusText={statusText}
-                      />
+                      <>
+                        <BoardMenu
+                          board={board}
+                          offered={deck.spaceBoards}
+                          boards={deck.boards}
+                          language={language}
+                          onSelect={(boardId) => deck.navigation.go({ boardId, page: 0 })}
+                          statusText={statusText}
+                        />
+                        {deckIndicator}
+                      </>
                     )
                   }
                 />
-                {inspection && board && (
-                  <KeyInspector
-                    key={`${inspection.boardId}:${inspection.slot}:${inspection.assignedType ?? ""}`}
-                    slot={inspection.slot}
-                    existing={inspectedKey}
-                    assignedType={inspectedKey ? undefined : inspection.assignedType}
-                    boardKind={board.kind}
-                    boards={deck.boards.boards}
-                    obs={target.obs}
-                    onTest={deck.run}
-                    onSave={async (key) => {
-                      const saved = await deck.saveKey(key, inspectedKey);
-                      if (saved) setInspected({ boardId: board.id, slot: key.slot });
-                      return saved;
-                    }}
-                    onMove={async (to) => {
-                      const moved = await deck.moveKey(inspection.slot, to);
-                      if (moved) setInspected({ boardId: board.id, slot: to });
-                      return moved;
-                    }}
-                    onClose={() => setInspected(null)}
-                  />
-                )}
-                {!inspection && reservesPanel && <KeyInspectorEmpty addSlot={addSlot} onAdd={setPickerSlot} />}
               </div>
             </>
           </SectionView>
@@ -342,6 +352,32 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
           </SectionView>
         )}
       </main>
+
+      {/* The inspector docks to the window edge, beside the workspace (wide screens, Deck only while reserved). */}
+      {inspection && deck && board && (
+        <KeyInspector
+          key={`${inspection.boardId}:${inspection.slot}:${inspection.assignedType ?? ""}`}
+          slot={inspection.slot}
+          existing={inspectedKey}
+          assignedType={inspectedKey ? undefined : inspection.assignedType}
+          boardKind={board.kind}
+          boards={deck.boards.boards}
+          obs={target.obs}
+          onTest={deck.run}
+          onSave={async (key) => {
+            const saved = await deck.saveKey(key, inspectedKey);
+            if (saved) setInspected({ boardId: board.id, slot: key.slot });
+            return saved;
+          }}
+          onMove={async (to) => {
+            const moved = await deck.moveKey(inspection.slot, to);
+            if (moved) setInspected({ boardId: board.id, slot: to });
+            return moved;
+          }}
+          onClose={() => setInspected(null)}
+        />
+      )}
+      {!inspection && reservesPanel && <KeyInspectorEmpty addSlot={addSlot} onAdd={setPickerSlot} />}
 
       {pickerSlot !== null && deck && board && (
         <ActionPickerDialog

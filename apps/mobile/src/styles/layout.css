@@ -1,10 +1,13 @@
 /*
  * App shell: header, section navigation and the main area. The header and the navigation share one
  * surface and the content sits on the page background, so layering separates them instead of lines.
+ * With a sidebar (720px and up) the header sits at the top of it, so the sidebar runs from the top of the
+ * window to the bottom, and in the Deck the key inspector docks to the right edge the same way.
  */
 
 .app {
   --nav-width: 11rem;
+  --inspector-width: 340px;
   min-height: 100vh;
   display: grid;
   grid-template-columns: var(--nav-width) minmax(0, 1fr);
@@ -35,9 +38,73 @@
   gap: var(--space-3);
 }
 
-/* Room for the key inspector beside the deck. */
-.app-main:has(.deck-layout-inspecting) {
-  max-width: calc(var(--width-content) + 400px);
+/* The name with its mark; the mark alone when the sidebar is a rail. */
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.app-mark {
+  flex: none;
+  fill: var(--color-accent);
+}
+
+.app-brand-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 720px) {
+  .app {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "header main"
+      "nav main";
+  }
+
+  .app-inspecting {
+    grid-template-columns: var(--nav-width) minmax(0, 1fr) var(--inspector-width);
+    grid-template-areas:
+      "header main inspector"
+      "nav main inspector";
+  }
+
+  .app-header {
+    padding: var(--space-5) var(--space-4) var(--space-4);
+  }
+
+  /* The main area scrolls on its own, so the sidebar and the inspector always span the window. */
+  .app-main {
+    overflow-y: auto;
+  }
+
+  .side-nav ul {
+    position: static;
+  }
+
+  .app-nav-collapsed .app-header {
+    padding-inline: var(--space-2);
+  }
+
+  .app-nav-collapsed .app-brand {
+    justify-content: center;
+  }
+
+  .app-nav-collapsed .app-brand-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }
 
 .side-nav {

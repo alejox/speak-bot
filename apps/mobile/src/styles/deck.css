@@ -388,13 +388,115 @@
   transform: translateX(-50%);
 }
 
+/* The Deck status as one icon (wide screens): its name and tooltip carry the words. */
+.deck-indicator {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-control);
+  height: var(--size-control);
+  margin-left: auto;
+  padding: 0;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: none;
+  border-radius: var(--radius-lg);
+}
+
+.deck-indicator-ok {
+  color: var(--color-success);
+}
+
+.deck-indicator-link {
+  cursor: pointer;
+}
+
+.deck-indicator-link:hover {
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+}
+
+/* Live or recording: a red dot on the icon; the name says which. */
+.deck-indicator-dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--key-live);
+  box-shadow: 0 0 0 2px var(--color-surface);
+}
+
 /*
- * Wide screens with the inspector: the deck and a fixed-width panel side by side. In the Deck the panel
- * is always there (empty when no key is selected), so the keys shrink to fit instead of moving.
+ * The Deck workspace on wide screens: only the board pill, the status icon, the pager and the keys.
+ * The keys are a 5 x 3 page like a hardware deck, each the largest square that fits both the width and
+ * the height left for them (capped), centred, so the page never scrolls.
  */
-.deck-layout-inspecting {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: var(--space-6);
-  align-items: start;
+@media (min-width: 1000px) {
+  .app[data-space="deck"] .app-main {
+    max-width: none;
+  }
+
+  .app[data-space="deck"] .app-main > .section,
+  .app[data-space="deck"] .deck-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .app[data-space="deck"] .deck {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "header pager"
+      "grid grid";
+    gap: var(--space-5) var(--space-2);
+  }
+
+  .app[data-space="deck"] .deck-header {
+    grid-area: header;
+    max-width: none;
+    flex-wrap: nowrap;
+  }
+
+  .app[data-space="deck"] .deck-pager {
+    grid-area: pager;
+    gap: var(--space-2);
+  }
+
+  /* The page number is still announced; on screen the arrows and the + say enough. */
+  .app[data-space="deck"] .deck-page {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    min-width: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .app[data-space="deck"] .deck-grid-area {
+    grid-area: grid;
+    min-height: 0;
+    container-type: size;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .app[data-space="deck"] .deck-grid {
+    --deck-gap: var(--space-4);
+    --key-size: min(calc((100cqw - 4 * var(--deck-gap)) / 5), calc((100cqh - 2 * var(--deck-gap)) / 3), 190px);
+    grid-template-columns: repeat(5, var(--key-size));
+    grid-auto-rows: var(--key-size);
+    gap: var(--deck-gap);
+    max-width: none;
+  }
 }

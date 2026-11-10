@@ -335,21 +335,19 @@
 }
 
 /*
- * The inspector (wide screens): one flat panel beside the deck with a large preview of the key,
- * its name, then the form; its single filled button is Save.
+ * The inspector (wide screens): a column docked to the window's right edge, from top to bottom, on the
+ * sidebar's surface. A large preview of the key, its name, then the form; its single filled button is Save.
  */
 .inspector {
-  position: sticky;
-  top: var(--space-4);
+  grid-area: inspector;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: var(--space-3);
-  max-height: calc(100dvh - var(--space-7));
   overflow-y: auto;
-  padding: var(--space-5);
+  padding: var(--space-6) var(--space-5);
   background: var(--color-surface);
-  border-radius: var(--radius-xl);
 }
 
 .inspector-close {

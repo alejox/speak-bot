@@ -47,12 +47,15 @@ Out of scope (second delivery): custom `Select`, toggle switches and segmented c
   - Pending follow-ups: README edit-mode references (~L69, 79, 146); open questions on empty inspector state, single + per page for keyboard users, gradient on light colors. Engram mirror pending (auto mode could not check mem_save).
 - [x] T6 — Always-visible inspector in the Deck on wide screens (user decision 2026-11-10): with no key selected the panel shows an empty state (faint + tile, "New key", one hint line, full-width primary "Add key") that opens the same action picker for the slot the page's + targets; parameterless actions save and get selected. Panel fixed at 340px and always reserved in the Deck so the grid never jumps; keys shrink (4 columns at 1280px with the sidebar, 3 below ~1100px via the existing container query). Narrow screens and the Voice space unchanged.
   - Evidence: RED — 2 new tests in `inspector.test.tsx` failed (no complementary "New key"). GREEN — 246/246 tests, typecheck and build pass. `BoardPlayer` computes its add slot once (`addIndexOnPage`, also used for the + tile, including the blank new page) and reports it via `onAddSlotChange`; `KeyInspectorEmpty` renders the empty state. Full page: Add key is disabled and described by "This page is full. Go to another page to add a key." Visual check in a real browser not done. Commit: see Progress.
+- [x] T7 — App shell and Deck workspace like the reference (user request 2026-11-10: "que ese lateral quede desde arriba hasta abajo, así como el sidebar … quita textos en el espacio de trabajo"). From 720px the header (new mark + "Speed Deck") sits at the top of the sidebar, which runs the full window height; the main area scrolls on its own. In the Deck on wide screens (≥1000px) the inspector is a full-height column docked to the right edge (340px, sidebar surface, no card), rendered outside `<main>` as its own complementary landmark. The Deck workspace shows only the board pill, a compact status icon, the pager arrows and the keys: the "Deck" heading, the status line and the page number stay for screen readers only (visually hidden), notes move into the icon (`DeckStatusIndicator`: name and tooltip carry the full status; with a note it becomes a button to Settings described by the note). Keys are a 5 × 3 page, each the largest square that fits the grid area's width and height (container query units, capped at 190px), centred, with no page scroll. Narrow screens, the Voice space and the dock unchanged (status pills and notes still shown there).
+  - Evidence: RED — new `deck-workspace.test.tsx` 5/6 failed (visible heading and status, no indicator, inspector inside `main`). GREEN — 252/252 tests, typecheck and build pass. Headless Chromium screenshots of the built app at 1280×820 and 1920×1080: three full-height columns, 5 × 3 keys, no scroll. Commit: see Progress.
 
 ## Route per task
 
 - T1–T4: delegated direct, one writer (2+ non-trivial files across components, styles, i18n, tests).
 - T5: inline (build commands).
 - T6: delegated direct, one writer (App, BoardPlayer, new component, styles, i18n, tests).
+- T7: delegated direct, one writer (App, DeckStatus, SectionView, BoardPlayer, layout/deck/editor CSS, tests).
 
 ## Acceptance criteria
 
@@ -76,3 +79,4 @@ Out of scope (second delivery): custom `Select`, toggle switches and segmented c
 - 2026-11-10: document created; exploration done (see Problem).
 - 2026-11-10: T1 `79077a7`, T2 `93fc018`, T3 `4c51fbc`, T4 committed (hash in git log: `feat(mobile): restyle the deck to the reference with a key inspector and board pill`). Next: T5 (parent).
 - 2026-11-10: T6 committed (`feat(mobile): keep the key inspector open in the deck with an add-key empty state`).
+- 2026-11-10: T7 committed (`feat(mobile): dock the sidebar and inspector full height and keep the deck workspace to keys`).
