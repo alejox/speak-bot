@@ -1,0 +1,19 @@
+{
+  "name": "speak-bot",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Assistive text-to-speech for people who cannot speak.",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
