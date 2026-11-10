@@ -19,12 +19,25 @@ export const es: Messages = {
   "deck.computerNotChosen":
     "Las teclas del Deck controlan OBS mediante la app de Speed Deck para computadora. Para usarlas, elige «Computadora» en «Hablar en», dentro de Ajustes.",
 
+  "deck.openSettings": "Abrir Ajustes",
+  "deck.status.label": "Estado del Deck",
+  "deck.status.noComputer": "Computadora no conectada",
+  "deck.status.obsDisconnected": "OBS no conectado",
+  "deck.status.obsConnected": "OBS conectado",
+  "deck.status.live": "En vivo",
+  "deck.status.recording": "Grabando",
+
   "composer.region": "Escribe para hablar",
   "composer.textLabel": "Texto para decir",
   "composer.placeholder": "Escribe lo que quieres decir…",
   "composer.speak": "Hablar",
   "composer.stop": "Detener",
   "composer.save": "Guardar como tecla",
+  "composer.saveShort": "Guardar",
+
+  "recent.region": "Frases recientes",
+  "recent.clear": "Borrar",
+  "recent.clearLabel": "Borrar frases recientes",
 
   "board.select": "Tablero",
   "board.page": "Página {page} de {count}",
@@ -40,7 +53,7 @@ export const es: Messages = {
   "board.addKey": "Agregar una tecla en la posición {number}",
   "board.editKey": "Editar tecla {number}: {label}",
   "board.editHint":
-    "Toca una tecla para cambiarla o un espacio vacío para agregar una. También puedes mantener pulsada una tecla o hacer clic derecho en cualquier momento.",
+    "Toca una tecla para cambiarla o un espacio vacío para agregar una. Presiona «Listo» cuando termines.",
 
   "boards.title": "Tableros",
   "boards.create": "Nuevo tablero",
@@ -198,6 +211,11 @@ export const es: Messages = {
   "key.boardMissing": "El tablero de esta tecla ya no existe.",
   "key.currentVoice": "Voz: {language}",
   "key.pageLabel": "Página {page}",
+  "key.speaking": "Hablando",
+  "key.state.live": "EN VIVO",
+  "key.state.recording": "REC",
+  "key.state.muted": "Silenciado",
+  "key.state.on": "Activos",
 
   "actions.stopped": "Se detuvo la voz.",
   "actions.captionCleared": "Se borró el subtítulo.",

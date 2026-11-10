@@ -21,9 +21,19 @@ export interface KeyContext {
   boards: readonly Board[];
 }
 
+/** What a toggle that is on is doing; each one has its own cue on the key. */
+export type KeyLiveState = "live" | "recording" | "muted" | "on" | "scene";
+
+/** The three looks of a key: something to say, something to do, somewhere to go. */
+export type KeyRole = "phrase" | "command" | "navigation";
+
 export interface KeyPresentation {
-  /** Toggle state (muted, live, recording, current scene, captions hidden); undefined for plain keys. */
+  /** Toggle state (muted, live, recording, current scene, captions visible); undefined for plain keys. */
   pressed?: boolean;
+  /** Which "on" this is; undefined while the toggle is off and for plain keys. */
+  state?: KeyLiveState;
+  /** The icon of the current state when it differs from the action's (muted, captions hidden). */
+  iconId?: string;
   /** Why the key cannot run right now; undefined when it can. */
   disabledReason?: MessageKey;
   /** A short line under the label, e.g. the current voice language. */
@@ -44,20 +54,31 @@ export function presentKey(action: Action, context: KeyContext): KeyPresentation
     case "voice.toggleLanguage":
       return { detail: { key: "key.currentVoice", params: { language: LANGUAGE_NAMES[context.voiceLanguage] } } };
     case "captions.toggle":
-      return context.captionsVisible === null ? {} : { pressed: !context.captionsVisible };
+      if (context.captionsVisible === null) return {};
+      return context.captionsVisible ? { pressed: true, state: "on" } : { pressed: false, iconId: "captions-off" };
     case "nav.goToBoard":
       return context.boards.some((board) => board.id === action.boardId) ? {} : { disabledReason: "key.boardMissing" };
     case "obs.toggleMute":
-      return { pressed: state?.mutedInputs.includes(action.inputName) ?? false };
+      return state?.mutedInputs.includes(action.inputName) ? { pressed: true, state: "muted", iconId: "mic-off" } : { pressed: false };
     case "obs.toggleStream":
-      return { pressed: state?.streaming ?? false };
+      return toggle(state?.streaming, "live");
     case "obs.toggleRecord":
-      return { pressed: state?.recording ?? false };
+      return toggle(state?.recording, "recording");
     case "obs.switchScene":
-      return { pressed: state?.currentScene === action.sceneName };
+      return toggle(state?.currentScene === action.sceneName, "scene");
     default:
       return {};
   }
+}
+
+function toggle(isOn: boolean | undefined, state: KeyLiveState): KeyPresentation {
+  return isOn ? { pressed: true, state } : { pressed: false };
+}
+
+/** The look of a key, from what its action is for. */
+export function keyRole(action: Action): KeyRole {
+  if (action.type === "voice.speak") return "phrase";
+  return ACTION_REGISTRY[action.type].category === "navigation" ? "navigation" : "command";
 }
 
 /** The text shown on a key: its label, otherwise what it does (the text it says, the scene it opens…). */
@@ -82,7 +103,32 @@ export function keyLabel(key: Key, boards: readonly Board[], t: Translate): stri
   }
 }
 
-/** The icon id a key shows: its own, otherwise its action's. */
-export function keyIconId(key: Key): string {
-  return key.icon ?? ACTION_REGISTRY[key.action.type].defaultIcon;
+/**
+ * The icon a key draws: the one the person chose, otherwise the one of its current state or action.
+ * A phrase is text first, so it draws an icon only when the person chose one.
+ */
+export function keyShownIconId(key: Key, stateIconId?: string): string | undefined {
+  if (key.icon) return key.icon;
+  return key.action.type === "voice.speak" ? undefined : (stateIconId ?? ACTION_REGISTRY[key.action.type].defaultIcon);
 }
+
+/** How a key is drawn whatever its live state: its shape, its icon and which way it points. */
+export interface KeyLook {
+  role: KeyRole;
+  iconId: string | undefined;
+  danger: boolean;
+  backwards: boolean;
+}
+
+export function keyLook(key: Key, stateIconId?: string): KeyLook {
+  const { type } = key.action;
+  return { role: keyRole(key.action), iconId: keyShownIconId(key, stateIconId), danger: type === "voice.stop", backwards: type === "nav.prevPage" };
+}
+
+/** The words shown on a toggle that is on; the current scene is marked without words. */
+export const KEY_STATE_LABELS: Readonly<Partial<Record<KeyLiveState, MessageKey>>> = {
+  live: "key.state.live",
+  recording: "key.state.recording",
+  muted: "key.state.muted",
+  on: "key.state.on",
+};

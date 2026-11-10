@@ -48,10 +48,10 @@ describe("App in Computer mode", () => {
     await waitFor(() => expect(language).toHaveTextContent("Voice: Español"));
 
     await goTo(user, "Deck");
-    const captions = await screen.findByRole("button", { name: "Hide or show captions" });
-    expect(captions).toHaveAttribute("aria-pressed", "false");
+    const captions = await screen.findByRole("button", { name: /Hide or show captions/ });
+    expect(captions).toHaveAttribute("aria-pressed", "true");
     await user.click(captions);
-    await waitFor(() => expect(captions).toHaveAttribute("aria-pressed", "true"));
+    await waitFor(() => expect(captions).toHaveAttribute("aria-pressed", "false"));
     expect(screen.getByRole("status")).toHaveTextContent("Captions hidden in OBS.");
   });
 
@@ -88,7 +88,7 @@ describe("App in Computer mode", () => {
     const { emit, requests, user } = renderRemoteApp({ state });
     await goTo(user, "Deck");
 
-    const mic = await screen.findByRole("button", { name: "Mic" });
+    const mic = await screen.findByRole("button", { name: /^Mic/ });
     await waitFor(() => expect(mic).toHaveAttribute("aria-pressed", "true"));
     expect(screen.getByRole("button", { name: "Main" })).toHaveAttribute("aria-pressed", "true");
     const stream = screen.getByRole("button", { name: "Start or stop stream" });

@@ -16,12 +16,25 @@ export const en = {
   "deck.computerNotChosen":
     "Deck keys control OBS through the Speed Deck computer app. To use them, choose “Computer” under “Speak on” in Settings.",
 
+  "deck.openSettings": "Open Settings",
+  "deck.status.label": "Deck status",
+  "deck.status.noComputer": "Computer not connected",
+  "deck.status.obsDisconnected": "OBS not connected",
+  "deck.status.obsConnected": "OBS connected",
+  "deck.status.live": "Live",
+  "deck.status.recording": "Recording",
+
   "composer.region": "Type to speak",
   "composer.textLabel": "Text to speak",
   "composer.placeholder": "Type what you want to say…",
   "composer.speak": "Speak",
   "composer.stop": "Stop",
   "composer.save": "Save as key",
+  "composer.saveShort": "Save",
+
+  "recent.region": "Recent phrases",
+  "recent.clear": "Clear",
+  "recent.clearLabel": "Clear recent phrases",
 
   "board.select": "Board",
   "board.page": "Page {page} of {count}",
@@ -36,7 +49,7 @@ export const en = {
   "board.emptySlot": "Empty key {number}",
   "board.addKey": "Add a key at position {number}",
   "board.editKey": "Edit key {number}: {label}",
-  "board.editHint": "Tap a key to change it or an empty space to add one. You can also hold a key down or right-click it at any time.",
+  "board.editHint": "Tap a key to change it or an empty space to add one. Press “Done” when you finish.",
 
   "boards.title": "Boards",
   "boards.create": "New board",
@@ -194,6 +207,11 @@ export const en = {
   "key.boardMissing": "The board of this key no longer exists.",
   "key.currentVoice": "Voice: {language}",
   "key.pageLabel": "Page {page}",
+  "key.speaking": "Speaking",
+  "key.state.live": "LIVE",
+  "key.state.recording": "REC",
+  "key.state.muted": "Muted",
+  "key.state.on": "On",
 
   "actions.stopped": "Voice stopped.",
   "actions.captionCleared": "Caption cleared.",

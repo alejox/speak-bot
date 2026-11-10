@@ -138,6 +138,8 @@
   --key-border: var(--neutral-500);
   --key-empty: var(--neutral-600);
   --key-shadow: inset 0 -2px 0 rgb(15 18 23 / 0.1);
+  /* A key held down: the lip under it turns into a shade above it. */
+  --key-shadow-pressed: inset 0 2px 0 rgb(15 18 23 / 0.16);
   /* Pressing a key that has its own colour: the background cannot change, so the whole key does. */
   --key-press-filter: brightness(0.94);
   /* A toggle that is on: ring and dot. */
@@ -182,6 +184,7 @@
     --key-border: var(--neutral-600);
     --key-empty: var(--neutral-400);
     --key-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.35);
+    --key-shadow-pressed: inset 0 3px 0 rgb(0 0 0 / 0.45);
     --key-press-filter: brightness(1.2);
     --key-on: var(--color-warning);
   }
@@ -220,6 +223,7 @@
   --key-border: var(--neutral-600);
   --key-empty: var(--neutral-400);
   --key-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.35);
+  --key-shadow-pressed: inset 0 3px 0 rgb(0 0 0 / 0.45);
   --key-press-filter: brightness(1.2);
   --key-on: var(--color-warning);
 }

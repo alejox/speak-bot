@@ -22,6 +22,7 @@ import { DesktopEventSource, type WebSocketFactory } from "../adapters/desktop-e
 import { LocalStorageAppearanceStore, type AppearanceStore } from "../adapters/local-storage-appearance-store";
 import { LocalStorageBoardRepository } from "../adapters/local-storage-board-repository";
 import { LocalStorageLanguageStore, type LanguageStore } from "../adapters/local-storage-language-store";
+import { LocalStorageRecentPhrasesStore, type RecentPhrasesStore } from "../adapters/local-storage-recent-phrases-store";
 import { LocalStorageSettingsStore, type SettingsStore } from "../adapters/local-storage-settings-store";
 import { LocalStorageSpeakTargetStore, type SpeakTargetStore } from "../adapters/local-storage-speak-target-store";
 import { createQrCodeImage } from "../adapters/qr-code";
@@ -88,6 +89,8 @@ export interface AppServices {
   language: LanguageStore;
   /** The theme and text size chosen on this device. */
   appearance: AppearanceStore;
+  /** The texts last spoken from the composer on this device. */
+  recentPhrases: RecentPhrasesStore;
   /** Present when the app may be served by the desktop companion. */
   desktop?: DesktopServices;
 }
@@ -160,6 +163,7 @@ export function createAppServices(): AppServices {
     settings: new LocalStorageSettingsStore(),
     language: new LocalStorageLanguageStore(),
     appearance: new LocalStorageAppearanceStore(),
+    recentPhrases: new LocalStorageRecentPhrasesStore(),
     desktop: createDesktopServices(),
   };
 }

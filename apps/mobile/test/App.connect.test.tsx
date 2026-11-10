@@ -7,6 +7,7 @@ import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesize
 import { App } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
 import { createLocalBoardStore } from "../src/adapters/board-stores";
+import { LocalStorageRecentPhrasesStore } from "../src/adapters/local-storage-recent-phrases-store";
 import { LocalStorageBoardRepository } from "../src/adapters/local-storage-board-repository";
 import { boardsOf, createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
 import { memoryAppearanceStore } from "./app-fakes";
@@ -53,6 +54,7 @@ function setup({ hostname = "localhost", answer = route } = {}) {
     settings: { load: () => DEFAULT_SETTINGS, save: () => {} },
     language: memoryLanguageStore("en"),
     appearance: memoryAppearanceStore(),
+    recentPhrases: new LocalStorageRecentPhrasesStore(null),
     desktop: createDesktopServices({
       fetch,
       createSocket: (url) => new FakeSocket(url),

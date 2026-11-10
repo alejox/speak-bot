@@ -54,18 +54,34 @@
   box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 
-/* The composer sits above the voice board and shares its width. */
+/* A button with an icon before its label. */
+.button-icon,
+.composer-speak {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+/*
+ * The composer sits above the voice board and shares its width. Phones: text, Speak, then Stop and
+ * Save on one row. Wide screens: Speak stands to the right of the text, as tall as it.
+ */
 .composer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
   max-width: var(--width-deck);
 }
 
+/* Two lines to start; the component grows it with the text up to six lines, then it scrolls. */
 .composer-text {
+  --composer-line: calc(var(--text-lg) * var(--leading-lg));
+  --composer-chrome: calc(var(--space-2) * 2 + var(--border-width) * 2);
   width: 100%;
-  min-height: 6.5rem;
-  padding: var(--space-3) var(--space-4);
+  min-height: calc(var(--composer-line) * 2 + var(--composer-chrome));
+  max-height: calc(var(--composer-line) * 6 + var(--composer-chrome));
+  padding: var(--space-2) var(--space-3);
   font: inherit;
   font-size: var(--text-lg);
   line-height: var(--leading-lg);
@@ -73,20 +89,128 @@
   background: var(--color-surface-raised);
   border: var(--border-width) solid var(--color-border-strong);
   border-radius: var(--radius-lg);
-  resize: vertical;
+  resize: none;
+  overflow-y: auto;
+}
+
+.composer-speak {
+  min-height: var(--size-control);
+  font-size: var(--text-lg);
+  border-radius: var(--radius-lg);
 }
 
 .composer-actions {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
 }
 
-.composer-actions .button-primary {
-  grid-column: 1 / -1;
-  min-height: var(--size-control-lg);
-  font-size: var(--text-xl);
-  border-radius: var(--radius-lg);
+@media (min-width: 720px) {
+  .composer {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .composer-speak {
+    padding: 0 var(--space-6);
+  }
+
+  .composer-actions {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, max-content);
+  }
+}
+
+/* Recent phrases: one row of chips that scrolls sideways, with Clear fixed at its end. */
+.recent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: var(--width-deck);
+}
+
+.recent-list {
+  flex: 1 1 auto;
+  min-width: 0;
+  list-style: none;
+  margin: 0;
+  /* Room for the focus ring, which the scrolling box would clip. */
+  padding: var(--space-1);
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+/* A long phrase is cut with an ellipsis, and always leaves a glimpse of the next chip. */
+.recent-list li {
+  flex: none;
+  max-width: min(16rem, 85%);
+}
+
+.recent-chip {
+  max-width: 100%;
+  min-height: var(--size-control-sm);
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color var(--duration-fast) var(--ease);
+}
+
+.recent-chip:hover,
+.recent-chip:active {
+  background: var(--color-bg);
+}
+
+.recent-chip-text {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.recent-clear {
+  flex: none;
+}
+
+/* A state in a few words, with an icon: never colour alone. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  border: calc(var(--border-width) * 2) solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+}
+
+.pill-off {
+  color: var(--color-text-muted);
+  border-style: dashed;
+}
+
+.pill-ok {
+  border-color: var(--color-success);
+}
+
+.pill-live,
+.pill-recording {
+  border-color: var(--key-live);
+}
+
+.pill-live svg,
+.pill-recording svg {
+  color: var(--color-danger);
 }
 
 /* Form bits shared by the key editor, the board list and the settings. */

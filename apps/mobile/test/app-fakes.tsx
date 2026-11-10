@@ -16,6 +16,7 @@ import userEvent from "@testing-library/user-event";
 import { createLocalBoardStore } from "../src/adapters/board-stores";
 import { DEFAULT_APPEARANCE, type Appearance, type AppearanceStore } from "../src/adapters/local-storage-appearance-store";
 import { LocalStorageBoardRepository } from "../src/adapters/local-storage-board-repository";
+import { LocalStorageRecentPhrasesStore } from "../src/adapters/local-storage-recent-phrases-store";
 import { DEFAULT_SETTINGS, type SpeechSettings } from "../src/adapters/local-storage-settings-store";
 import type { SpeakTarget } from "../src/adapters/local-storage-speak-target-store";
 import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesizer";
@@ -84,6 +85,7 @@ export function localServices({ boards, language = "en", settings = DEFAULT_SETT
     settings: { load: () => saved, save: (next) => void (saved = next) },
     language: memoryLanguageStore(language),
     appearance,
+    recentPhrases: new LocalStorageRecentPhrasesStore(localStorage),
   };
   return { services, synthesizer, appearance, getSettings: () => saved };
 }

@@ -16,7 +16,7 @@ import {
 } from "@speed-deck/core";
 import { useId, useState, type DragEvent } from "react";
 import type { ObsServices } from "../app/composition-root";
-import { keyIconId, keyLabel, presentKey, type KeyContext } from "../app/key-presentation";
+import { keyLabel, keyLook, presentKey, type KeyContext } from "../app/key-presentation";
 import type { BoardNavigation, Boards } from "../app/use-boards";
 import { useT } from "../i18n/I18nProvider";
 import type { Message, MessageKey } from "../i18n/messages";
@@ -210,7 +210,7 @@ export function BoardEditor({ boards: boardsState, spaceBoards, navigation, cont
               <li key={slot}>
                 <BoardKey
                   label={label}
-                  iconId={keyIconId(key)}
+                  {...keyLook(key)}
                   color={key.color}
                   detail={presentation.detail ? t(presentation.detail.key, presentation.detail.params) : undefined}
                   selected={isSelected}

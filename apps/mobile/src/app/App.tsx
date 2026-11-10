@@ -1,6 +1,6 @@
 import { MAX_KEY_SLOTS, type Board, type BoardKind } from "@speed-deck/core";
 import { LayoutGrid, MessageSquare, Settings, Smartphone } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   BOARD_POSITION_STORAGE_KEY,
   LocalStorageBoardPositionStore,
@@ -9,10 +9,12 @@ import {
 } from "../adapters/local-storage-board-position-store";
 import { BoardEditor } from "../components/BoardEditor";
 import { BoardPlayer } from "../components/BoardPlayer";
-import { Composer } from "../components/Composer";
+import { Composer, type ComposerHandle } from "../components/Composer";
 import { ConnectPanel } from "../components/ConnectPanel";
+import { DeckStatus } from "../components/DeckStatus";
 import { KeyEditorDialog } from "../components/KeyEditorDialog";
 import { ObsSettings } from "../components/ObsSettings";
+import { RecentPhrases } from "../components/RecentPhrases";
 import { SectionView } from "../components/SectionView";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { SideNav, type NavItem } from "../components/SideNav";
@@ -87,6 +89,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const [navCollapsed, setNavCollapsed] = useNavCollapsed();
   const [navigated, setNavigated] = useState(false);
   const [text, setText] = useState("");
+  const [recentPhrases, setRecentPhrases] = useState(() => services.recentPhrases.load());
+  const composer = useRef<ComposerHandle>(null);
 
   const select = (next: Section) => {
     setSection(next);
@@ -102,8 +106,20 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const board = deck?.navigation.board ?? null;
   const isEditorOpen = board !== null && isEditing && isWide;
   // Deck keys only run through the computer app; say so once instead of leaving every key to explain itself.
-  const deckNote: MessageKey | null =
-    space !== "deck" || target.isRemote || target.detection === "pending" ? null : target.isDesktopAvailable ? "deck.computerNotChosen" : "deck.needsComputer";
+  const showDeckStatus = space === "deck" && target.detection !== "pending";
+  const deckNote: MessageKey | null = !showDeckStatus || target.isRemote ? null : target.isDesktopAvailable ? "deck.computerNotChosen" : "deck.needsComputer";
+
+  // Only what is typed here is remembered; phrases on board keys are already one tap away.
+  const speakComposerText = () => {
+    speech.speak(text);
+    if (text.trim() !== "") setRecentPhrases(services.recentPhrases.add(text));
+  };
+  const clearRecentPhrases = () => {
+    services.recentPhrases.clear();
+    setRecentPhrases([]);
+    // The row is gone, and focus with it: hand it to the text box.
+    composer.current?.focusText();
+  };
 
   const saveTextAsKey = async () => {
     const trimmed = text.trim();
@@ -174,16 +190,30 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
             ) : (
               <>
                 {space === "voice" && (
-                  <Composer
-                    text={text}
-                    isSpeaking={speech.isSpeaking}
-                    onTextChange={setText}
-                    onSpeak={() => speech.speak(text)}
-                    onStop={speech.stop}
-                    onSave={() => void saveTextAsKey()}
-                  />
+                  <>
+                    <Composer
+                      ref={composer}
+                      text={text}
+                      isSpeaking={speech.isSpeaking}
+                      onTextChange={setText}
+                      onSpeak={speakComposerText}
+                      onStop={speech.stop}
+                      onSave={() => void saveTextAsKey()}
+                    />
+                    <RecentPhrases phrases={recentPhrases} onSpeak={speech.speak} onClear={clearRecentPhrases} />
+                  </>
                 )}
-                {deckNote && <p className="empty">{t(deckNote)}</p>}
+                {showDeckStatus && <DeckStatus isComputerConnected={target.isRemote} obs={deck.obs} />}
+                {deckNote && (
+                  <div className="deck-note">
+                    <p className="empty">{t(deckNote)}</p>
+                    {deckNote === "deck.computerNotChosen" && (
+                      <button type="button" className="button button-small" onClick={() => select("settings")}>
+                        {t("deck.openSettings")}
+                      </button>
+                    )}
+                  </div>
+                )}
                 {!deck.boards.isLoaded && <p className="empty">{t("board.loading")}</p>}
                 {deck.boards.isLoaded && !board && (
                   <div className="space-empty">
@@ -207,6 +237,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   navigation={deck.navigation}
                   context={deck.context}
                   onRun={deck.run}
+                  isSpeaking={speech.isSpeaking}
                   onEditKey={setDialogSlot}
                   isEditing={isEditing && !isWide}
                   toolbar={editToggle}

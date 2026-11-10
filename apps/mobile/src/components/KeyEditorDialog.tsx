@@ -9,7 +9,7 @@ type KeyEditorDialogProps = Omit<KeyEditorFormProps, "onCancel" | "heading"> & {
 };
 
 /**
- * The key editor as a modal (phones, the OBS dock, long press): native <dialog> with showModal
+ * The key editor as a modal (phones and the OBS dock, from edit mode): native <dialog> with showModal
  * (focus trap, Escape closes). Focus goes back to whatever opened it.
  */
 export function KeyEditorDialog({ onClose, statusText = "", ...form }: KeyEditorDialogProps) {

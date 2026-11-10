@@ -87,10 +87,22 @@ word prediction, switch scanning.
       typecheck, core and mobile suites green; Voice and Deck screens checked in the browser
       (standalone, Spanish). Not checked: with the computer app connected, the OBS dock optgroups.
       Commits: T3 13c8a69; T4 recorded in git log (`fix(core)` split hardening, `feat(mobile)` spaces).
-- [ ] **T5 Voice space.** Composer always on screen above the phrase grid, colour-coded phrase
-      categories, recent phrases, large targets, explicit locked edit mode instead of long-press.
-- [ ] **T6 Deck space.** Keys show live state (on air, recording, muted, active scene), connection
-      status in the header, empty state that explains how to connect when the computer is missing.
+- [x] **T5 Voice space.** Route: delegated writer (with T6). Text-first keys (no default speech
+      bubble), three key roles (phrase, command, navigation), compact auto-growing composer, recent
+      phrases row (last 8, per device, clearable), long-press and right-click editing removed in favour
+      of explicit edit mode. Changed from the plan: role styling instead of colour-coded categories,
+      because keys have no category field yet.
+- [x] **T6 Deck space.** Live state on keys (LIVE, recording, muted, captions on, active scene) with a
+      text or icon cue besides colour, status pills in the header, offline look for unavailable keys.
+      Accepted writer calls: captions `aria-pressed` now means visible; the OBS dock gained an
+      Edit/Done button because long-press was its only way to edit.
+      Evidence T5+T6: RED 20 failing then 218 mobile tests passing; build ok; parent re-ran tests and
+      typecheck and viewed Voice and Deck in light theme at about 1024px. Writer measured at 375x667:
+      first key row ends at 536px with the tab bar at 596px when there are no recent phrases.
+      Known gaps: with recent phrases present the first key row is clipped by 9px at 375x667 (carried
+      into T7); nothing that needs the computer app or OBS was seen in a browser (live states,
+      connected pills, dock); the speaking highlight can stick to the wrong key if a remote key request
+      fails and the next speech comes from the composer.
 - [ ] **T7 Settings.** Voice picker filtered by language with preview, sections for Voice, Deck and
       Appearance; OBS settings move under Deck.
 - [ ] **T8 Dock and docs.** Align the OBS dock with the new tokens, refresh README and screenshots.

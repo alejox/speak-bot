@@ -35,10 +35,6 @@
   .side-nav-link {
     color: var(--color-text);
   }
-
-  .deck-key-unavailable {
-    opacity: 0.7;
-  }
 }
 
 /*
@@ -80,19 +76,14 @@
   }
 
   .deck-key-unavailable {
-    opacity: 1;
     color: GrayText;
     border-color: GrayText;
   }
 
-  /* A toggle that is on: a thick system-colour edge, and the dot keeps its place. */
-  .deck-key[aria-pressed="true"] {
+  /* A toggle that is on, and the key being said: a thick system-colour edge next to their words or icon. */
+  .deck-key[aria-pressed="true"],
+  .deck-key-speaking {
     border: 4px solid Highlight;
-  }
-
-  .deck-key[aria-pressed="true"]::after {
-    background: Highlight;
-    forced-color-adjust: none;
   }
 
   .board-editor .deck-key[aria-pressed="true"] {
