@@ -47,8 +47,7 @@ describe("board player in phone-only mode", () => {
   });
 
   it("disables caption keys without the desktop and says why", async () => {
-    const { user } = renderLocalApp({ boards: [buildDefaultDeckBoard("en")] });
-    await user.click(screen.getByRole("link", { name: "Deck" }));
+    renderLocalApp({ boards: [buildDefaultBoard("en")] });
     const clear = await screen.findByRole("button", { name: "Clear caption" });
     expect(clear).toHaveAttribute("aria-disabled", "true");
     expect(clear).toHaveAccessibleDescription("Needs the computer app.");
@@ -150,7 +149,7 @@ describe("key editing in the player", () => {
     await screen.findByRole("button", { name: "Hello" });
     await user.click(screen.getByRole("button", { name: "Add a key at position 2" }));
     const dialog = screen.getByRole("dialog", { name: "Add key 2" });
-    expect(within(dialog).getAllByRole("region").map((group) => group.getAttribute("aria-label"))).toEqual(["Voice", "Navigation"]);
+    expect(within(dialog).getAllByRole("region").map((group) => group.getAttribute("aria-label"))).toEqual(["Voice", "Captions", "Navigation"]);
     await user.click(within(dialog).getByRole("button", { name: "Stop voice" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(within(grid()).getByRole("button", { name: "Stop voice" })).toBeInTheDocument();

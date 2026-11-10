@@ -19,13 +19,23 @@ export const MAX_BOARDS = 50;
  */
 export const MAX_STORED_BOARDS = MAX_BOARDS * 2;
 
-/** What a board is for: "voice" speaks for its user, "deck" controls the computer (OBS, captions). */
+/** What a board is for: "voice" speaks for its user (and shows its captions), "deck" controls the computer (OBS). */
 export const BOARD_KINDS = ["voice", "deck"] as const;
 export type BoardKind = (typeof BOARD_KINDS)[number];
 
+/** The categories each kind offers for new keys, in library order. */
 const ALLOWED_CATEGORIES: Readonly<Record<BoardKind, readonly ActionCategory[]>> = {
-  voice: ["voice", "navigation"],
-  deck: ["captions", "navigation", "obs"],
+  voice: ["voice", "captions", "navigation"],
+  deck: ["navigation", "obs"],
+};
+
+/**
+ * Categories a kind no longer offers but still accepts, so keys saved there earlier keep loading and
+ * working: captions belonged to deck boards before they moved to Voice.
+ */
+const GRANDFATHERED_CATEGORIES: Readonly<Record<BoardKind, readonly ActionCategory[]>> = {
+  voice: [],
+  deck: ["captions"],
 };
 
 export function isBoardKind(value: unknown): value is BoardKind {
@@ -37,14 +47,18 @@ export function parseBoardKind(kind: unknown): BoardKind {
   return kind;
 }
 
-/** The action categories a board of `kind` may hold, in library order. */
+/** The action categories offered for new keys on a board of `kind`, in library order. */
 export function allowedActionCategories(kind: BoardKind): readonly ActionCategory[] {
   return ALLOWED_CATEGORIES[kind];
 }
 
-/** Whether a key with an action of `actionType` may sit on a board of `kind`. */
+/**
+ * Whether a key with an action of `actionType` may sit on a board of `kind`: the categories it offers,
+ * plus the ones it still accepts from earlier versions (caption keys on deck boards).
+ */
 export function isActionAllowedOnBoard(kind: BoardKind, actionType: ActionType): boolean {
-  return ALLOWED_CATEGORIES[kind].includes(ACTION_REGISTRY[actionType].category);
+  const { category } = ACTION_REGISTRY[actionType];
+  return ALLOWED_CATEGORIES[kind].includes(category) || GRANDFATHERED_CATEGORIES[kind].includes(category);
 }
 
 /** Throws `InvalidBoardError` when a board of `kind` may not hold an action of `actionType`. */
@@ -280,8 +294,10 @@ function boardsOfStoredBoard(board: StoredBoard, takenIds: Set<string>): Board[]
 }
 
 function kindOfLegacyKeys(keys: readonly Key[]): BoardKind {
-  const fitsVoice = keys.every((key) => isActionAllowedOnBoard("voice", key.action.type));
-  return !fitsVoice && keys.every((key) => isActionAllowedOnBoard("deck", key.action.type)) ? "deck" : "voice";
+  // Decided by category rather than by what each kind accepts today, so these boards keep the kind they
+  // were always read with (a board of caption keys only stayed a deck board when captions moved to Voice).
+  const categories = new Set(keys.map((key) => ACTION_REGISTRY[key.action.type].category));
+  return !categories.has("voice") && (categories.has("obs") || categories.has("captions")) ? "deck" : "voice";
 }
 
 /** `<id><suffix>`, then `<id><suffix>-2`, `<id><suffix>-3`… until free; the original id is shortened to keep the limit. */

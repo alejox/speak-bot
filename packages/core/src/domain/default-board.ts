@@ -23,24 +23,24 @@ export const DEFAULT_DECK_BOARD_NAMES: Readonly<Record<UiLanguage, string>> = {
 };
 
 /**
- * The voice commands on the last row of the communication board, by column. The columns in between
- * stay empty: they held caption keys before boards had a kind, and keys never move.
+ * The voice and caption commands on the last row of the communication board, by column. The caption
+ * keys are back in the columns they had before boards had a kind, now that captions belong to Voice.
  */
 export const COMMUNICATION_KEYS: readonly { readonly column: number; readonly action: Action }[] = [
   { column: 0, action: { type: "voice.stop" } },
   { column: 1, action: { type: "voice.repeat" } },
+  { column: 2, action: { type: "captions.clear" } },
+  { column: 3, action: { type: "captions.toggle" } },
   { column: 4, action: { type: "voice.toggleLanguage" } },
 ];
 
-/** The actions on the built-in deck board, from its first slot: captions and the OBS actions that need no parameters. */
+/** The actions on the built-in deck board, from its first slot: the OBS actions that need no parameters. */
 export const DEFAULT_DECK_ACTIONS: readonly Action[] = [
-  { type: "captions.clear" },
-  { type: "captions.toggle" },
   { type: "obs.toggleStream" },
   { type: "obs.toggleRecord" },
 ];
 
-/** The communication (voice) board for a new install: the default phrases plus the voice commands. */
+/** The communication (voice) board for a new install: the default phrases plus the voice and caption commands. */
 export function buildDefaultBoard(language: UiLanguage): Board {
   const phraseKeys: Key[] = DEFAULT_PHRASES_BY_LANGUAGE[language].map((text, slot) => ({ slot, action: { type: "voice.speak", text } }));
   return withCommunicationKeys(phraseKeys, language);

@@ -41,13 +41,11 @@ describe("App in Computer mode", () => {
     state.execute["voice.toggleLanguage"] = { body: { ok: true, voiceLanguage: "es" } };
     const { user } = renderRemoteApp({ state });
 
-    // The voice commands are in the Voice space; captions are in the Deck space.
+    // The voice and caption commands are both in the Voice space.
     const language = await screen.findByRole("button", { name: /Switch voice language/ });
-    expect(screen.queryByRole("button", { name: "Hide or show captions" })).not.toBeInTheDocument();
     await user.click(language);
     await waitFor(() => expect(language).toHaveTextContent("Voice: Español"));
 
-    await goTo(user, "Deck");
     const captions = await screen.findByRole("button", { name: /Hide or show captions/ });
     expect(captions).toHaveAttribute("aria-pressed", "true");
     await user.click(captions);

@@ -1,4 +1,4 @@
-import { makeBoard, MAX_BOARD_PAGES } from "@speed-deck/core";
+import { makeBoard, MAX_BOARD_PAGES, type Key } from "@speed-deck/core";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { boardOf, desktopState, renderLocalApp, renderRemoteApp, speakKey, writes } from "./app-fakes";
@@ -28,8 +28,32 @@ describe("editing in the player, without a board editor", () => {
     await goTo(user, "Deck");
     await user.click(await screen.findByRole("button", { name: "Add a key at position 1" }));
     const dialog = screen.getByRole("dialog", { name: "Add key 1" });
-    expect(within(dialog).getAllByRole("region").map((group) => group.getAttribute("aria-label"))).toEqual(["Captions", "Navigation", "OBS"]);
+    expect(within(dialog).getAllByRole("region").map((group) => group.getAttribute("aria-label"))).toEqual(["Navigation", "OBS"]);
     expect(within(dialog).queryByRole("button", { name: "Speak text" })).not.toBeInTheDocument();
+    // Captions belong to Voice.
+    expect(within(dialog).queryByRole("button", { name: "Clear caption" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a caption key saved on a deck board working, and edits it offering only deck actions", async () => {
+    const captions: Key = { slot: 0, action: { type: "captions.clear" } };
+    const state = desktopState({ boards: [boardOf("talk", "Talk"), boardOf("stream", "Stream", [captions], "deck")] });
+    const { requests, user } = renderRemoteApp({ state });
+    await goTo(user, "Deck");
+    const key = await within(grid()).findByRole("button", { name: "Clear caption" });
+    await user.click(key);
+    await waitFor(() => expect(requests).toContainEqual({ method: "POST", url: "/api/actions/execute", body: { action: { type: "captions.clear" } } }));
+
+    fireEvent.contextMenu(key);
+    await user.click(screen.getByRole("menuitem", { name: "Edit" }));
+    const dialog = screen.getByRole("dialog", { name: "Edit key 1" });
+    const action = within(dialog).getByRole("combobox", { name: "Action" });
+    // The select shows the key's own action, but offers no caption category.
+    expect(action).toHaveDisplayValue("Clear caption");
+    expect(within(action).queryByRole("option", { name: "Hide or show captions" })).not.toBeInTheDocument();
+    expect(within(action).getAllByRole("group").map((group) => group.getAttribute("label"))).toEqual(["Navigation", "OBS"]);
+    await user.type(within(dialog).getByRole("textbox", { name: "Label (optional)" }), "Wipe");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(within(grid()).getByRole("button", { name: "Wipe" })).toBeInTheDocument());
   });
 
   it("adds an OBS key with its scene, or a typed one when OBS is not connected", async () => {
@@ -153,7 +177,7 @@ describe("board menu", () => {
     dialog = await boardAction(user, "Restore default board");
     expect(within(dialog).getByText("Restore the built-in “Deck” board? Its current keys will be replaced.")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Yes, restore" }));
-    await waitFor(() => expect(within(grid()).getByRole("button", { name: "Clear caption" })).toBeInTheDocument());
+    await waitFor(() => expect(within(grid()).getByRole("button", { name: "Start or stop stream" })).toBeInTheDocument());
     expect(requests).toContainEqual({ method: "POST", url: "/api/boards/restore-default", body: { language: "en", boardId: "deck" } });
   });
 

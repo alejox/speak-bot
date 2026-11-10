@@ -84,7 +84,9 @@ describe("boards and actions API", () => {
     expect(board).toMatchObject({ id: DEFAULT_BOARD_ID, name: "Comunicación", kind: "voice", columns: 5, rows: 3 });
     expect(board!.keys[0]).toEqual({ slot: 0, action: { type: "voice.speak", text: "Hola" } });
     expect(deck).toMatchObject({ id: DEFAULT_DECK_BOARD_ID, name: "Deck", kind: "deck" });
-    expect(deck!.keys.map((key) => key.action.type)).toEqual(["captions.clear", "captions.toggle", "obs.toggleStream", "obs.toggleRecord"]);
+    expect(deck!.keys.map((key) => key.action.type)).toEqual(["obs.toggleStream", "obs.toggleRecord"]);
+    // Captions belong to Voice: the communication board holds their keys.
+    expect(board!.keys.filter((key) => key.action.type.startsWith("captions.")).map((key) => key.slot)).toEqual([12, 13]);
   });
 
   it("creates, renames and deletes boards, broadcasting boards-changed, but keeps the last one", async () => {
@@ -136,9 +138,11 @@ describe("boards and actions API", () => {
     const onVoice = await send(`/api/boards/${DEFAULT_BOARD_ID}/keys/20`, "PUT", scene);
     expect(onVoice.status).toBe(400);
     expect(await onVoice.json()).toMatchObject({ code: "invalid-board" });
-    expect((await send(`/api/boards/${DEFAULT_BOARD_ID}/keys/20`, "PUT", { action: { type: "captions.clear" } })).status).toBe(400);
+    expect((await send(`/api/boards/${DEFAULT_BOARD_ID}/keys/20`, "PUT", { action: { type: "captions.clear" } })).status).toBe(200);
     expect((await send(`/api/boards/${DEFAULT_DECK_BOARD_ID}/keys/20`, "PUT", { action: { type: "voice.stop" } })).status).toBe(400);
     expect((await send(`/api/boards/${DEFAULT_DECK_BOARD_ID}/keys/20`, "PUT", scene)).status).toBe(200);
+    // Caption keys saved on deck boards before captions moved to Voice still save (e.g. a new label).
+    expect((await send(`/api/boards/${DEFAULT_DECK_BOARD_ID}/keys/21`, "PUT", { label: "CC", action: { type: "captions.toggle" } })).status).toBe(200);
   });
 
   it("restores the default deck board on its own", async () => {
@@ -148,7 +152,7 @@ describe("boards and actions API", () => {
     expect(restored.status).toBe(200);
     expect(await restored.json()).toMatchObject({ id: DEFAULT_DECK_BOARD_ID, kind: "deck" });
     const [voice, deck] = await boards();
-    expect(deck!.keys[0]!.action).toEqual({ type: "captions.clear" });
+    expect(deck!.keys[0]!.action).toEqual({ type: "obs.toggleStream" });
     expect(voice!.keys.some((key) => key.slot === 0)).toBe(false);
     expect((await send("/api/boards/restore-default", "POST", { language: "en", boardId: "nope" })).status).toBe(400);
   });

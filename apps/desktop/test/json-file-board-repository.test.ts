@@ -53,8 +53,9 @@ describe("JsonFileBoardRepository", () => {
     await writeFile(file, JSON.stringify(stored));
     const repository = new JsonFileBoardRepository(file);
     const migrated = [
-      { id: "communication", name: "Comunicación", kind: "voice", columns: 5, rows: 3, keys: [speak] },
-      { id: "communication-deck", name: "Comunicación (Deck)", kind: "deck", columns: 5, rows: 3, keys: [captions, scene] },
+      // Captions belong to Voice, so only the OBS key moves.
+      { id: "communication", name: "Comunicación", kind: "voice", columns: 5, rows: 3, keys: [speak, captions] },
+      { id: "communication-deck", name: "Comunicación (Deck)", kind: "deck", columns: 5, rows: 3, keys: [scene] },
     ];
     expect(await repository.list()).toEqual(migrated);
     // Reading alone does not rewrite the file; the first change stores the migrated boards.
@@ -63,7 +64,7 @@ describe("JsonFileBoardRepository", () => {
     await setKey(repository, "communication-deck", { slot: 1, action: { type: "obs.toggleStream" } });
     const written = JSON.parse(await readFile(file, "utf8")) as { boards: Board[] };
     expect(written.boards[0]).toEqual(migrated[0]);
-    expect(written.boards[1]!.keys.map((key) => key.slot)).toEqual([1, 12, 20]);
+    expect(written.boards[1]!.keys.map((key) => key.slot)).toEqual([1, 20]);
     expect(await new JsonFileBoardRepository(file).list()).toEqual(written.boards);
   });
 

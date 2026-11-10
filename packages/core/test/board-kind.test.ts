@@ -36,16 +36,19 @@ const legacy = (id: string, keys: Key[] = [], name = id) => ({ id, name, columns
 describe("board kinds", () => {
   it("lists the two kinds and the action categories each one allows", () => {
     expect(BOARD_KINDS).toEqual(["voice", "deck"]);
-    expect(allowedActionCategories("voice")).toEqual(["voice", "navigation"]);
-    expect(allowedActionCategories("deck")).toEqual(["captions", "navigation", "obs"]);
+    expect(allowedActionCategories("voice")).toEqual(["voice", "captions", "navigation"]);
+    expect(allowedActionCategories("deck")).toEqual(["navigation", "obs"]);
   });
 
-  it("allows every action on exactly the kinds that list its category", () => {
+  it("allows every action on the kinds that list its category, and keeps the caption keys deck boards already hold", () => {
     for (const type of ACTION_TYPES) {
       const { category } = ACTION_REGISTRY[type];
-      expect(isActionAllowedOnBoard("voice", type)).toBe(category === "voice" || category === "navigation");
+      expect(isActionAllowedOnBoard("voice", type)).toBe(category !== "obs");
+      // Captions moved to Voice; deck boards still accept them so the keys saved there keep working.
       expect(isActionAllowedOnBoard("deck", type)).toBe(category !== "voice");
     }
+    const grandfathered = makeBoard("d", "Stream", "deck", [{ slot: 0, action: { type: "captions.clear" } }]);
+    expect(readStoredBoards([grandfathered])).toEqual([grandfathered]);
   });
 
   it("makes a board of a kind and rejects keys the kind does not allow", () => {
@@ -73,16 +76,16 @@ describe("board kind in the use cases", () => {
   it("only sets keys whose action the board kind allows, and writes nothing otherwise", async () => {
     const { repository } = setup([board("v", "voice"), board("d", "deck")]);
     await expect(setKey(repository, "v", { slot: 0, action: scene("Main") })).rejects.toThrow(InvalidBoardError);
-    await expect(setKey(repository, "v", { slot: 0, action: { type: "captions.clear" } })).rejects.toThrow(InvalidBoardError);
     await expect(setKey(repository, "d", { slot: 0, action: speak("Hi") })).rejects.toThrow(InvalidBoardError);
     expect(repository.writeCount).toBe(0);
 
     await setKey(repository, "v", { slot: 0, action: speak("Hi") });
     await setKey(repository, "v", { slot: 1, action: { type: "nav.nextPage" } });
+    await setKey(repository, "v", { slot: 2, action: { type: "captions.clear" } });
     await setKey(repository, "d", { slot: 0, action: scene("Main") });
     await setKey(repository, "d", { slot: 1, action: { type: "captions.toggle" } });
     await setKey(repository, "d", { slot: 2, action: { type: "nav.goToBoard", boardId: "v" } });
-    expect((await listBoards(repository)).map((b) => b.keys.length)).toEqual([2, 3]);
+    expect((await listBoards(repository)).map((b) => b.keys.length)).toEqual([3, 3]);
   });
 });
 
@@ -125,6 +128,7 @@ describe("stored boards without a kind", () => {
         [
           { slot: 0, label: "Hi", color: "#112233", action: speak("Hello") },
           { slot: 9, action: { type: "nav.nextPage" } },
+          { slot: 12, action: { type: "captions.clear" } },
           { slot: 14, action: { type: "voice.toggleLanguage" } },
         ],
         "Main",
@@ -134,7 +138,6 @@ describe("stored boards without a kind", () => {
         "deck",
         [
           { slot: 4, action: scene("Main") },
-          { slot: 12, action: { type: "captions.clear" } },
           { slot: 31, icon: "mic", action: { type: "obs.toggleMute", inputName: "Mic" } },
         ],
         "Main (Deck)",
@@ -216,8 +219,8 @@ describe("stored boards whose kind does not allow some of their keys", () => {
       board("last", "deck"),
     ];
     expect(readStoredBoards(stored)).toEqual([
-      board("v", "voice", [{ slot: 0, action: speak("Hi") }, { slot: 5, action: { type: "nav.nextPage" } }], "Talk"),
-      board("v-deck", "deck", [{ slot: 1, action: scene("Main") }, { slot: 20, action: { type: "captions.clear" } }], "Talk (Deck)"),
+      board("v", "voice", [{ slot: 0, action: speak("Hi") }, { slot: 5, action: { type: "nav.nextPage" } }, { slot: 20, action: { type: "captions.clear" } }], "Talk"),
+      board("v-deck", "deck", [{ slot: 1, action: scene("Main") }], "Talk (Deck)"),
       board("last", "deck"),
     ]);
   });
@@ -244,26 +247,26 @@ describe("stored boards whose kind does not allow some of their keys", () => {
 });
 
 describe("default boards", () => {
-  it("ships a voice board without caption keys, with the voice commands in the slots they always had", () => {
+  it("ships a voice board with the voice commands and the caption keys in the slots they always had", () => {
     const voice = buildDefaultBoard("en");
     expect(voice).toMatchObject({ id: DEFAULT_BOARD_ID, kind: "voice", name: "Communication" });
     expect(voice.keys.filter((key) => key.action.type !== "voice.speak").map((key) => [key.slot, key.action.type])).toEqual([
       [10, "voice.stop"],
       [11, "voice.repeat"],
+      [12, "captions.clear"],
+      [13, "captions.toggle"],
       [14, "voice.toggleLanguage"],
     ]);
     expect(voice.keys.every((key) => isActionAllowedOnBoard("voice", key.action.type))).toBe(true);
   });
 
-  it("ships a deck board with the caption keys and the OBS actions that need no parameters", () => {
+  it("ships a deck board with the OBS actions that need no parameters, and no caption keys", () => {
     const deck = buildDefaultDeckBoard("es");
     expect(deck).toMatchObject({ id: DEFAULT_DECK_BOARD_ID, kind: "deck", name: "Deck" });
     expect(buildDefaultDeckBoard("en").name).toBe("Deck");
     expect(deck.keys.map((key) => [key.slot, key.action])).toEqual([
-      [0, { type: "captions.clear" }],
-      [1, { type: "captions.toggle" }],
-      [2, { type: "obs.toggleStream" }],
-      [3, { type: "obs.toggleRecord" }],
+      [0, { type: "obs.toggleStream" }],
+      [1, { type: "obs.toggleRecord" }],
     ]);
     expect(buildDefaultBoards("en").map((b) => b.id)).toEqual([DEFAULT_BOARD_ID, DEFAULT_DECK_BOARD_ID]);
   });
@@ -283,6 +286,8 @@ describe("default boards", () => {
       [3, "voice.speak"],
       [10, "voice.stop"],
       [11, "voice.repeat"],
+      [12, "captions.clear"],
+      [13, "captions.toggle"],
       [14, "voice.toggleLanguage"],
     ]);
     expect(deck).toEqual(buildDefaultDeckBoard("es"));

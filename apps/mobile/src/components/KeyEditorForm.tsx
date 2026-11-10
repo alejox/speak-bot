@@ -109,6 +109,10 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
   // A key opens boards of its own space. A target saved before spaces stays, so editing the key does not lose it.
   const savedTargetId = existing?.action.type === "nav.goToBoard" ? existing.action.boardId : undefined;
   const targetBoards = boards.filter((board) => board.kind === boardKind || board.id === savedTargetId);
+  // A key saved before its action's category left this kind (captions on a deck board) keeps showing its
+  // action, alone, so editing the key never loses it; the rest of the list is what the kind offers.
+  const offeredCategories = allowedActionCategories(boardKind);
+  const keptType = existing && !offeredCategories.includes(ACTION_REGISTRY[existing.action.type].category) ? existing.action.type : undefined;
   const hexInvalid = draft.color !== "" && !isHexColor(draft.color);
   const number = slot + 1;
 
@@ -137,7 +141,8 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
             }}
           >
             <option value="">{t("editor.chooseAction")}</option>
-            {allowedActionCategories(boardKind).map((category) => (
+            {keptType && <option value={keptType}>{t(ACTION_REGISTRY[keptType].labelKey as MessageKey)}</option>}
+            {offeredCategories.map((category) => (
               <optgroup key={category} label={t(`category.${category}`)}>
                 {ACTION_TYPES.filter((type) => ACTION_REGISTRY[type].category === category).map((type) => (
                   <option key={type} value={type}>

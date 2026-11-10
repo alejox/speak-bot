@@ -54,8 +54,9 @@ describe("LocalStorageBoardRepository", () => {
 
     const repository = new LocalStorageBoardRepository(localStorage);
     const migrated = [
-      { id: "communication", name: "Communication", kind: "voice", columns: 5, rows: 3, keys: [speak, language] },
-      { id: "communication-deck", name: "Communication (Deck)", kind: "deck", columns: 5, rows: 3, keys: [captions, scene] },
+      // Captions belong to Voice, so only the OBS key moves.
+      { id: "communication", name: "Communication", kind: "voice", columns: 5, rows: 3, keys: [speak, captions, language] },
+      { id: "communication-deck", name: "Communication (Deck)", kind: "deck", columns: 5, rows: 3, keys: [scene] },
     ];
     expect(await repository.list()).toEqual(migrated);
     expect(await prepareLocalBoards(repository, "en")).toBe(false);

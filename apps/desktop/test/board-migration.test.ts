@@ -49,7 +49,7 @@ describe("prepareBoards", () => {
       { slot: 1, action: { type: "voice.speak", text: "Agua" } },
       { slot: 9, action: { type: "voice.speak", text: "Gracias" } },
     ]);
-    expect(board!.keys.slice(3).map((key) => key.slot)).toEqual([10, 11, 14]);
+    expect(board!.keys.slice(3).map((key) => key.slot)).toEqual([10, 11, 12, 13, 14]);
 
     const files = await readdir(dir);
     expect(files).not.toContain("phrases.json");
