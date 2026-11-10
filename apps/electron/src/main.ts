@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { isLinuxAutostartEnabled, linuxAutostartEntry, linuxAutostartFile, migrateLinuxAutostart, setLinuxAutostart } from "./linux-autostart";
 import { resolveAppPaths } from "./paths";
 import { installQuitOnSignals } from "./quit-signals";
+import { isServiceWorkerRequest } from "./service-worker";
 import { HIDDEN_FLAG, shouldStartHidden } from "./startup";
 import { trayStrings, type TrayStrings } from "./tray-strings";
 
@@ -125,8 +126,26 @@ function createWindow(port: number): BrowserWindow {
   });
 
   created.once("ready-to-show", () => created.show());
-  void created.loadURL(`${origin}/`);
+  void loadWithoutServiceWorker(created, origin);
   return created;
+}
+
+/**
+ * Loads the app with no PWA service worker: blocks it from registering and removes any worker
+ * (and its cached UI) left by an earlier version, so an update always shows the new UI.
+ * Local storage, where boards and settings live, is not touched.
+ */
+async function loadWithoutServiceWorker(window: BrowserWindow, origin: string): Promise<void> {
+  const { session } = window.webContents;
+  session.webRequest.onBeforeRequest({ urls: [`${origin}/*`] }, ({ url }, callback) => {
+    callback({ cancel: isServiceWorkerRequest(url, origin) });
+  });
+  try {
+    await session.clearStorageData({ origin, storages: ["serviceworkers", "cachestorage"] });
+  } catch {
+    // A failed cleanup only means a stale UI may show once; the app still loads.
+  }
+  await window.loadURL(`${origin}/`);
 }
 
 function openExternal(url: string): void {
