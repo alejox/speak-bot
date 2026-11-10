@@ -42,7 +42,7 @@ System actions (open URL or app, play sound), keyboard shortcuts (native per OS)
   - `SPEED_DECK_*` env vars, with the `SPEAK_BOT_*` names still accepted as fallbacks.
   - The GitHub repo name and Pages base (`/speak-bot/`) are unchanged until the user decides on a repo rename.
 - [x] T10 — UI: board editor (3 panes, drag and drop plus click-to-assign, key editor with icon, color, label and parameters), boards CRUD, playback in phone, dock and local mode, navigation actions, OBS state on keys, OBS settings form, i18n es/en. Fold the `suppressClick` nit. Tests and screenshots.
-- [ ] T11 — README: boards, actions, OBS connection setup (Tools → WebSocket Server Settings).
+- [x] T11 — README: boards, actions, OBS connection setup (Tools → WebSocket Server Settings).
 
 ## Constraints
 - macOS, Windows and Linux first class. English identifiers; UI copy through i18n (es default, en).
