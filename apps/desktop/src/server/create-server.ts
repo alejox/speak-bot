@@ -6,6 +6,7 @@ import type { DesktopSpeechSynthesizer } from "../adapters/tts/process-speech-sy
 import { createApiHandler } from "./api";
 import { EventHub } from "./event-hub";
 import { requestPathname, sendJson } from "./http-utils";
+import type { NetworkInterfaces } from "./network";
 import { createRequestGuard } from "./request-guard";
 
 export interface DesktopServerDependencies {
@@ -19,6 +20,8 @@ export interface DesktopServerDependencies {
   allowedHosts?: readonly string[];
   /** This machine's name; defaults to os.hostname(). */
   hostname?: string;
+  /** Lists this computer's network interfaces; defaults to os.networkInterfaces(). */
+  networkInterfaces?: () => NetworkInterfaces;
   /** Handles every non-API GET (static files, overlay). Returns false when it did not respond. */
   pageHandler?: (request: IncomingMessage, response: ServerResponse, pathname: string) => Promise<boolean>;
 }

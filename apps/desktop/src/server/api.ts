@@ -10,9 +10,11 @@ import {
   type ServerEvent,
 } from "@speak-bot/core";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { networkInterfaces as osNetworkInterfaces } from "node:os";
 import { InvalidSettingsError, isValidRate, type JsonFileSettingsStore } from "../adapters/json-file-settings-store";
 import type { DesktopSpeakOptions, DesktopSpeechSynthesizer } from "../adapters/tts/process-speech-synthesizer";
 import { asObject, HttpError, readJsonBody, sendEmpty, sendJson } from "./http-utils";
+import { connectionInfo, type NetworkInterfaces } from "./network";
 
 export interface ApiDependencies {
   repository: PhraseRepository;
@@ -22,6 +24,8 @@ export interface ApiDependencies {
   generateId: () => string;
   now: () => number;
   log?: (message: string) => void;
+  /** Lists this computer's network interfaces; defaults to os.networkInterfaces(). */
+  networkInterfaces?: () => NetworkInterfaces;
 }
 
 const MAX_LABEL_LENGTH = 100;
@@ -30,6 +34,7 @@ const MAX_LABEL_LENGTH = 100;
 export function createApiHandler(deps: ApiDependencies) {
   const { repository, settings, synthesizer, broadcast, generateId, now } = deps;
   const log = deps.log ?? (() => {});
+  const listInterfaces = deps.networkInterfaces ?? osNetworkInterfaces;
   // Only the latest utterance may report "end", so a cancelled one never hides a newer caption.
   let speechRequest = 0;
 
@@ -37,6 +42,11 @@ export function createApiHandler(deps: ApiDependencies) {
     "GET /api/health": async (_request, response) => {
       const body: HealthResponse = { ok: true, name: DESKTOP_SERVER_NAME, capabilities: synthesizer.capabilities };
       sendJson(response, 200, body);
+    },
+
+    "GET /api/connection": async (request, response) => {
+      // The port the request actually arrived on, which may differ from the configured one after a fallback.
+      sendJson(response, 200, connectionInfo(request.socket.localPort ?? 0, listInterfaces()));
     },
 
     "GET /api/phrases": async (_request, response) => {

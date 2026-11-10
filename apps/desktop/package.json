@@ -4,6 +4,11 @@
   "private": true,
   "description": "Local server that speaks through the computer and shows captions in OBS.",
   "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "start": "tsx src/main.ts",
     "test": "vitest run",

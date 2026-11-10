@@ -8,6 +8,8 @@ import type { AppServices } from "./composition-root";
 export interface SpeechTarget {
   /** True when speech, phrases and settings come from the desktop. */
   isRemote: boolean;
+  /** True when a desktop server answered, whichever target is chosen. */
+  isDesktopAvailable: boolean;
   synthesizer: AppSpeechSynthesizer;
   phrases: PhraseDependencies;
   /** Only meaningful for this device: seeding happens on the desktop itself. */
@@ -120,6 +122,7 @@ export function useSpeechTarget(services: AppServices): SpeechTarget {
 
   return {
     isRemote,
+    isDesktopAvailable: desktop !== undefined && capabilities !== null,
     synthesizer,
     phrases: remote?.phrases ?? services.phrases,
     isFirstRun: isRemote ? neverFirstRun : services.isFirstRun,

@@ -1,0 +1,26 @@
+{
+  "name": "@speak-bot/electron",
+  "productName": "Speak Bot",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Speak Bot for the computer: runs the desktop server in the background with a window and a tray icon.",
+  "author": "alejox",
+  "homepage": "https://github.com/alejox/speak-bot",
+  "type": "module",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node scripts/bundle.mjs",
+    "dev": "npm run build && electron .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@speak-bot/core": "0.0.0",
+    "@speak-bot/desktop": "0.0.0",
+    "@types/node": "^26.6.6",
+    "electron": "45.2.3",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0"
+  }
+}

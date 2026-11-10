@@ -222,3 +222,61 @@ h2 {
   min-height: 44px;
   font: inherit;
 }
+
+.connect {
+  padding: 12px 14px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.connect h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.connect-phone {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.connect-qr {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 6px;
+}
+
+.connect-details {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.connect-hint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.connect-url {
+  margin: 8px 0 0;
+  font-size: 1.1rem;
+  overflow-wrap: anywhere;
+}
+
+.connect-obs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.connect-obs code {
+  overflow-wrap: anywhere;
+}
+
+.connect-status {
+  color: var(--muted);
+}

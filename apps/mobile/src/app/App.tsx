@@ -13,14 +13,17 @@ import { DesktopRequestError } from "../adapters/desktop-api";
 import { DesktopSpeechError } from "../adapters/remote-speech-synthesizer";
 import { SpeechUnsupportedError } from "../adapters/web-speech-synthesizer";
 import { Composer } from "../components/Composer";
+import { ConnectPanel } from "../components/ConnectPanel";
 import { PhraseGrid } from "../components/PhraseGrid";
 import { SettingsPanel } from "../components/SettingsPanel";
 import type { AppServices } from "./composition-root";
+import { useConnection } from "./use-connection";
 import { useSpeechTarget } from "./use-speech-target";
 
 /** Container: owns state and wires the UI to the core use cases. */
 export function App({ services }: { services: AppServices }) {
   const target = useSpeechTarget(services);
+  const connection = useConnection(services.desktop?.connection, target.isDesktopAvailable);
   const { synthesizer, phrases: phraseDeps, settings, isFirstRun, onPhrasesChanged } = target;
   const [text, setText] = useState("");
   const [phrases, setPhrases] = useState<Phrase[]>([]);
@@ -101,6 +104,8 @@ export function App({ services }: { services: AppServices }) {
       <header className="app-header">
         <h1>Speak Bot</h1>
       </header>
+
+      {connection && <ConnectPanel {...connection} />}
 
       {!synthesizer.isSupported && (
         <p className="notice" role="alert">
