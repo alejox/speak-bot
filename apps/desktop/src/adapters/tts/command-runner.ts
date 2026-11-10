@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { constants } from "node:os";
 
 /** One process to start. Arguments go straight to the OS (no shell), so text can never be interpreted as code. */
 export interface CommandSpec {
@@ -11,7 +12,10 @@ export interface CommandSpec {
 }
 
 export interface CommandResult {
-  /** Exit code of the last process, or null when it was killed. */
+  /**
+   * Exit code of the first failing process (or of the last one when all succeeded), or null only when
+   * the pipeline was cancelled with `kill()`. A process killed by a signal reports 128 + the signal number.
+   */
   readonly code: number | null;
   readonly stdout: string;
   readonly stderr: string;
@@ -44,8 +48,13 @@ export class NodeCommandRunner implements CommandRunner {
     if (pipeline.length === 0) throw new Error("A pipeline needs at least one command.");
 
     const children: ChildProcess[] = [];
-    let killed = false;
-    const exits: Array<Promise<number | null>> = [];
+    let cancelled = false;
+    let failureCode: number | undefined;
+    const exits: Array<Promise<number>> = [];
+
+    const stopAll = () => {
+      for (const child of children) if (child.exitCode === null && child.signalCode === null) child.kill();
+    };
 
     for (const [index, spec] of pipeline.entries()) {
       const isFirst = index === 0;
@@ -68,7 +77,16 @@ export class NodeCommandRunner implements CommandRunner {
           child.once("error", (error: NodeJS.ErrnoException) =>
             reject(error.code === "ENOENT" ? new CommandNotFoundError(spec.command) : error),
           );
-          child.once("close", (code) => resolve(code));
+          child.once("close", (code, signal) => {
+            const exitCode = code ?? 128 + (signal ? (constants.signals[signal] ?? 0) : 0);
+            // When one stage fails, stop the others: an upstream stage would otherwise block
+            // forever on a full stdout pipe that nobody reads.
+            if (exitCode !== 0 && failureCode === undefined && !cancelled) {
+              failureCode = exitCode;
+              stopAll();
+            }
+            resolve(exitCode);
+          });
         }),
       );
     }
@@ -80,14 +98,14 @@ export class NodeCommandRunner implements CommandRunner {
     for (const child of children) child.stderr?.setEncoding("utf8").on("data", (chunk: string) => (stderr += chunk));
 
     const kill = () => {
-      killed = true;
-      for (const child of children) if (child.exitCode === null) child.kill();
+      if (failureCode === undefined) cancelled = true;
+      stopAll();
     };
 
     const result = Promise.all(exits).then(
-      (codes) => ({ code: killed ? null : (codes.find((code) => code !== 0) ?? codes.at(-1) ?? null), stdout, stderr }),
+      (codes) => ({ code: cancelled ? null : (failureCode ?? codes.at(-1) ?? 0), stdout, stderr }),
       (error: unknown) => {
-        kill();
+        stopAll();
         throw error;
       },
     );

@@ -31,6 +31,32 @@ describe("NodeCommandRunner", () => {
     expect((await running.result).code).toBeNull();
   });
 
+  it("settles as a failure when a later stage exits early while an earlier one is still writing", async () => {
+    const flood = "const chunk=Buffer.alloc(65536,97);(function w(){while(process.stdout.write(chunk));process.stdout.once('drain',w)})()";
+    const running = new NodeCommandRunner().run([
+      { command: node, args: ["-e", flood] },
+      { command: node, args: ["-e", "process.exit(3)"] },
+    ]);
+
+    const result = await Promise.race([
+      running.result,
+      new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), 5000)),
+    ]);
+    running.kill();
+
+    expect(result).not.toBe("timeout");
+    expect(result).toMatchObject({ code: 3 });
+  });
+
+  it("reports a stage killed by a signal as a failure, not a cancellation", async () => {
+    const running = new NodeCommandRunner().run([{ command: node, args: ["-e", "process.kill(process.pid, 'SIGTERM')"] }]);
+
+    const { code } = await running.result;
+
+    expect(code).not.toBeNull();
+    expect(code).not.toBe(0);
+  });
+
   it("rejects with CommandNotFoundError when the binary is missing", async () => {
     const running = new NodeCommandRunner().run([{ command: "speak-bot-missing-binary", args: [] }]);
 
