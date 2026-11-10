@@ -53,6 +53,7 @@ Use CLI flags (`npm start -w @speak-bot/desktop -- --port 5000`) or environment 
 | `--voice`    | `SPEAK_BOT_VOICE`    | system default          |
 | `--device`   | `SPEAK_BOT_DEVICE`   | system default          |
 | `--rate`     | `SPEAK_BOT_RATE`     | `1`                     |
+| `--allowed-host` | `SPEAK_BOT_ALLOWED_HOSTS` | none (comma-separated extra host names) |
 
 Phrases and settings are stored in:
 
@@ -121,6 +122,8 @@ Select **speakbot** as the output device in Speak Bot. In the call app, the micr
 ## Security note
 
 The desktop server has **no authentication** and listens on all networks by default, so anyone on the same network can trigger speech. Use it on trusted networks. To restrict it to this computer only, run it with `--host 127.0.0.1`. That disables the phone remote.
+
+To block other websites open in your browser from reading captions or triggering speech, the server only accepts requests addressed to `localhost`, an IP address, or this computer's name (`<hostname>` / `<hostname>.local`). If you reach it through a custom DNS name, add that name with `--allowed-host`.
 
 ## Scripts
 
