@@ -111,7 +111,9 @@ describe("App", () => {
     const phrases = screen.getByRole("region", { name: "Saved phrases" });
     await user.click(within(phrases).getByRole("button", { name: "Delete phrase: I need water" }));
 
-    expect(await screen.findByText(/No saved phrases yet/)).toBeInTheDocument();
+    expect(
+      await within(phrases).findByText("No saved phrases yet. Press “Edit” to add one or restore the default ones."),
+    ).toBeInTheDocument();
     expect(repository.phrases).toEqual([]);
   });
 

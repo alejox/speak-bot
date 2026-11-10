@@ -100,6 +100,15 @@ describe("DockApp", () => {
     expect(screen.queryByRole("button", { name: "Decir: Local phrase" })).not.toBeInTheDocument();
   });
 
+  it("shows a neutral message when the desktop has no phrases", async () => {
+    setup((request) =>
+      request.method === "GET" && request.url === "/api/phrases" ? { body: [] } : desktopRoute(request),
+    );
+
+    expect(await screen.findByText("Aún no tienes frases guardadas.")).toBeInTheDocument();
+    expect(screen.queryByText(/Guardar como frase|Editar|Agregar/)).not.toBeInTheDocument();
+  });
+
   it("stops speech on the computer", async () => {
     const { requests, user } = setup();
     await screen.findByRole("button", { name: "Decir: Hola desde la computadora" });

@@ -42,7 +42,8 @@ export function PhraseBoard({ title, phrases, onSpeak, size = "large", editing }
       {editing && isEditing && <AddPhraseForm onAdd={editing.onAdd} />}
 
       {phrases.length === 0 ? (
-        <p className="empty">{t("phrases.empty")}</p>
+        // Only an editable board offers a way to add phrases; read-only boards (quick phrases, OBS dock) stay neutral.
+        <p className="empty">{t(editing ? "phrases.emptyEditable" : "phrases.empty")}</p>
       ) : (
         <ul className="phrase-grid">
           {phrases.map((phrase) => {
