@@ -70,6 +70,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
   const prepared = await prepareBoards(repository, {
     legacyPhrasesFile: join(config.dataDir, "phrases.json"),
     language: (await settings.load()).language,
+    log,
   });
   if (prepared === "migrated") log("Moved the saved phrases to the communication board (backup: phrases.json.migrated.bak).");
   const settingsListeners = new Set<(next: DesktopSettings) => void>();

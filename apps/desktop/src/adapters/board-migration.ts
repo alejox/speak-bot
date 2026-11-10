@@ -1,4 +1,4 @@
-import { assignMissingSlots, initializeBoards, type BoardRepository, type Phrase, type StoredPhrase, type UiLanguage } from "@speak-bot/core";
+import { assignMissingSlots, createKey, initializeBoards, type BoardRepository, type Phrase, type StoredPhrase, type UiLanguage } from "@speak-bot/core";
 import { rename } from "node:fs/promises";
 import { readJsonFile } from "./json-file";
 
@@ -8,13 +8,15 @@ export type PrepareBoardsResult = "unchanged" | "migrated" | "created-default";
  * Makes sure there is at least one board. On the first start after an update, the phrases saved by
  * older versions (`legacyPhrasesFile`) become the communication board and the old file is kept as
  * `<file>.migrated.bak`. A new install gets the default communication board in `language`.
+ * Phrases a key cannot hold (e.g. text over the speech limit) are skipped and counted in `log`,
+ * so an old file never stops the desktop from starting.
  */
 export async function prepareBoards(
   repository: BoardRepository,
-  { legacyPhrasesFile, language }: { legacyPhrasesFile: string; language: UiLanguage },
+  { legacyPhrasesFile, language, log = () => {} }: { legacyPhrasesFile: string; language: UiLanguage; log?: (message: string) => void },
 ): Promise<PrepareBoardsResult> {
   if ((await repository.list()).length > 0) return "unchanged";
-  const legacyPhrases = await readLegacyPhrases(legacyPhrasesFile);
+  const legacyPhrases = await readLegacyPhrases(legacyPhrasesFile, log);
   const created = await initializeBoards({ repository }, { language, legacyPhrases });
   if (!created) return "unchanged";
   if (legacyPhrases === null) return "created-default";
@@ -23,10 +25,24 @@ export async function prepareBoards(
 }
 
 /** Phrases from an older phrases file (slots assigned when missing), or null when there is no readable file. */
-async function readLegacyPhrases(file: string): Promise<Phrase[] | null> {
+async function readLegacyPhrases(file: string, log: (message: string) => void): Promise<Phrase[] | null> {
   const content = await readJsonFile(file);
   if (content.status !== "ok" || !Array.isArray(content.value)) return null;
-  return assignMissingSlots(content.value.filter(isStoredPhrase));
+  const phrases = assignMissingSlots(content.value.filter(isStoredPhrase));
+  const usable = phrases.filter(fitsOnKey);
+  const skipped = phrases.length - usable.length;
+  if (skipped > 0) log(`Skipped ${skipped} saved phrase${skipped === 1 ? "" : "s"} that a board key cannot hold.`);
+  return usable;
+}
+
+/** Whether the phrase makes a valid speak key in its slot (text length, slot range). */
+function fitsOnKey(phrase: Phrase): boolean {
+  try {
+    createKey({ slot: phrase.slot, action: { type: "voice.speak", text: phrase.text.trim() } });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function isStoredPhrase(value: unknown): value is StoredPhrase {

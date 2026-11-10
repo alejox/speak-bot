@@ -64,4 +64,22 @@ describe("prepareBoards", () => {
     expect(await prepareBoards(repository, { legacyPhrasesFile: legacyFile, language: "es" })).toBe("created-default");
     expect((await repository.list())[0]!.keys[0]!.action).toEqual({ type: "voice.speak", text: "Hola" });
   });
+
+  it("skips phrases a board key cannot hold instead of failing startup", async () => {
+    const legacy = [
+      { id: "a", text: "Hola", createdAt: 1 },
+      { id: "long", text: "x".repeat(5000), createdAt: 2 },
+      { id: "b", text: "Agua", label: "y".repeat(500), createdAt: 3 },
+      { id: "far", text: "Lejos", slot: 1_000_000, createdAt: 4 },
+    ];
+    await writeFile(legacyFile, JSON.stringify(legacy));
+    const logs: string[] = [];
+
+    expect(await prepareBoards(repository, { legacyPhrasesFile: legacyFile, language: "es", log: (message) => logs.push(message) })).toBe("migrated");
+    const [board] = await repository.list();
+    const texts = board!.keys.flatMap((key) => (key.action.type === "voice.speak" ? [key.action.text] : []));
+    expect(texts).toEqual(["Hola", "Agua", "Lejos"]);
+    expect(texts.join("")).not.toContain("xxxx");
+    expect(logs.join("\n")).toContain("Skipped 1 saved phrase");
+  });
 });
