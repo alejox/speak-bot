@@ -4,6 +4,7 @@ export type { SpeakOptions, SpeechSynthesizer, Voice } from "./ports/speech-synt
 export { EmptyTextError, speakText, stopSpeaking } from "./use-cases/speak";
 export {
   DEFAULT_PHRASE_TEXTS,
+  DEFAULT_PHRASES_BY_LANGUAGE,
   deletePhrase,
   listPhrases,
   restoreDefaultPhrases,

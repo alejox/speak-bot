@@ -1,6 +1,15 @@
-import { deletePhrase, listPhrases, restoreDefaultPhrases, savePhrase, seedDefaultPhrases, type Phrase, type UiLanguage } from "@speak-bot/core";
+import {
+  DEFAULT_PHRASES_BY_LANGUAGE,
+  deletePhrase,
+  listPhrases,
+  restoreDefaultPhrases,
+  savePhrase,
+  seedDefaultPhrases,
+  type Phrase,
+  type UiLanguage,
+} from "@speak-bot/core";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DEFAULT_PHRASES, type Message } from "../i18n/messages";
+import type { Message } from "../i18n/messages";
 import type { SpeechTarget } from "./use-speech-target";
 
 export interface PhraseBook {
@@ -39,7 +48,7 @@ export function usePhraseBook(target: PhraseTarget, language: UiLanguage, report
     void (async () => {
       if (!target.isRemote) {
         seeding.current ??= isFirstRun()
-          ? seedDefaultPhrases(phraseDeps, DEFAULT_PHRASES[languageRef.current])
+          ? seedDefaultPhrases(phraseDeps, DEFAULT_PHRASES_BY_LANGUAGE[languageRef.current])
           : Promise.resolve();
         await seeding.current;
       }
@@ -89,7 +98,7 @@ export function usePhraseBook(target: PhraseTarget, language: UiLanguage, report
     restoreDefaults: async () => {
       try {
         if (restoreRemotePhrases) await restoreRemotePhrases(language);
-        else await restoreDefaultPhrases(phraseDeps, DEFAULT_PHRASES[language]);
+        else await restoreDefaultPhrases(phraseDeps, DEFAULT_PHRASES_BY_LANGUAGE[language]);
         await refresh();
       } catch {
         report({ key: "status.restoreFailed" });

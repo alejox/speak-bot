@@ -1,4 +1,4 @@
-import type { Phrase, ServerEvent, SpeakOptions, Voice } from "@speak-bot/core";
+import { DEFAULT_PHRASES_BY_LANGUAGE, type Phrase, type ServerEvent, type SpeakOptions, type Voice } from "@speak-bot/core";
 import { mkdtemp, rm } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -12,7 +12,6 @@ import {
   type DesktopSpeakOptions,
   type DesktopSpeechSynthesizer,
 } from "../src/adapters/tts/process-speech-synthesizer";
-import { DEFAULT_PHRASES } from "../src/default-phrases";
 import { createDesktopServer, type DesktopServer } from "../src/server/create-server";
 
 class FakeSynthesizer implements DesktopSpeechSynthesizer {
@@ -270,15 +269,15 @@ describe("desktop HTTP API", () => {
     const response = await post("/api/phrases/restore", { language: "es" });
     expect(response.status).toBe(200);
     const restored = (await response.json()) as Phrase[];
-    expect(restored.map((p) => p.text)).toEqual([...DEFAULT_PHRASES.es]);
+    expect(restored.map((p) => p.text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
     const listed = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
-    expect(listed.map((p) => p.text)).toEqual([...DEFAULT_PHRASES.es]);
+    expect(listed.map((p) => p.text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
     expect((await client.next(1))[0]).toMatchObject({ type: "phrases-changed" });
     client.close();
 
     await post("/api/phrases/restore", { language: "en" });
     const english = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
-    expect(english.map((p) => p.text)).toEqual([...DEFAULT_PHRASES.en]);
+    expect(english.map((p) => p.text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.en]);
   });
 
   it("ends with exactly the default phrases when two restores run at the same time", async () => {
@@ -291,8 +290,8 @@ describe("desktop HTTP API", () => {
 
     expect(responses.map((response) => response.status)).toEqual([200, 200]);
     const listed = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
-    expect(listed).toHaveLength(DEFAULT_PHRASES.es.length);
-    expect(listed.map((p) => p.text)).toEqual([...DEFAULT_PHRASES.es]);
+    expect(listed).toHaveLength(DEFAULT_PHRASES_BY_LANGUAGE.es.length);
+    expect(listed.map((p) => p.text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
   });
 
   it("validates the restore language and keeps the phrases on error", async () => {

@@ -1,4 +1,4 @@
-import type { Phrase, PhraseRepository, SpeakOptions, Voice } from "@speak-bot/core";
+import { DEFAULT_PHRASES_BY_LANGUAGE, type Phrase, type PhraseRepository, type SpeakOptions, type Voice } from "@speak-bot/core";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -7,7 +7,6 @@ import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesize
 import { App } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
 import { SECTION_STORAGE_KEY } from "../src/app/use-section";
-import { DEFAULT_PHRASES } from "../src/i18n/messages";
 import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
 import { goTo, memoryLanguageStore } from "./i18n-helpers";
 
@@ -152,10 +151,10 @@ describe("phrase board", () => {
     await user.click(screen.getByRole("button", { name: "Sí, restaurar" }));
 
     expect(await screen.findByText("Se restauraron las frases predeterminadas.")).toBeInTheDocument();
-    expect(repository.phrases.map((p) => p.text)).toEqual([...DEFAULT_PHRASES.es]);
+    expect(repository.phrases.map((p) => p.text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
     await user.click(screen.getByRole("button", { name: "Listo" }));
     const buttons = screen.getAllByRole("button", { name: /^Decir: / });
-    expect(buttons.map((button) => button.textContent)).toEqual([...DEFAULT_PHRASES.es]);
+    expect(buttons.map((button) => button.textContent)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
   });
 });
 

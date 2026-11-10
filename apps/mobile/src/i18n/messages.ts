@@ -1,4 +1,4 @@
-import { DEFAULT_PHRASE_TEXTS, type UiLanguage } from "@speak-bot/core";
+import type { UiLanguage } from "@speak-bot/core";
 import { en, type MessageKey, type Messages } from "./en";
 import { es } from "./es";
 
@@ -8,21 +8,6 @@ export const DICTIONARIES: Record<UiLanguage, Messages> = { es, en };
 
 /** Names shown in the language selector, each in its own language. */
 export const LANGUAGE_NAMES: Record<UiLanguage, string> = { es: "Español", en: "English" };
-
-/** Phrases saved on the first run on this device, in the interface language. */
-export const DEFAULT_PHRASES: Record<UiLanguage, readonly string[]> = {
-  es: [
-    "Hola",
-    "Gracias",
-    "Sí",
-    "No",
-    "Por favor",
-    "Un momento, por favor",
-    "No puedo hablar, pero sí puedo escucharte",
-    "¿Me puedes ayudar?",
-  ],
-  en: DEFAULT_PHRASE_TEXTS,
-};
 
 export type MessageParams = Readonly<Record<string, string | number>>;
 

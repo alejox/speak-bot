@@ -1,10 +1,10 @@
+import { DEFAULT_PHRASES_BY_LANGUAGE } from "@speak-bot/core";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { DEFAULT_PHRASES } from "../src/default-phrases";
 import { startDesktop, type RunningDesktop } from "../src/start-desktop";
 
 describe("startDesktop", () => {
@@ -65,7 +65,7 @@ describe("startDesktop", () => {
     desktop = await startDesktop({ argv: ["--port", "0", "--host", "127.0.0.1", "--data-dir", dir], env: {} });
 
     const phrases = (await (await fetch(`http://127.0.0.1:${desktop.port}/api/phrases`)).json()) as Array<{ text: string }>;
-    expect(phrases.map((phrase) => phrase.text)).toEqual([...DEFAULT_PHRASES.es]);
+    expect(phrases.map((phrase) => phrase.text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
     expect((await desktop.loadSettings()).language).toBe("es");
   });
 
@@ -77,7 +77,7 @@ describe("startDesktop", () => {
     desktop.onSettingsChanged((settings) => changes.push(settings.language));
 
     const phrases = (await (await fetch(`http://127.0.0.1:${desktop.port}/api/phrases`)).json()) as Array<{ text: string }>;
-    expect(phrases.map((phrase) => phrase.text)).toEqual([...DEFAULT_PHRASES.en]);
+    expect(phrases.map((phrase) => phrase.text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.en]);
 
     await fetch(`http://127.0.0.1:${desktop.port}/api/settings`, {
       method: "PUT",

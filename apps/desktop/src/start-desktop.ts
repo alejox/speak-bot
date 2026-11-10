@@ -1,4 +1,4 @@
-import { seedDefaultPhrases, type DesktopSettings } from "@speak-bot/core";
+import { DEFAULT_PHRASES_BY_LANGUAGE, seedDefaultPhrases, type DesktopSettings } from "@speak-bot/core";
 import { randomUUID } from "node:crypto";
 import { homedir, networkInterfaces } from "node:os";
 import { join } from "node:path";
@@ -6,7 +6,6 @@ import { JsonFilePhraseRepository } from "./adapters/json-file-phrase-repository
 import { JsonFileSettingsStore } from "./adapters/json-file-settings-store";
 import { createSystemSynthesizer } from "./adapters/tts/create-system-synthesizer";
 import { loadConfig, type ConfigSources } from "./config";
-import { DEFAULT_PHRASES } from "./default-phrases";
 import { createDesktopServer } from "./server/create-server";
 import { connectionInfo } from "./server/network";
 import { listenWithFallback } from "./server/port-fallback";
@@ -61,7 +60,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
   const phraseDeps = { repository, generateId: randomUUID, now: () => Date.now() };
 
   if (!(await repository.exists())) {
-    await seedDefaultPhrases(phraseDeps, DEFAULT_PHRASES[(await settings.load()).language]);
+    await seedDefaultPhrases(phraseDeps, DEFAULT_PHRASES_BY_LANGUAGE[(await settings.load()).language]);
   }
   const settingsListeners = new Set<(next: DesktopSettings) => void>();
 

@@ -1,5 +1,6 @@
 import {
   createPhrase,
+  DEFAULT_PHRASES_BY_LANGUAGE,
   DESKTOP_SERVER_NAME,
   InvalidPhraseError,
   isUiLanguage,
@@ -23,7 +24,6 @@ import {
   type DesktopSpeakOptions,
   type DesktopSpeechSynthesizer,
 } from "../adapters/tts/process-speech-synthesizer";
-import { DEFAULT_PHRASES } from "../default-phrases";
 import { asObject, HttpError, readJsonBody, sendEmpty, sendJson } from "./http-utils";
 import { connectionInfo, isLoopbackAddress, type NetworkInterfaces } from "./network";
 
@@ -91,7 +91,7 @@ export function createApiHandler(deps: ApiDependencies) {
     "POST /api/phrases/restore": async (request, response) => {
       const { language } = asObject(await readJsonBody(request));
       if (!isUiLanguage(language)) throw new HttpError(400, 'language must be "es" or "en".');
-      const restored = await restoreDefaultPhrases({ repository, generateId, now }, DEFAULT_PHRASES[language]);
+      const restored = await restoreDefaultPhrases({ repository, generateId, now }, DEFAULT_PHRASES_BY_LANGUAGE[language]);
       broadcast({ type: "phrases-changed", at: now() });
       sendJson(response, 200, restored);
     },

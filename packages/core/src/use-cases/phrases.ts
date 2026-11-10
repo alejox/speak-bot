@@ -1,5 +1,6 @@
 import { createPhrase, type Phrase } from "../domain/phrase";
 import type { PhraseRepository } from "../ports/phrase-repository";
+import type { UiLanguage } from "../protocol";
 
 export interface PhraseDependencies {
   repository: PhraseRepository;
@@ -7,7 +8,7 @@ export interface PhraseDependencies {
   now: () => number;
 }
 
-/** English default phrases. Apps pass localized lists to `seedDefaultPhrases`. */
+/** English default phrases; same list as `DEFAULT_PHRASES_BY_LANGUAGE.en`. */
 export const DEFAULT_PHRASE_TEXTS = [
   "Hello",
   "Thank you",
@@ -18,6 +19,21 @@ export const DEFAULT_PHRASE_TEXTS = [
   "I can't speak but I can hear you",
   "Can you help me?",
 ] as const;
+
+/** Default phrases for each interface language, used to seed and restore the phrase list. */
+export const DEFAULT_PHRASES_BY_LANGUAGE: Readonly<Record<UiLanguage, readonly string[]>> = {
+  es: [
+    "Hola",
+    "Gracias",
+    "Sí",
+    "No",
+    "Por favor",
+    "Un momento, por favor",
+    "No puedo hablar, pero sí puedo escucharte",
+    "¿Me puedes ayudar?",
+  ],
+  en: DEFAULT_PHRASE_TEXTS,
+};
 
 export async function savePhrase(
   { repository, generateId, now }: PhraseDependencies,

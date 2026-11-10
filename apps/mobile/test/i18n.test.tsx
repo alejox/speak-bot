@@ -1,4 +1,11 @@
-import type { Phrase, PhraseRepository, SpeakOptions, UiLanguage, Voice } from "@speak-bot/core";
+import {
+  DEFAULT_PHRASES_BY_LANGUAGE,
+  type Phrase,
+  type PhraseRepository,
+  type SpeakOptions,
+  type UiLanguage,
+  type Voice,
+} from "@speak-bot/core";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -10,7 +17,7 @@ import { App, describeSpeechError } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
 import { en } from "../src/i18n/en";
 import { es } from "../src/i18n/es";
-import { DEFAULT_PHRASES, translate } from "../src/i18n/messages";
+import { translate } from "../src/i18n/messages";
 import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
 import { goTo, memoryLanguageStore } from "./i18n-helpers";
 
@@ -131,7 +138,7 @@ describe("App language", () => {
     await goTo(user, "Frases");
 
     const buttons = await screen.findAllByRole("button", { name: /^Decir: / });
-    expect(buttons.map((button) => button.textContent)).toEqual([...DEFAULT_PHRASES.es]);
+    expect(buttons.map((button) => button.textContent)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
   });
 
   it("seeds English default phrases on first run when English was chosen", async () => {
@@ -139,7 +146,7 @@ describe("App language", () => {
     await goTo(user, "Phrases");
 
     const buttons = await screen.findAllByRole("button", { name: /^Speak: / });
-    expect(buttons.map((button) => button.textContent)).toEqual([...DEFAULT_PHRASES.en]);
+    expect(buttons.map((button) => button.textContent)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.en]);
   });
 
   it("speaks with a voice matching the interface language when none is chosen", async () => {
