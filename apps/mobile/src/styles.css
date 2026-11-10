@@ -537,13 +537,32 @@ button.deck-key-empty {
   outline-offset: 3px;
 }
 
-.deck-key-drop {
-  outline: 3px dashed var(--focus);
-  outline-offset: 3px;
+/*
+ * In the editor, aria-pressed marks the selected key, not a toggle that is on: the blue selection outline
+ * is its only ring, so drop the toggle's inner ring and dot.
+ */
+.board-editor .deck-key[aria-pressed="true"] {
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.35);
+}
+
+.board-editor .deck-key-empty[aria-pressed="true"] {
+  box-shadow: none;
 }
 
 .board-editor .deck-key[aria-pressed="true"]::after {
   display: none;
+}
+
+/* Keyboard focus on the selected key turns its one ring into the focus ring instead of adding a second one. */
+.deck-key-selected:focus-visible,
+.deck-grid-editing .deck-key.deck-key-selected:focus-visible {
+  outline: 4px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.deck-key-drop {
+  outline: 3px dashed var(--focus);
+  outline-offset: 3px;
 }
 
 .deck-pager {
