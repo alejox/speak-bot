@@ -81,9 +81,12 @@
         var bg = params.get("bg");
 
         caption.style.setProperty("--caption-size", size + "px");
-        // The browser ignores invalid CSS values here, so params cannot inject other styles.
-        if (color) caption.style.setProperty("--caption-color", color);
-        if (bg) caption.style.setProperty("--caption-bg", bg);
+        // Custom properties accept almost any value (even url(...)), so only real colors are applied.
+        function isColor(value) {
+          return typeof CSS !== "undefined" && CSS.supports("color", value);
+        }
+        if (color && isColor(color)) caption.style.setProperty("--caption-color", color);
+        if (bg && isColor(bg)) caption.style.setProperty("--caption-bg", bg);
         if (position === "top" || position === "center") document.body.classList.add("position-" + position);
 
         var hideTimer = null;

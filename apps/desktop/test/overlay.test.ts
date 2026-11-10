@@ -12,6 +12,8 @@ describe("overlay.html", () => {
     expect(html).toContain("textContent");
     expect(html).not.toContain("innerHTML");
     expect(html).not.toMatch(/<script[^>]+src=/);
+    // Colors are validated, so `bg=url(https://tracker)` cannot make OBS fetch anything.
+    expect(html).toContain('CSS.supports("color"');
     for (const param of ["size", "position", "hold", "color", "bg"]) expect(html).toContain(`"${param}"`);
   });
 });
