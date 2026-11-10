@@ -60,7 +60,10 @@ describe("boards and actions API", () => {
     const events: ServerEvent[] = [];
     const waiters: Array<() => void> = [];
     socket.on("message", (data) => {
-      events.push(JSON.parse(String(data)) as ServerEvent);
+      const event = JSON.parse(String(data)) as ServerEvent;
+      // Settings changes are covered by the settings tests.
+      if (event.type === "settings-changed") return;
+      events.push(event);
       for (const waiter of waiters.splice(0)) waiter();
     });
     await new Promise<void>((resolve, reject) => {

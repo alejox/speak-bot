@@ -46,7 +46,7 @@ export async function initializeBoards(
 export async function createBoard({ repository, generateId }: BoardDependencies, { name }: { name: unknown }): Promise<Board> {
   const board = makeBoard(generateId(), parseBoardName(name));
   return repository.update((boards) => {
-    if (boards.length >= MAX_BOARDS) throw new InvalidBoardError(`There can be at most ${MAX_BOARDS} boards.`);
+    if (boards.length >= MAX_BOARDS) throw new BoardLimitError();
     if (boards.some((other) => other.id === board.id)) throw new InvalidBoardError("A board with this id already exists.");
     return { boards: [...boards, board], result: board };
   });

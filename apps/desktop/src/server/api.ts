@@ -71,13 +71,18 @@ export function createApiHandler(deps: ApiDependencies) {
   const { repository, settings, synthesizer, broadcast, generateId, now } = deps;
   const log = deps.log ?? (() => {});
   const listInterfaces = deps.networkInterfaces ?? osNetworkInterfaces;
+  // Every client hears about new settings (e.g. the OBS dock follows a language chosen in the window).
+  const settingsChanged = (updated: DesktopSettings) => {
+    broadcast({ type: "settings-changed", settings: updated, at: now() });
+    deps.onSettingsChanged?.(updated);
+  };
   const executor = createActionExecutor({
     settings,
     synthesizer,
     broadcast,
     now,
     log,
-    onSettingsChanged: deps.onSettingsChanged,
+    onSettingsChanged: settingsChanged,
     obs: deps.obs,
   });
   const requireObs = (): ObsController => {
@@ -269,7 +274,7 @@ export function createApiHandler(deps: ApiDependencies) {
         if (deps.obs && (patch as { obs?: unknown }).obs !== undefined) {
           void applyObsSettings(deps.obs, stored.obs).catch((error: unknown) => log(`Applying OBS settings failed: ${String(error)}`));
         }
-        deps.onSettingsChanged?.(updated);
+        settingsChanged(updated);
         sendJson(response, 200, updated);
       },
     },

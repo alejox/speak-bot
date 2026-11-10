@@ -60,6 +60,15 @@ export {
   type Key,
   type KeyIconId,
 } from "./domain/board";
+export {
+  boardPageCount,
+  contrastTextColor,
+  keysOnPage,
+  navigateBoard,
+  resolveBoardPosition,
+  type BoardPosition,
+  type NavigationAction,
+} from "./domain/board-navigation";
 export { boardFromPhrases, buildDefaultBoard, COMMUNICATION_ACTIONS, DEFAULT_BOARD_ID, DEFAULT_BOARD_NAMES } from "./domain/default-board";
 export type { BoardChange, BoardRepository } from "./ports/board-repository";
 export {
@@ -135,6 +144,7 @@ export {
   type MoveKeyRequest,
   type RestoreDefaultBoardRequest,
   type SetKeyRequest,
+  type SettingsChangedEvent,
   type ServerEvent,
   type SpeakErrorCode,
   type SpeakErrorEvent,

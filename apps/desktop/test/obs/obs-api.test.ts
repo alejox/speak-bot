@@ -98,7 +98,7 @@ describe("OBS API", () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     socket.close();
 
-    const types = events.map((event) => (event.type === "obs-status" ? `${event.type}:${event.status}` : event.type));
+    const types = events.filter((event) => event.type !== "settings-changed").map((event) => (event.type === "obs-status" ? `${event.type}:${event.status}` : event.type));
     expect(types).toEqual(["obs-status:connecting", "obs-status:connected", "obs-state", "obs-status:disconnected"]);
     expect(JSON.stringify(events)).not.toContain(PASSWORD);
     expect(JSON.stringify(logs)).not.toContain(PASSWORD);

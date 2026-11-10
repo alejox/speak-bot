@@ -50,12 +50,15 @@ describe("desktop HTTP API", () => {
       body: typeof body === "string" ? body : JSON.stringify(body),
     });
 
-  async function connect(): Promise<{ events: ServerEvent[]; next: (count: number) => Promise<ServerEvent[]>; close: () => void }> {
+  /** Settings changes are left out unless `includeSettings` is set. */
+  async function connect(includeSettings = false): Promise<{ events: ServerEvent[]; next: (count: number) => Promise<ServerEvent[]>; close: () => void }> {
     const socket = new WebSocket(`${baseUrl.replace("http", "ws")}/ws`);
     const events: ServerEvent[] = [];
     const waiters: Array<() => void> = [];
     socket.on("message", (data) => {
-      events.push(JSON.parse(String(data)) as ServerEvent);
+      const event = JSON.parse(String(data)) as ServerEvent;
+      if (event.type === "settings-changed" && !includeSettings) return;
+      events.push(event);
       for (const waiter of waiters.splice(0)) waiter();
     });
     await new Promise<void>((resolve, reject) => {
@@ -178,6 +181,19 @@ describe("desktop HTTP API", () => {
     const updated = await post("/api/settings", { language: "en", captionsVisible: true }, "PUT");
     expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true, obs: OBS_OFF });
     expect(settingsChanges).toEqual([{ voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true, obs: OBS_OFF }]);
+  });
+
+  it("tells every client about settings changes, from the settings API and from actions", async () => {
+    const client = await connect(true);
+    await post("/api/settings", { language: "en" }, "PUT");
+    await post("/api/actions/execute", { action: { type: "voice.toggleLanguage" } });
+    const changes = () => client.events.filter((event) => event.type === "settings-changed");
+    while (changes().length < 2) await client.next(client.events.length + 1);
+    expect(changes()).toEqual([
+      { type: "settings-changed", settings: expect.objectContaining({ language: "en", obs: OBS_OFF }), at: expect.any(Number) },
+      { type: "settings-changed", settings: expect.objectContaining({ language: "en", voiceLanguage: "es" }), at: expect.any(Number) },
+    ]);
+    client.close();
   });
 
   it("uses a voice matching the interface language when no voice is chosen, listing voices once", async () => {

@@ -83,7 +83,15 @@ export interface ObsStateEvent {
   readonly at: number;
 }
 
+/** The desktop settings changed (from any client, the tray or an action key); never holds the OBS password. */
+export interface SettingsChangedEvent {
+  readonly type: "settings-changed";
+  readonly settings: DesktopSettings;
+  readonly at: number;
+}
+
 export type ServerEvent =
+  | SettingsChangedEvent
   | CaptionEvent
   | SpeakingEvent
   | BoardsChangedEvent
@@ -114,6 +122,8 @@ export function isServerEvent(value: unknown): value is ServerEvent {
       return typeof event.status === "string" && (event.code === undefined || typeof event.code === "string");
     case "obs-state":
       return isObsState(event.state);
+    case "settings-changed":
+      return typeof event.settings === "object" && event.settings !== null && isUiLanguage((event.settings as { language?: unknown }).language);
     default:
       return false;
   }
