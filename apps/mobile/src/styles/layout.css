@@ -207,6 +207,48 @@
   color: var(--color-text);
 }
 
+/*
+ * A space's boards under its menu item: indented under the label, quieter than the sections. The board
+ * on screen gets the hover background and a heavier weight, never an accent line.
+ */
+.side-nav-sub {
+  list-style: none;
+  margin: var(--space-1) 0 var(--space-2);
+  padding: 0 0 0 calc(var(--space-3) + 1.4em + var(--space-3) - var(--space-2));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.side-nav-sub-link {
+  display: flex;
+  align-items: center;
+  min-height: var(--size-control-sm);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  text-decoration: none;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition:
+    background-color var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease);
+}
+
+.side-nav-sub-link:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.side-nav-sub-link[aria-current="true"] {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+}
+
 /* Icons-only rail: the label is hidden visually but stays the link's accessible name. */
 .side-nav-collapsed .side-nav-toggle {
   margin: 0 auto var(--space-2);
@@ -257,6 +299,11 @@
   }
 
   .side-nav-toggle {
+    display: none;
+  }
+
+  /* The tab bar has no room for the boards: the board pill switches them. */
+  .side-nav-sub {
     display: none;
   }
 

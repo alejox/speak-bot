@@ -56,6 +56,9 @@ Out of scope (second delivery): custom `Select`, toggle switches and segmented c
 - [x] T10 — Voice uses the Deck's three-column layout on wide screens (≥1000px, `INSPECTOR_QUERY`; user request 2026-11-10). The workspace keeps only the board pill, pager and keys (heading and status line visually hidden, same rules as T7, now shared through an `app-workspace` class instead of `[data-space="deck"]`). The right full-height panel (`VoicePanel`, complementary "Type to speak") holds the composer (text, Speak, Stop, Save as key) stacked to the panel width and the recent phrases below it as wrapping chips. Editing or adding a Voice key shows the key inspector in that panel; closing it brings the composer back. Focus unchanged: entering a section still focuses its heading (the text box is not auto-focused today). Phones keep the composer above the keys.
   - Evidence: RED — new `voice-workspace.test.tsx` 3/4 failed (composer in main, visible heading, no panel). GREEN — 263/263 tests, typecheck and build pass. Visual check in a real browser not done. Commit: see Progress.
 
+- [x] T11 — Boards in the sidebar for fast switching (user request 2026-11-10). Under "Deck" and "Voice" the expanded sidebar lists that space's boards (split by `board.kind`, the same `spaceBoards` the board pill offers), as a nested list named "Deck boards" / "Voice boards" (es: "Tableros de …"). Each link shows the board name and is named "<name>, board" (es: "tablero") so it never clashes with a section of the same name (the default deck board is "Deck"). Selecting one opens its section on that board (page 1); the board on screen has `aria-current="true"` and a background plus semibold weight (no accent line). New, renamed or deleted boards show at once (the list reads the live boards). Hidden in the collapsed rail (not rendered) and in the phone tab bar (CSS), where the board pill switches boards; the pill keeps new/rename/delete/restore.
+  - Evidence: RED — new `nav-boards.test.tsx` 4/4 failed (no board lists). GREEN — 267/267 tests, typecheck and build pass; menu-order assertions now count section links only. Visual check in a real browser not done. Commit: see Progress.
+
 ## Route per task
 
 - T1–T4: delegated direct, one writer (2+ non-trivial files across components, styles, i18n, tests).
@@ -63,8 +66,9 @@ Out of scope (second delivery): custom `Select`, toggle switches and segmented c
 - T6: delegated direct, one writer (App, BoardPlayer, new component, styles, i18n, tests).
 - T7: delegated direct, one writer (App, DeckStatus, SectionView, BoardPlayer, layout/deck/editor CSS, tests).
 - T8: delegated direct, one writer (package, main.tsx, vite config, several style sheets, build test).
-- T10: delegated direct, one writer (App, new VoicePanel, deck/controls CSS, tests).
 - T9: delegated direct, one writer (App, use-section, SideNav, DeckStatus, new StatusDot, SettingsPanel, ObsSettings, styles, i18n, tests).
+- T10: delegated direct, one writer (App, new VoicePanel, deck/controls CSS, tests).
+- T11: delegated direct, one writer (SideNav, App, layout/preferences CSS, i18n, tests).
 
 ## Acceptance criteria
 
@@ -92,3 +96,4 @@ Out of scope (second delivery): custom `Select`, toggle switches and segmented c
 - 2026-11-10: T8 committed (`feat(mobile): bundle Inter and tune the type scale, weights and tracking`).
 - 2026-11-10: T9 committed (`feat(mobile): give OBS its own section with a coloured connection status`).
 - 2026-11-10: T9 `0f06003`. T10 committed (`feat(mobile): move the voice composer into the side panel on wide screens`).
+- 2026-11-10: T10 `8a43ef8`. T11 committed (`feat(mobile): list each space's boards under its menu item`).

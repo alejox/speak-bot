@@ -130,6 +130,21 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   };
   const spaces = useSpaceDecks(target, speech, language, positionStores, select, setStatus);
 
+  // Each space's boards under its menu item: one tap opens the section on that board.
+  const boardShortcuts = (kind: BoardKind) => ({
+    label: t("nav.boards", { section: t(`nav.${kind}`) }),
+    items: spaces[kind].spaceBoards.map((candidate) => ({
+      id: candidate.id,
+      label: candidate.name,
+      suffix: t("nav.boardSuffix"),
+      current: spaceOfSection(section) === kind && spaces[kind].navigation.board?.id === candidate.id,
+      onSelect: () => {
+        select(kind);
+        spaces[kind].navigation.go({ boardId: candidate.id, page: 0 });
+      },
+    })),
+  });
+
   // Connect only exists on the computer itself; fall back when it is not available.
   const section: Section = storedSection === "connect" && !connection ? "deck" : storedSection;
   // OBS is reached through the computer app only; the menu item shows and says whether it is connected.
@@ -139,6 +154,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
     label: t(`nav.${id}`),
     icon: SECTION_ICONS[id],
     status: id === "obs" ? { tone: obsStatusTone, label: t(`nav.obsStatus.${obsStatusTone}`) } : undefined,
+    children: id === "voice" || id === "deck" ? boardShortcuts(id) : undefined,
   }));
   const space = spaceOfSection(section);
   const deck = space ? spaces[space] : null;

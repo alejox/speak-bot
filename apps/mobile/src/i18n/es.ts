@@ -9,6 +9,8 @@ export const es: Messages = {
   "nav.voice": "Voz",
   "nav.deck": "Deck",
   "nav.obs": "OBS",
+  "nav.boards": "Tableros de {section}",
+  "nav.boardSuffix": "tablero",
   "nav.obsStatus.ok": "conectado",
   "nav.obsStatus.pending": "conectando",
   "nav.obsStatus.off": "sin conexión",

@@ -10,6 +10,18 @@ export interface NavItem<Id extends string> {
   icon: ReactNode;
   /** A live state shown on the icon (colour and a dot) and spoken after the label, e.g. "OBS, connected". */
   status?: { tone: ObsTone; label: string };
+  /** Shortcuts listed under the item (a space's boards), hidden in the icons-only rail. */
+  children?: { label: string; items: readonly NavSubItem[] };
+}
+
+export interface NavSubItem {
+  id: string;
+  /** Shown as is; `suffix` follows it for screen readers only (e.g. "Talk, board"). */
+  label: string;
+  suffix: string;
+  /** The one on screen. */
+  current: boolean;
+  onSelect: () => void;
 }
 
 interface SideNavProps<Id extends string> {
@@ -23,7 +35,8 @@ interface SideNavProps<Id extends string> {
 
 /**
  * Section navigation: a left sidebar on wide screens and a bottom tab bar on narrow ones
- * (pure CSS), so every section stays one tap away without a drawer to open.
+ * (pure CSS), so every section stays one tap away without a drawer to open. The expanded sidebar also
+ * lists each space's boards under it; the rail and the tab bar leave them to the board pill.
  */
 export function SideNav<Id extends string>({ items, active, onSelect, collapsed = false, onCollapsedChange }: SideNavProps<Id>) {
   const t = useT();
@@ -66,6 +79,26 @@ export function SideNav<Id extends string>({ items, active, onSelect, collapsed 
                   {item.status && <span className="visually-hidden">, {item.status.label}</span>}
                 </span>
               </a>
+              {item.children && item.children.items.length > 0 && !collapsed && (
+                <ul className="side-nav-sub" aria-label={item.children.label}>
+                  {item.children.items.map((child) => (
+                    <li key={child.id}>
+                      <a
+                        href={`#${item.id}`}
+                        className="side-nav-sub-link"
+                        aria-current={child.current ? "true" : undefined}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          child.onSelect();
+                        }}
+                      >
+                        {child.label}
+                        <span className="visually-hidden">, {child.suffix}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           );
         })}

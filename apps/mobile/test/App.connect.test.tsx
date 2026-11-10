@@ -76,7 +76,7 @@ describe("App connect panel", () => {
     const { copied } = setup();
     await userEvent.click(await screen.findByRole("link", { name: "Connect" }));
     const nav = screen.getByRole("navigation", { name: "Sections" });
-    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Deck", "Voice", "OBS, not connected", "Connect", "Settings"]);
+    expect(within(nav).getAllByRole("link").filter((link) => link.classList.contains("side-nav-link")).map((link) => link.textContent)).toEqual(["Deck", "Voice", "OBS, not connected", "Connect", "Settings"]);
 
     const qr = await screen.findByRole("img", { name: "QR code for http://192.168.1.20:4545/" });
     expect(qr).toHaveAttribute("src", "data:qr,http://192.168.1.20:4545/");
