@@ -7,57 +7,55 @@ import {
   speakText,
   stopSpeaking,
   type Phrase,
-  type Voice,
 } from "@speak-bot/core";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SpeechSettings } from "../adapters/local-storage-settings-store";
+import { DesktopRequestError } from "../adapters/desktop-api";
+import { DesktopSpeechError } from "../adapters/remote-speech-synthesizer";
 import { SpeechUnsupportedError } from "../adapters/web-speech-synthesizer";
 import { Composer } from "../components/Composer";
 import { PhraseGrid } from "../components/PhraseGrid";
 import { SettingsPanel } from "../components/SettingsPanel";
 import type { AppServices } from "./composition-root";
+import { useSpeechTarget } from "./use-speech-target";
 
 /** Container: owns state and wires the UI to the core use cases. */
 export function App({ services }: { services: AppServices }) {
-  const { synthesizer, phrases: phraseDeps, settings: settingsStore } = services;
+  const target = useSpeechTarget(services);
+  const { synthesizer, phrases: phraseDeps, settings, isFirstRun, onPhrasesChanged } = target;
   const [text, setText] = useState("");
   const [phrases, setPhrases] = useState<Phrase[]>([]);
-  const [voices, setVoices] = useState<Voice[]>([]);
-  const [settings, setSettings] = useState<SpeechSettings>(() => settingsStore.load());
   const [isEditing, setIsEditing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [status, setStatus] = useState("");
   const speechRequest = useRef(0);
-  const phrasesLoaded = useRef(false);
+  // Shared across StrictMode's double effect run so defaults are seeded once, before the first list.
+  const seeding = useRef<Promise<unknown> | null>(null);
 
   const refreshPhrases = useCallback(async () => {
     setPhrases(await listPhrases(phraseDeps.repository));
   }, [phraseDeps]);
 
   useEffect(() => {
-    // Guard against StrictMode running this effect twice and seeding duplicates.
-    if (phrasesLoaded.current) return;
-    phrasesLoaded.current = true;
-    void (async () => {
-      if (services.isFirstRun()) await seedDefaultPhrases(phraseDeps);
-      await refreshPhrases();
-    })();
-  }, [services, phraseDeps, refreshPhrases]);
-
-  useEffect(() => {
     let active = true;
-    const loadVoices = () => {
-      void synthesizer.listVoices().then((loaded) => {
-        if (active) setVoices(loaded);
-      });
+    const refresh = async () => {
+      const loaded = await listPhrases(phraseDeps.repository);
+      if (active) setPhrases(loaded);
     };
-    loadVoices();
-    const unsubscribe = synthesizer.onVoicesChanged(loadVoices);
+    void (async () => {
+      if (!target.isRemote) {
+        seeding.current ??= isFirstRun() ? seedDefaultPhrases(phraseDeps) : Promise.resolve();
+        await seeding.current;
+      }
+      await refresh();
+    })().catch(() => {
+      if (active) setStatus("Could not load phrases.");
+    });
+    const unsubscribe = onPhrasesChanged(() => void refresh().catch(() => {}));
     return () => {
       active = false;
       unsubscribe();
     };
-  }, [synthesizer]);
+  }, [phraseDeps, target.isRemote, isFirstRun, onPhrasesChanged]);
 
   // Must not await before speakText: mobile browsers only allow speech inside the tap handler.
   const speak = (value: string) => {
@@ -98,11 +96,6 @@ export function App({ services }: { services: AppServices }) {
     setStatus(`Deleted "${phrase.label ?? phrase.text}".`);
   };
 
-  const updateSettings = (next: SpeechSettings) => {
-    setSettings(next);
-    settingsStore.save(next);
-  };
-
   return (
     <main className="app">
       <header className="app-header">
@@ -121,22 +114,28 @@ export function App({ services }: { services: AppServices }) {
         onTextChange={setText}
         onSpeak={() => speak(text)}
         onStop={stop}
-        onSave={() => void saveCurrentText()}
+        onSave={() => void saveCurrentText().catch(() => setStatus("Could not save the phrase."))}
       />
 
       <p className="status" role="status" aria-live="polite">
-        {status}
+        {status || target.error}
       </p>
 
       <PhraseGrid
         phrases={phrases}
         isEditing={isEditing}
         onSpeak={(phrase) => speak(phrase.text)}
-        onDelete={(phrase) => void removePhrase(phrase)}
+        onDelete={(phrase) => void removePhrase(phrase).catch(() => setStatus("Could not delete the phrase."))}
         onToggleEditing={() => setIsEditing((editing) => !editing)}
       />
 
-      <SettingsPanel voices={voices} settings={settings} onChange={updateSettings} />
+      <SettingsPanel
+        voices={target.voices}
+        settings={settings}
+        onChange={target.updateSettings}
+        speakOn={target.speakOn}
+        outputDevice={target.outputDevice}
+      />
     </main>
   );
 }
@@ -144,5 +143,6 @@ export function App({ services }: { services: AppServices }) {
 function describeSpeechError(error: unknown): string {
   if (error instanceof EmptyTextError) return "Type something to speak first.";
   if (error instanceof SpeechUnsupportedError) return error.message;
+  if (error instanceof DesktopSpeechError || error instanceof DesktopRequestError) return error.message;
   return "Could not speak that. Please try again.";
 }

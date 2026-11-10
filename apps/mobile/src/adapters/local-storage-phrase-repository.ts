@@ -52,7 +52,7 @@ export class LocalStoragePhraseRepository implements PhraseRepository {
   }
 }
 
-function isPhrase(value: unknown): value is Phrase {
+export function isPhrase(value: unknown): value is Phrase {
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as Record<string, unknown>;
   return (
