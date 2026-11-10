@@ -61,5 +61,7 @@ Native installer/packaging, cloud TTS, authentication (LAN only; documented risk
 - Deferred nits: remote `speaking end` race can clear speaking state early.
 - Ran on macOS only; Linux and Windows paths are unit-tested only (CI not run, no remote).
 
+- 2026-11-09: published as a public repo, https://github.com/alejox/speak-bot. Pushed `main`, `feat/mobile-local-mvp` and `feat/desktop-obs`. CI triggers only on push to `main` or on pull requests, so it has not run yet.
+
 ## Next step
 Process verifier result; real-device test on Windows and Linux.
