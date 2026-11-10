@@ -52,19 +52,20 @@
   gap: var(--space-2);
 }
 
-/* The board selector takes the row; the board menu stays at its end and never wraps under it. */
+/* The board pill takes the row. */
 .dock .deck-header {
   flex-wrap: nowrap;
   gap: var(--space-2);
 }
 
-.dock .deck-board-select {
-  flex: 1 1 0;
-  max-width: none;
+.dock .board-menu,
+.dock .board-pill {
+  width: 100%;
 }
 
-.dock .deck-header .button {
-  flex: none;
+.dock .board-pill-name {
+  flex: 1;
+  text-align: left;
 }
 
 /* Compact deck: 4 columns of smaller keys. */

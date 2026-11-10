@@ -2,16 +2,16 @@ import { makeBoard, MAX_BOARD_PAGES } from "@speed-deck/core";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { boardOf, desktopState, renderLocalApp, renderRemoteApp, speakKey, writes } from "./app-fakes";
+import { boardPill, chooseBoard, findBoardPill } from "./board-picker";
 import { goTo } from "./i18n-helpers";
 
 const grid = () => screen.getByRole("list", { name: /^Keys of/ });
-const boardSelector = () => screen.getByRole("combobox", { name: "Board" });
 const deckBoard = () => boardOf("stream", "Stream", [], "deck");
 
 /** Opens the board menu and picks `item`; returns the dialog it opens. */
 async function boardAction(user: { click: (element: Element) => Promise<void> }, item: string) {
-  await user.click(await screen.findByRole("button", { name: "Board options" }));
-  await user.click(within(screen.getByRole("menu", { name: "Board options" })).getByRole("menuitem", { name: item }));
+  await user.click(await findBoardPill());
+  await user.click(within(screen.getByRole("menu", { name: "Boards" })).getByRole("menuitem", { name: item }));
   return screen.getByRole("dialog");
 }
 
@@ -36,7 +36,7 @@ describe("editing in the player, without a board editor", () => {
     const state = desktopState({ boards: [boardOf("main", "Main", [], "deck")] });
     const { requests, user } = renderRemoteApp({ state });
     await goTo(user, "Deck");
-    await user.click(await screen.findByRole("button", { name: "Add a key at position 3" }));
+    await user.click(await screen.findByRole("button", { name: "Add a key at position 1" }));
     const dialog = screen.getByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Switch scene" }));
     const scene = await within(dialog).findByRole("combobox", { name: "Scene" });
@@ -46,7 +46,7 @@ describe("editing in the player, without a board editor", () => {
     await waitFor(() => expect(within(grid()).getByRole("button", { name: "BRB" })).toBeInTheDocument());
     expect(requests).toContainEqual({
       method: "PUT",
-      url: "/api/boards/main/keys/2",
+      url: "/api/boards/main/keys/0",
       body: { label: "", icon: "", color: "", action: { type: "obs.switchScene", sceneName: "BRB" } },
     });
   });
@@ -94,7 +94,7 @@ describe("board menu", () => {
     expect(name).toHaveValue("Board 2");
     await user.clear(name);
     await user.type(name, "Games{Enter}");
-    await waitFor(() => expect(boardSelector()).toHaveDisplayValue("Games"));
+    await waitFor(() => expect(boardPill()).toHaveAccessibleName("Board: Games"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(writes(requests)).toEqual(["POST /api/boards"]);
     expect(requests).toContainEqual({ method: "POST", url: "/api/boards", body: { name: "Games", kind: "voice" } });
@@ -108,7 +108,7 @@ describe("board menu", () => {
     await user.clear(name);
     await user.type(name, "Home");
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(boardSelector()).toHaveDisplayValue("Home"));
+    await waitFor(() => expect(boardPill()).toHaveAccessibleName("Board: Home"));
     expect(writes(requests)).toEqual(["PATCH /api/boards/main"]);
   });
 
@@ -119,10 +119,10 @@ describe("board menu", () => {
     expect(within(dialog).getByText("Delete the board “Main” and all its keys? This cannot be undone.")).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "No, keep it" })).toHaveFocus();
     await user.click(within(dialog).getByRole("button", { name: "Yes, delete" }));
-    await waitFor(() => expect(boardSelector()).toHaveDisplayValue("Games"));
+    await waitFor(() => expect(boardPill()).toHaveAccessibleName("Board: Games"));
     expect(screen.getByRole("status")).toHaveTextContent("Deleted “Main”.");
 
-    await user.click(screen.getByRole("button", { name: "Board options" }));
+    await user.click(boardPill());
     const only = screen.getByRole("menuitem", { name: "Delete" });
     expect(only).toHaveAttribute("aria-disabled", "true");
     expect(only).toHaveAccessibleDescription("The only board cannot be deleted.");
@@ -160,8 +160,8 @@ describe("board menu", () => {
   it("shows desktop errors in the dialog's live region and keeps it open", async () => {
     const state = desktopState({ boards: Array.from({ length: 2 }, (_, index) => makeBoard(`b${index}`, `Board ${index}`, "voice")) });
     const { user } = renderRemoteApp({ state });
-    await screen.findByRole("button", { name: "Board options" });
-    await user.selectOptions(boardSelector(), "Board 1");
+    await findBoardPill();
+    await chooseBoard(user, "Board 1");
     // The desktop refuses because another device deleted this board meanwhile.
     state.boards = [state.boards[0]!];
     const dialog = await boardAction(user, "Delete");
@@ -171,9 +171,9 @@ describe("board menu", () => {
 
   it("closes with Escape and returns focus to its button", async () => {
     const { user } = renderLocalApp();
-    const button = await screen.findByRole("button", { name: "Board options" });
+    const button = await findBoardPill();
     await user.click(button);
-    expect(within(screen.getByRole("menu")).getAllByRole("menuitem")[0]).toHaveFocus();
+    expect(within(screen.getByRole("menu")).getByRole("menuitemradio", { checked: true })).toHaveFocus();
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     expect(button).toHaveFocus();

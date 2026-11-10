@@ -65,8 +65,6 @@ function DockContent({ target }: { target: SpeechTarget }) {
       </p>
       <BoardPlayer
         variant="dock"
-        boards={deck.boards.boards}
-        groupByKind
         navigation={deck.navigation}
         context={deck.context}
         onRun={deck.run}
@@ -78,6 +76,8 @@ function DockContent({ target }: { target: SpeechTarget }) {
           board && (
             <BoardMenu
               board={board}
+              offered={deck.boards.boards}
+              groupByKind
               boards={deck.boards}
               language={language}
               onSelect={(boardId) => deck.navigation.go({ boardId, page: 0 })}

@@ -1,14 +1,18 @@
-import { DEFAULT_BOARD_NAMES, DEFAULT_DECK_BOARD_ID, DEFAULT_DECK_BOARD_NAMES, MAX_BOARD_NAME_LENGTH, type Board, type UiLanguage } from "@speed-deck/core";
-import { MoreHorizontal } from "lucide-react";
+import { BOARD_KINDS, DEFAULT_BOARD_NAMES, DEFAULT_DECK_BOARD_ID, DEFAULT_DECK_BOARD_NAMES, MAX_BOARD_NAME_LENGTH, type Board, type UiLanguage } from "@speed-deck/core";
+import { ChevronDown, LayoutGrid, MessageSquare } from "lucide-react";
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { Boards } from "../app/use-boards";
 import { useT } from "../i18n/I18nProvider";
-import { Menu, useOutsidePress } from "./Menu";
+import { Menu, useOutsidePress, type MenuGroup } from "./Menu";
 import { ModalDialog } from "./ModalDialog";
 
 interface BoardMenuProps {
   /** The board shown; new boards take its kind. */
   board: Board;
+  /** The boards to switch between (a space's own, or every board in the dock). */
+  offered: readonly Board[];
+  /** Groups the offered boards by kind (the dock lists both kinds). */
+  groupByKind?: boolean;
   boards: Boards;
   language: UiLanguage;
   /** Shows another board (a new or restored one). */
@@ -19,8 +23,11 @@ interface BoardMenuProps {
 
 type Task = "create" | "rename" | "delete" | "restore";
 
-/** The board's own menu, next to the board selector: new board, rename, delete and restore the built-in board. */
-export function BoardMenu({ board, boards: boardsState, language, onSelect, statusText }: BoardMenuProps) {
+/**
+ * The board pill at the top of the deck: it names the board, and its menu switches boards and manages them
+ * (new, rename, delete, restore the built-in board).
+ */
+export function BoardMenu({ board, offered, groupByKind = false, boards: boardsState, language, onSelect, statusText }: BoardMenuProps) {
   const t = useT();
   const { boards, change } = boardsState;
   const button = useRef<HTMLButtonElement>(null);
@@ -121,31 +128,47 @@ export function BoardMenu({ board, boards: boardsState, language, onSelect, stat
     ),
   };
 
+  const choices = (candidates: readonly Board[]) =>
+    candidates.map((candidate) => ({
+      label: candidate.name,
+      checked: candidate.id === board.id,
+      onSelect: () => {
+        close();
+        if (candidate.id !== board.id) onSelect(candidate.id);
+      },
+    }));
+  const boardGroups: MenuGroup[] = groupByKind
+    ? BOARD_KINDS.map((kind) => ({ label: t(`nav.${kind}`), items: choices(offered.filter((candidate) => candidate.kind === kind)) })).filter((group) => group.items.length > 0)
+    : [{ items: choices(offered) }];
+  const manage: MenuGroup = {
+    label: groupByKind ? t("boards.manage") : undefined,
+    items: [
+      { label: t("boards.create"), onSelect: () => start("create") },
+      { label: t("boards.rename"), onSelect: () => start("rename") },
+      { label: t("boards.delete"), onSelect: () => start("delete"), disabled: isLast, description: isLast ? t("boards.lastBoard") : undefined },
+      { label: t("boards.restore"), onSelect: () => start("restore") },
+    ],
+  };
+  const KindIcon = board.kind === "deck" ? LayoutGrid : MessageSquare;
+
   return (
     <div ref={popover} className="board-menu">
       <button
         ref={button}
         type="button"
-        className="icon-button"
-        aria-label={t("boards.menu")}
+        className="board-pill"
+        aria-label={t("board.current", { name: board.name })}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((open) => !open)}
       >
-        <MoreHorizontal size={20} aria-hidden="true" />
+        <KindIcon size={20} aria-hidden="true" />
+        <span className="board-pill-name">{board.name}</span>
+        <ChevronDown size={18} aria-hidden="true" className="board-pill-chevron" />
       </button>
       {isOpen && (
         <div className="popover board-menu-popover">
-          <Menu
-            label={t("boards.menu")}
-            items={[
-              { label: t("boards.create"), onSelect: () => start("create") },
-              { label: t("boards.rename"), onSelect: () => start("rename") },
-              { label: t("boards.delete"), onSelect: () => start("delete"), disabled: isLast, description: isLast ? t("boards.lastBoard") : undefined },
-              { label: t("boards.restore"), onSelect: () => start("restore") },
-            ]}
-            onClose={close}
-          />
+          <Menu label={t("boards.menu")} groups={[...boardGroups, manage]} onClose={close} />
         </div>
       )}
       {task && dialogs[task]}

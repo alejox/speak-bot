@@ -1,6 +1,7 @@
 import { buildDefaultBoard, buildDefaultDeckBoard } from "@speed-deck/core";
 import { act, createEvent, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { boardPill, chooseBoard } from "./board-picker";
 import { boardOf, desktopState, renderLocalApp, renderRemoteApp, setWideScreen, speakKey } from "./app-fakes";
 
 const grid = () => screen.getByRole("list", { name: /^Keys of/ });
@@ -32,7 +33,7 @@ describe("board player in phone-only mode", () => {
   it("creates the Communication board on a new device and shows a page of 15 keys", async () => {
     renderLocalApp();
     expect(await screen.findByRole("button", { name: "Hello" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Board" })).toHaveDisplayValue("Communication");
+    expect(boardPill()).toHaveAccessibleName("Board: Communication");
     expect(within(grid()).getAllByRole("listitem")).toHaveLength(15);
     expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
   });
@@ -87,7 +88,7 @@ describe("board player in phone-only mode", () => {
     view.unmount();
     renderLocalApp();
     expect(await screen.findByRole("button", { name: "Second page" })).toBeInTheDocument();
-    await user.selectOptions(screen.getByRole("combobox", { name: "Board" }), "Other");
+    await chooseBoard(user, "Other");
     expect(screen.getByRole("button", { name: "Other" })).toBeInTheDocument();
   });
 
@@ -100,6 +101,19 @@ describe("board player in phone-only mode", () => {
     // Past the last page the pager offers a new one instead.
     expect(screen.queryByRole("button", { name: "Next page" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New page" })).toBeEnabled();
+  });
+
+  it("shows a single + after the last key of the page; other empty spaces stay blank", async () => {
+    renderLocalApp({ boards: [boardOf("main", "Main", [speakKey(0, "One"), speakKey(3, "Two")])] });
+    await screen.findByRole("button", { name: "One" });
+    expect(within(grid()).getAllByRole("listitem")).toHaveLength(15);
+    expect(within(grid()).getAllByRole("button", { name: /^Add a key/ }).map((button) => button.getAttribute("aria-label"))).toEqual(["Add a key at position 5"]);
+  });
+
+  it("puts the + in the first gap when the page's last space is taken", async () => {
+    renderLocalApp({ boards: [boardOf("main", "Main", [speakKey(0, "One"), speakKey(14, "Last")])] });
+    await screen.findByRole("button", { name: "One" });
+    expect(within(grid()).getAllByRole("button", { name: /^Add a key/ }).map((button) => button.getAttribute("aria-label"))).toEqual(["Add a key at position 2"]);
   });
 
   it("shows custom key colors with readable text", async () => {
@@ -128,7 +142,7 @@ describe("key editing in the player", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     const key = screen.getByRole("button", { name: "Hi" });
     expect(key).toHaveFocus();
-    expect(key).toHaveStyle({ background: "#16a34a" });
+    expect(key).toHaveStyle({ backgroundColor: "#16a34a" });
   });
 
   it("adds a key from the + on an empty space: an action without parameters is saved at once", async () => {
@@ -165,7 +179,7 @@ describe("key editing in the player", () => {
   it("closes the add dialog with Escape and returns focus to the +", async () => {
     const { user } = renderLocalApp({ boards: [boardOf("main", "Main", [speakKey(0, "Hello")])] });
     await screen.findByRole("button", { name: "Hello" });
-    const plus = screen.getByRole("button", { name: "Add a key at position 3" });
+    const plus = screen.getByRole("button", { name: "Add a key at position 2" });
     await user.click(plus);
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

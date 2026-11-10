@@ -89,3 +89,9 @@ export function draftToKey(slot: number, draft: KeyDraft, t: (key: MessageKey) =
   if (!action.ok) return action;
   return { ok: true, key: { slot, label: draft.label.trim(), icon: draft.icon, color: color.toLowerCase(), action: action.action } };
 }
+
+/** The key for an action without parameters: nothing to fill in, it shows the action's own name and icon. */
+export function actionOnlyKey(slot: number, actionType: ActionType, t: (key: MessageKey) => string): KeyInput | null {
+  const result = draftToKey(slot, draftOf(undefined, actionType), t);
+  return result.ok ? result.key : null;
+}

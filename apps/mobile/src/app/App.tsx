@@ -1,4 +1,4 @@
-import { MAX_KEY_SLOTS, type Board, type BoardKind } from "@speed-deck/core";
+import { ACTION_REGISTRY, MAX_KEY_SLOTS, type ActionType, type Board, type BoardKind } from "@speed-deck/core";
 import { LayoutGrid, MessageSquare, Settings, Smartphone } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import {
@@ -12,7 +12,8 @@ import { BoardPlayer } from "../components/BoardPlayer";
 import { Composer, type ComposerHandle } from "../components/Composer";
 import { ConnectPanel } from "../components/ConnectPanel";
 import { DeckStatus } from "../components/DeckStatus";
-import { KeyEditorDialog } from "../components/KeyEditorDialog";
+import { ActionPickerDialog, KeyEditorDialog } from "../components/KeyEditorDialog";
+import { KeyInspector } from "../components/KeyInspector";
 import { ObsSettings } from "../components/ObsSettings";
 import { RecentPhrases } from "../components/RecentPhrases";
 import { SectionView } from "../components/SectionView";
@@ -25,7 +26,9 @@ import { describeRequestError } from "./describe-error";
 import { useAppearance, type AppearancePreference } from "./use-appearance";
 import { useConnection } from "./use-connection";
 import { useSpaceDecks } from "./use-deck";
+import { actionOnlyKey } from "./key-draft";
 import { useLanguagePreference, type LanguagePreference } from "./use-language-preference";
+import { INSPECTOR_QUERY, useMediaQuery } from "./use-media-query";
 import { SECTIONS, spaceOfSection, useNavCollapsed, useSection, type Section } from "./use-section";
 import { useSpeech } from "./use-speech";
 import { useSpeechTarget, type SpeechTarget } from "./use-speech-target";
@@ -65,6 +68,13 @@ function createSpacePositionStores(): Record<BoardKind, BoardPositionStore> {
   return { voice: storeOf("voice"), deck: storeOf("deck") };
 }
 
+/** The key shown in the inspector, or an empty slot with the action chosen for it. */
+interface Inspected {
+  boardId: string;
+  slot: number;
+  assignedType?: ActionType;
+}
+
 /** The first empty slot of `board`, or null when it is full. */
 function firstFreeSlot(board: Board): number | null {
   const used = new Set(board.keys.map((key) => key.slot));
@@ -82,6 +92,10 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const speech = useSpeech(target, language, setStatus);
   const [positionStores] = useState(createSpacePositionStores);
   const [dialogSlot, setDialogSlot] = useState<number | null>(null);
+  // Wide screens edit in a side panel; the + still asks for the action in a modal first.
+  const isWide = useMediaQuery(INSPECTOR_QUERY);
+  const [pickerSlot, setPickerSlot] = useState<number | null>(null);
+  const [inspected, setInspected] = useState<Inspected | null>(null);
   const [storedSection, setSection] = useSection();
   const [navCollapsed, setNavCollapsed] = useNavCollapsed();
   const [navigated, setNavigated] = useState(false);
@@ -101,6 +115,29 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const space = spaceOfSection(section);
   const deck = space ? spaces[space] : null;
   const board = deck?.navigation.board ?? null;
+  const inspectedKey = inspected && board?.id === inspected.boardId ? board.keys.find((key) => key.slot === inspected.slot) : undefined;
+  // The panel only shows while its key (or the action chosen for its slot) is still on the board on screen.
+  const inspection = isWide && inspected && board?.id === inspected.boardId && (inspectedKey || inspected.assignedType) ? inspected : null;
+
+  const openKey = (slot: number) => {
+    if (!isWide || !board) return setDialogSlot(slot);
+    if (board.keys.some((key) => key.slot === slot)) setInspected({ boardId: board.id, slot });
+    else setPickerSlot(slot);
+  };
+
+  const pickForSlot = async (slot: number, type: ActionType) => {
+    if (!deck || !board) return;
+    if (ACTION_REGISTRY[type].params.length > 0) {
+      setPickerSlot(null);
+      setInspected({ boardId: board.id, slot, assignedType: type });
+      return;
+    }
+    const key = actionOnlyKey(slot, type, t);
+    if (key && (await deck.saveKey(key, undefined))) {
+      setPickerSlot(null);
+      setInspected({ boardId: board.id, slot });
+    }
+  };
   // Deck keys only run through the computer app; say so once instead of leaving every key to explain itself.
   const showDeckStatus = space === "deck" && target.detection !== "pending";
   const deckNote: MessageKey | null = !showDeckStatus || target.isRemote ? null : target.isDesktopAvailable ? "deck.computerNotChosen" : "deck.needsComputer";
@@ -152,63 +189,65 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
 
         {space && deck && (
           <SectionView key={space} title={t(`nav.${space}`)} focusHeading={navigated}>
-              <>
-                {space === "voice" && (
-                  <>
-                    <Composer
-                      ref={composer}
-                      text={text}
-                      isSpeaking={speech.isSpeaking}
-                      onTextChange={setText}
-                      onSpeak={speakComposerText}
-                      onStop={speech.stop}
-                      onSave={() => void saveTextAsKey()}
-                    />
-                    <RecentPhrases phrases={recentPhrases} onSpeak={speech.speak} onClear={clearRecentPhrases} />
-                  </>
-                )}
-                {showDeckStatus && <DeckStatus isComputerConnected={target.isRemote} obs={deck.obs} />}
-                {deckNote && (
-                  <div className="deck-note">
-                    <p className="empty">{t(deckNote)}</p>
-                    {deckNote === "deck.computerNotChosen" && (
-                      <button type="button" className="button button-small" onClick={() => select("settings")}>
-                        {t("deck.openSettings")}
-                      </button>
-                    )}
-                  </div>
-                )}
-                {!deck.boards.isLoaded && <p className="empty">{t("board.loading")}</p>}
-                {deck.boards.isLoaded && !board && (
-                  <div className="space-empty">
-                    <p className="empty">{t("space.empty")}</p>
-                    <button
-                      type="button"
-                      className="button button-small button-primary"
-                      onClick={() =>
-                        void deck.boards.change(
-                          (store) => store.create(t("boards.defaultName", { number: deck.boards.boards.length + 1 }), space),
-                          (created) => ({ key: "boards.created", params: { name: created.name } }),
-                        )
-                      }
-                    >
-                      {t("boards.create")}
+            <>
+              {space === "voice" && (
+                <>
+                  <Composer
+                    ref={composer}
+                    text={text}
+                    isSpeaking={speech.isSpeaking}
+                    onTextChange={setText}
+                    onSpeak={speakComposerText}
+                    onStop={speech.stop}
+                    onSave={() => void saveTextAsKey()}
+                  />
+                  <RecentPhrases phrases={recentPhrases} onSpeak={speech.speak} onClear={clearRecentPhrases} />
+                </>
+              )}
+              {showDeckStatus && <DeckStatus isComputerConnected={target.isRemote} obs={deck.obs} />}
+              {deckNote && (
+                <div className="deck-note">
+                  <p className="empty">{t(deckNote)}</p>
+                  {deckNote === "deck.computerNotChosen" && (
+                    <button type="button" className="button button-small" onClick={() => select("settings")}>
+                      {t("deck.openSettings")}
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
+              )}
+              {!deck.boards.isLoaded && <p className="empty">{t("board.loading")}</p>}
+              {deck.boards.isLoaded && !board && (
+                <div className="space-empty">
+                  <p className="empty">{t("space.empty")}</p>
+                  <button
+                    type="button"
+                    className="button button-small button-primary"
+                    onClick={() =>
+                      void deck.boards.change(
+                        (store) => store.create(t("boards.defaultName", { number: deck.boards.boards.length + 1 }), space),
+                        (created) => ({ key: "boards.created", params: { name: created.name } }),
+                      )
+                    }
+                  >
+                    {t("boards.create")}
+                  </button>
+                </div>
+              )}
+              <div className={inspection ? "deck-layout deck-layout-inspecting" : "deck-layout"}>
                 <BoardPlayer
-                  boards={deck.spaceBoards}
                   navigation={deck.navigation}
                   context={deck.context}
                   onRun={deck.run}
                   isSpeaking={speech.isSpeaking}
-                  onEditKey={setDialogSlot}
+                  onEditKey={openKey}
+                  selectedSlot={inspection?.slot ?? null}
                   onDeleteKey={deck.clearKey}
                   onMoveKey={deck.moveKey}
                   toolbar={
                     board && (
                       <BoardMenu
                         board={board}
+                        offered={deck.spaceBoards}
                         boards={deck.boards}
                         language={language}
                         onSelect={(boardId) => deck.navigation.go({ boardId, page: 0 })}
@@ -217,7 +256,31 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                     )
                   }
                 />
-              </>
+                {inspection && board && (
+                  <KeyInspector
+                    key={`${inspection.boardId}:${inspection.slot}:${inspection.assignedType ?? ""}`}
+                    slot={inspection.slot}
+                    existing={inspectedKey}
+                    assignedType={inspectedKey ? undefined : inspection.assignedType}
+                    boardKind={board.kind}
+                    boards={deck.boards.boards}
+                    obs={target.obs}
+                    onTest={deck.run}
+                    onSave={async (key) => {
+                      const saved = await deck.saveKey(key, inspectedKey);
+                      if (saved) setInspected({ boardId: board.id, slot: key.slot });
+                      return saved;
+                    }}
+                    onMove={async (to) => {
+                      const moved = await deck.moveKey(inspection.slot, to);
+                      if (moved) setInspected({ boardId: board.id, slot: to });
+                      return moved;
+                    }}
+                    onClose={() => setInspected(null)}
+                  />
+                )}
+              </div>
+            </>
           </SectionView>
         )}
 
@@ -271,6 +334,17 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
           </SectionView>
         )}
       </main>
+
+      {pickerSlot !== null && deck && board && (
+        <ActionPickerDialog
+          key={`${board.id}:${pickerSlot}`}
+          slot={pickerSlot}
+          boardKind={board.kind}
+          onPick={(type) => void pickForSlot(pickerSlot, type)}
+          onClose={() => setPickerSlot(null)}
+          statusText={statusText}
+        />
+      )}
 
       {dialogSlot !== null && deck && board && (
         <KeyEditorDialog

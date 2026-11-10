@@ -1,4 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { chooseBoard, findBoardPill } from "./board-picker";
 import { describe, expect, it } from "vitest";
 import { isDockPath } from "../src/app/route";
 import { boardOf, desktopState, renderDock, speakKey } from "./app-fakes";
@@ -34,7 +35,7 @@ describe("DockApp", () => {
     expect(local.spoken).toEqual([]);
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Tablero" }), "Juegos");
+    await chooseBoard(user, "Juegos", "Tablero");
     expect(screen.getByRole("button", { name: "GG" })).toBeInTheDocument();
     expect(screen.getByText("Página 1 de 1")).toBeInTheDocument();
     expect(JSON.parse(localStorage.getItem("speed-deck:dock-board-position") ?? "null")).toEqual({ boardId: "games", page: 0 });
@@ -46,12 +47,12 @@ describe("DockApp", () => {
       boards: [boardOf("talk", "Talk", [speakKey(0, "Hi")]), boardOf("stream", "Stream", [{ slot: 0, action: { type: "obs.toggleStream" } }], "deck"), boardOf("more", "More")],
     });
     const { user } = renderDock({ state });
-    const select = await screen.findByRole("combobox", { name: "Board" });
-    const groups = within(select).getAllByRole("group");
-    expect(groups.map((group) => group.getAttribute("label"))).toEqual(["Voice", "Deck"]);
-    expect(within(groups[0]!).getAllByRole("option").map((option) => option.textContent)).toEqual(["Talk", "More"]);
-    expect(within(groups[1]!).getAllByRole("option").map((option) => option.textContent)).toEqual(["Stream"]);
-    await user.selectOptions(select, "Stream");
+    await user.click(await findBoardPill());
+    const groups = within(screen.getByRole("menu")).getAllByRole("group");
+    expect(groups.map((group) => group.getAttribute("aria-label"))).toEqual(["Voice", "Deck", "Manage boards"]);
+    expect(within(groups[0]!).getAllByRole("menuitemradio").map((item) => item.textContent)).toEqual(["Talk", "More"]);
+    expect(within(groups[1]!).getAllByRole("menuitemradio").map((item) => item.textContent)).toEqual(["Stream"]);
+    await user.click(within(groups[1]!).getByRole("menuitemradio", { name: "Stream" }));
     expect(screen.getByRole("button", { name: "Start or stop stream" })).toBeInTheDocument();
   });
 

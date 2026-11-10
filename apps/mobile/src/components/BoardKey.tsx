@@ -48,7 +48,10 @@ export const BoardKey = forwardRef<HTMLButtonElement, BoardKeyProps>(function Bo
   { label, iconId, color, role = "phrase", danger = false, pressed, state, stateLabel, detail, speaking = false, offline = false, backwards = false, selected = false, className, style, ...button },
   ref,
 ) {
-  const colors: CSSProperties | undefined = color ? { background: color, color: contrastTextColor(color), borderColor: color } : undefined;
+  // The colour fills the key as a gradient (deck.css reads --key-color); the flat colour is the fallback.
+  const colors: CSSProperties | undefined = color
+    ? ({ "--key-color": color, backgroundColor: color, color: contrastTextColor(color), borderColor: color } as CSSProperties)
+    : undefined;
   const classes = [
     "deck-key",
     `deck-key-${role}`,
@@ -78,7 +81,7 @@ export const BoardKey = forwardRef<HTMLButtonElement, BoardKeyProps>(function Bo
           {cue}
         </span>
       )}
-      {iconId && <KeyIcon id={iconId} size={28} />}
+      {iconId && <KeyIcon id={iconId} size={36} />}
       <span className="deck-key-text">{label}</span>
       {/* The spaces keep the words apart in the key's accessible name; the layout ignores them. */}
       {stateLabel && (

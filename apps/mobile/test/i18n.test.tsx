@@ -9,6 +9,7 @@ import { en } from "../src/i18n/en";
 import { es } from "../src/i18n/es";
 import { translate } from "../src/i18n/messages";
 import { desktopState, renderLocalApp, renderRemoteApp } from "./app-fakes";
+import { boardPill } from "./board-picker";
 import { goTo } from "./i18n-helpers";
 
 const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
@@ -67,7 +68,7 @@ describe("App language", () => {
   it("is Spanish by default, with the Spanish Communication board on a new device", async () => {
     renderLocalApp({ language: null });
     expect(await screen.findByRole("button", { name: "Hola" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Tablero" })).toHaveDisplayValue(DEFAULT_BOARD_NAMES.es);
+    expect(boardPill("Tablero")).toHaveAccessibleName(`Tablero: ${DEFAULT_BOARD_NAMES.es}`);
     expect(screen.getByRole("link", { name: "Voz" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Deck" })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe("es");
@@ -76,7 +77,7 @@ describe("App language", () => {
   it("creates the English board on a new device when English was chosen", async () => {
     renderLocalApp({ language: "en" });
     expect(await screen.findByRole("button", { name: "Hello" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Board" })).toHaveDisplayValue(DEFAULT_BOARD_NAMES.en);
+    expect(boardPill()).toHaveAccessibleName(`Board: ${DEFAULT_BOARD_NAMES.en}`);
   });
 
   it("switches to English from the settings, re-renders and remembers the choice", async () => {

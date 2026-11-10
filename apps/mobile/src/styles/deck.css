@@ -1,7 +1,7 @@
 /*
- * The deck: a fixed grid of keys, used by the Voice and Deck spaces, the board editor and the OBS dock.
- * Keys are raised tiles on a sunken tray in both themes (--key-* and --deck-bg in tokens.css);
- * a key may have its own colour, set inline.
+ * The deck: a fixed grid of keys, used by the Voice and Deck spaces and the OBS dock.
+ * Keys are flat tiles straight on the page (--key-* in tokens.css); a key may have its own colour,
+ * set inline as --key-color and drawn as a gradient.
  */
 
 .deck {
@@ -14,41 +14,63 @@
 
 .deck-header {
   max-width: var(--width-deck);
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-3);
 }
 
-.deck-board-label {
+/* The board pill: the board's name with its kind's icon; it opens the board menu. */
+.board-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 100%;
+  min-height: var(--size-control);
+  padding: 0 var(--space-4);
+  font: inherit;
   font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
 }
 
-/* Shares the field look (controls.css); only its place in the header differs. */
-.deck-board-select {
-  flex: 1 1 160px;
-  width: auto;
+.board-pill:hover,
+.board-pill[aria-expanded="true"] {
+  background: var(--color-surface-raised);
+}
+
+.board-pill > svg:first-child,
+.board-pill-chevron {
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.board-pill-name {
   min-width: 0;
-  max-width: 360px;
-  font-weight: var(--weight-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* 5 columns × 3 rows on wide screens; 3 × 5 when the deck is narrow. Always 15 keys per page. */
+/* Large keys straight on the page: 4 columns on wide screens, 3 when the deck is narrow. Always 15 keys per page. */
 .deck-grid {
   list-style: none;
   margin: 0;
-  padding: var(--space-3);
+  padding: 0;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
   max-width: var(--width-deck);
-  background: var(--deck-bg);
-  border-radius: var(--radius-xl);
 }
 
 @container (max-width: 520px) {
   .deck-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2);
   }
 }
 
@@ -73,17 +95,17 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-1);
-  padding: var(--space-2);
+  gap: var(--space-2);
+  padding: var(--space-3);
   font: inherit;
   font-size: var(--text-md);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-medium);
   line-height: var(--leading-tight);
   text-align: center;
   color: var(--key-text);
-  background: var(--key-bg);
+  background-color: var(--key-bg);
   border: var(--border-width) solid var(--key-edge);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   box-shadow: var(--key-shadow);
   cursor: pointer;
   touch-action: manipulation;
@@ -107,16 +129,25 @@
   flex: none;
 }
 
-/* Whole words, balanced over up to three lines; only a word wider than the key is broken. */
+/* Whole words, balanced over at most two lines, then an ellipsis: a word is never split. */
 .deck-key-text {
   max-width: 100%;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  overflow-wrap: break-word;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
   text-wrap: balance;
+}
+
+/* A key with its own colour: a soft gradient of it, drifting towards blue. */
+.deck-key-colored {
+  background-image: linear-gradient(135deg, var(--key-color), color-mix(in oklch, var(--key-color) 70%, #3b6cf6));
+  border-color: transparent;
 }
 
 .deck-key-phrase {
@@ -127,10 +158,6 @@
   .deck-key-phrase {
     font-size: var(--text-md);
   }
-}
-
-.deck-key-command {
-  border-width: calc(var(--border-width) * 2);
 }
 
 .deck-key-command:not(.deck-key-colored) .key-icon {
@@ -243,23 +270,30 @@
   filter: saturate(0.35);
 }
 
+/* The one + of a page: faint, with a soft dashed edge so it reads as a place, not a key. */
 .deck-key-empty {
   color: var(--key-empty);
   background: transparent;
-  border-color: var(--key-empty);
-  border-style: dashed;
+  border: calc(var(--border-width) * 1.5) dashed var(--color-border);
   box-shadow: none;
-  cursor: default;
 }
 
-button.deck-key-empty {
-  cursor: pointer;
+.deck-key-empty:hover {
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
 }
 
 .deck-key-plus {
-  font-size: var(--text-2xl);
+  font-size: 2.5rem;
   font-weight: var(--weight-regular);
   line-height: 1;
+}
+
+/* Any other empty space is blank: it only keeps the grid's shape and takes dropped keys. */
+.deck-key-blank {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-xl);
 }
 
 .deck-key-selected {
@@ -273,7 +307,7 @@ button.deck-key-empty {
 }
 
 .deck-key-drop {
-  outline: var(--focus-ring-width) dashed var(--color-focus);
+  outline: var(--focus-ring-width) solid var(--color-accent);
   outline-offset: var(--focus-ring-offset);
 }
 
@@ -348,4 +382,12 @@ button.deck-key-empty {
   top: calc(100% + var(--space-1));
   left: 50%;
   transform: translateX(-50%);
+}
+
+/* Wide screens with a key in the inspector: the deck and the panel side by side. */
+.deck-layout-inspecting {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: var(--space-6);
+  align-items: start;
 }

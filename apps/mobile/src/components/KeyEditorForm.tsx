@@ -12,7 +12,7 @@ import {
   type BoardKind,
   type Key,
 } from "@speed-deck/core";
-import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { KeyInput } from "../adapters/board-stores";
 import type { ObsServices } from "../app/composition-root";
 import { draftAction, draftOf, draftToKey, KEY_COLOR_PRESETS, type KeyDraft } from "../app/key-draft";
@@ -45,12 +45,16 @@ export interface KeyEditorFormProps {
   cancelLabel?: string;
   /** The action was chosen before (the add dialog): show it as text instead of a selector. */
   fixedAction?: boolean;
+  /** "inspector" is the wide-screen side panel: the name after the pickers and one full-width Save. */
+  variant?: "dialog" | "inspector";
+  /** Called with the draft as it changes (the inspector's live preview). */
+  onDraftChange?: (draft: KeyDraft) => void;
   /** Rendered first inside the form (e.g. the dialog title). */
   heading?: ReactNode;
 }
 
 /** Edits one key: action and its parameters, label, icon and color; tests, saves and moves it. Deleting lives in the key menu. */
-export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards, obs, onSave, onTest, onMove, onCancel, cancelLabel, fixedAction = false, heading }: KeyEditorFormProps) {
+export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards, obs, onSave, onTest, onMove, onCancel, cancelLabel, fixedAction = false, variant = "dialog", onDraftChange, heading }: KeyEditorFormProps) {
   const t = useT();
   const ids = { action: useId(), label: useId(), labelHint: useId(), hex: useId(), move: useId(), error: useId() };
   const form = useRef<HTMLFormElement>(null);
@@ -58,6 +62,10 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
   const [error, setError] = useState<{ message: Message; field: string } | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [moveTo, setMoveTo] = useState(String(slot + 1));
+
+  useEffect(() => {
+    onDraftChange?.(draft);
+  }, [draft, onDraftChange]);
 
   const update = (patch: Partial<KeyDraft>) => {
     setDraft((current) => ({ ...current, ...patch }));
@@ -105,7 +113,7 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
   const number = slot + 1;
 
   return (
-    <form ref={form} className="key-editor" onSubmit={submit} noValidate aria-describedby={error ? ids.error : undefined}>
+    <form ref={form} className={variant === "inspector" ? "key-editor key-editor-inspector" : "key-editor"} onSubmit={submit} noValidate aria-describedby={error ? ids.error : undefined}>
       {heading}
 
       {fixedAction && draft.actionType ? (
@@ -154,7 +162,7 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
         />
       )}
 
-      <div className="field">
+      <div className="field key-editor-name">
         <label htmlFor={ids.label}>{t("editor.label")}</label>
         <input
           id={ids.label}
@@ -224,10 +232,10 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
       </p>
 
       <div className="key-editor-actions">
-        <button type="submit" className="button button-small button-primary" disabled={isBusy}>
+        <button type="submit" className={variant === "inspector" ? "button button-primary button-block" : "button button-small button-primary"} disabled={isBusy}>
           {t("editor.save")}
         </button>
-        <button type="button" className="button button-small" onClick={test}>
+        <button type="button" className="button button-small button-quiet" onClick={test}>
           {t("editor.test")}
         </button>
         {onCancel && (

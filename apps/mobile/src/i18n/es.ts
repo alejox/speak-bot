@@ -39,7 +39,7 @@ export const es: Messages = {
   "recent.clear": "Borrar",
   "recent.clearLabel": "Borrar frases recientes",
 
-  "board.select": "Tablero",
+  "board.current": "Tablero: {name}",
   "board.page": "Página {page} de {count}",
   "board.previous": "Página anterior",
   "board.next": "Página siguiente",
@@ -48,7 +48,8 @@ export const es: Messages = {
   "board.emptySlot": "Tecla vacía {number}",
   "board.addKey": "Agregar una tecla en la posición {number}",
 
-  "boards.menu": "Opciones del tablero",
+  "boards.menu": "Tableros",
+  "boards.manage": "Administrar tableros",
   "boards.name": "Nombre",
   "boards.createYes": "Crear",
   "boards.renameTitle": "Renombrar «{name}»",
@@ -73,6 +74,7 @@ export const es: Messages = {
   "boards.restored": "Se restauró el tablero «{name}».",
 
   "board.addPage": "Página nueva",
+  "inspector.label": "Tecla {number}",
   "keyMenu.label": "Tecla {number}: {label}",
   "keyMenu.options": "Opciones de la tecla {number}",
   "keyMenu.edit": "Editar",

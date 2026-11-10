@@ -13,3 +13,6 @@ export function useMediaQuery(query: string): boolean {
   }, [query]);
   return matches;
 }
+
+/** Windows at least this wide edit keys in a side panel (the inspector) instead of a modal. */
+export const INSPECTOR_QUERY = "(min-width: 1000px)";

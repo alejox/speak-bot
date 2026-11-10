@@ -36,7 +36,7 @@ export const en = {
   "recent.clear": "Clear",
   "recent.clearLabel": "Clear recent phrases",
 
-  "board.select": "Board",
+  "board.current": "Board: {name}",
   "board.page": "Page {page} of {count}",
   "board.previous": "Previous page",
   "board.next": "Next page",
@@ -45,7 +45,8 @@ export const en = {
   "board.emptySlot": "Empty key {number}",
   "board.addKey": "Add a key at position {number}",
 
-  "boards.menu": "Board options",
+  "boards.menu": "Boards",
+  "boards.manage": "Manage boards",
   "boards.name": "Name",
   "boards.createYes": "Create",
   "boards.renameTitle": "Rename “{name}”",
@@ -70,6 +71,7 @@ export const en = {
   "boards.restored": "The “{name}” board was restored.",
 
   "board.addPage": "New page",
+  "inspector.label": "Key {number}",
   "keyMenu.label": "Key {number}: {label}",
   "keyMenu.options": "Options for key {number}",
   "keyMenu.edit": "Edit",

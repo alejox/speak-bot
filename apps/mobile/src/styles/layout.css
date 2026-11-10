@@ -35,6 +35,11 @@
   gap: var(--space-3);
 }
 
+/* Room for the key inspector beside the deck. */
+.app-main:has(.deck-layout-inspecting) {
+  max-width: calc(var(--width-content) + 400px);
+}
+
 .side-nav {
   grid-area: nav;
   padding: var(--space-2);

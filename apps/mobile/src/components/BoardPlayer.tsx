@@ -1,4 +1,4 @@
-import { BOARD_KINDS, boardPageCount, keysOnPage, KEYS_PER_PAGE, MAX_BOARD_PAGES, type Action, type Board, type Key } from "@speed-deck/core";
+import { boardPageCount, keysOnPage, KEYS_PER_PAGE, MAX_BOARD_PAGES, type Action, type Key } from "@speed-deck/core";
 import { MoreHorizontal } from "lucide-react";
 import { useEffect, useId, useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import type { BoardNavigation } from "../app/use-boards";
@@ -18,10 +18,6 @@ const LONG_PRESS_SLOP = 10;
 const FINE_POINTER_QUERY = "(pointer: fine)";
 
 interface BoardPlayerProps {
-  /** The boards the selector offers; `context.boards` holds every board, for keys that open one. */
-  boards: readonly Board[];
-  /** Groups the selector's boards by kind, for a player that lists both kinds (the OBS dock). */
-  groupByKind?: boolean;
   navigation: BoardNavigation;
   context: KeyContext;
   /** Runs a key's action; called synchronously inside the tap. */
@@ -34,16 +30,16 @@ interface BoardPlayerProps {
   onDeleteKey?: (slot: number) => Promise<boolean>;
   /** Moves a key to another slot, swapping with a key there; resolves true when moved. Used by drag and drop. */
   onMoveKey?: (from: number, to: number) => Promise<boolean>;
-  /** Buttons shown next to the board selector (e.g. the board menu). */
+  /** The key being edited in the inspector, drawn as selected. */
+  selectedSlot?: number | null;
+  /** The deck's header: the board pill and its menu. */
   toolbar?: ReactNode;
   /** "dock" is the compact layout for the OBS dock. */
   variant?: "full" | "dock";
 }
 
-/** Plays a board: board selector, a page of keys and the pager. Keys show live OBS and captions state. */
+/** Plays a board: its header (the board pill), a page of keys and the pager. Keys show live OBS and captions state. */
 export function BoardPlayer({
-  boards,
-  groupByKind = false,
   navigation,
   context,
   onRun,
@@ -51,11 +47,11 @@ export function BoardPlayer({
   onEditKey,
   onDeleteKey,
   onMoveKey,
+  selectedSlot = null,
   toolbar,
   variant = "full",
 }: BoardPlayerProps) {
   const t = useT();
-  const selectId = useId();
   const descriptionPrefix = useId();
   // The phrase key tapped last; it shows as speaking for as long as speech plays.
   const [spoken, setSpoken] = useState<{ boardId: string; slot: number } | null>(null);
@@ -91,6 +87,9 @@ export function BoardPlayer({
   const showsNewPage = canEdit && newPage?.boardId === board.id && newPage.page === pageCount;
   const page = showsNewPage ? pageCount : position.page;
   const keys = keysOnPage(board, page);
+  // One + per page: right after the last key, or in the first gap when the last space is taken.
+  const lastKeyIndex = keys.reduce((last, key, index) => (key ? index : last), -1);
+  const plusIndex = lastKeyIndex < keys.length - 1 ? lastKeyIndex + 1 : keys.findIndex((key) => !key);
   const shownPageCount = Math.max(pageCount, page + 1);
   // Past the last page, "next" opens a new one for editors, up to the board limit.
   const opensNewPage = canEdit && page >= shownPageCount - 1 && shownPageCount < MAX_BOARD_PAGES;
@@ -192,36 +191,9 @@ export function BoardPlayer({
     onRun(key.action);
   };
 
-  const boardOptions = (candidates: readonly Board[]) =>
-    candidates.map((candidate) => (
-      <option key={candidate.id} value={candidate.id}>
-        {candidate.name}
-      </option>
-    ));
-  const boardGroups = BOARD_KINDS.map((kind) => ({ kind, boards: boards.filter((candidate) => candidate.kind === kind) })).filter((group) => group.boards.length > 0);
-
   return (
     <section className={`deck deck-${variant}`} aria-label={board.name}>
-      <div className="deck-header">
-        <label htmlFor={selectId} className={variant === "dock" ? "visually-hidden" : "deck-board-label"}>
-          {t("board.select")}
-        </label>
-        <select
-          id={selectId}
-          className="deck-board-select"
-          value={board.id}
-          onChange={(event) => navigation.go({ boardId: event.target.value, page: 0 })}
-        >
-          {groupByKind
-            ? boardGroups.map((group) => (
-                <optgroup key={group.kind} label={t(`nav.${group.kind}`)}>
-                  {boardOptions(group.boards)}
-                </optgroup>
-              ))
-            : boardOptions(boards)}
-        </select>
-        {toolbar}
-      </div>
+      {toolbar && <div className="deck-header">{toolbar}</div>}
 
       <ol className="deck-grid" aria-label={t("board.keys", { board: board.name })}>
         {keys.map((key, index) => {
@@ -230,7 +202,7 @@ export function BoardPlayer({
           if (!key) {
             return (
               <li key={slot}>
-                {onEditKey ? (
+                {onEditKey && index === plusIndex ? (
                   <button
                     ref={slotRef(slot)}
                     type="button"
@@ -244,7 +216,8 @@ export function BoardPlayer({
                     </span>
                   </button>
                 ) : (
-                  <div className="deck-key deck-key-empty" aria-hidden="true" />
+                  // A blank space: still a place to drop a dragged key.
+                  <div className="deck-key-blank" aria-hidden="true" {...dropHandlers(slot)} />
                 )}
               </li>
             );
@@ -274,6 +247,7 @@ export function BoardPlayer({
                 aria-disabled={disabled ? true : undefined}
                 aria-describedby={description ? descriptionId : undefined}
                 title={reason}
+                selected={selectedSlot === slot}
                 className={dropClass || undefined}
                 aria-keyshortcuts={canEdit ? "Shift+F10" : undefined}
                 onClick={() => press(slot, key, disabled)}
