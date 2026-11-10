@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -48,6 +48,20 @@ describe("build under /speak-bot/", () => {
     const register = await readFile(join(outDir, "registerSW.js"), "utf8");
     expect(register).toContain("/speak-bot/sw.js");
     expect(register).toContain("scope: '/speak-bot/'");
+  });
+
+  it("bundles the Inter font and precaches its Latin files so text looks the same offline", async () => {
+    const assets = await readdir(join(outDir, "assets"));
+    const css = assets.filter((name) => name.endsWith(".css"));
+    const styles = (await Promise.all(css.map((name) => readFile(join(outDir, "assets", name), "utf8")))).join("\n");
+    expect(styles).toContain("Inter Variable");
+    expect(styles).toMatch(/url\(\/speak-bot\/assets\/inter-latin-wght-normal-[^)]+\.woff2\)/);
+
+    const worker = await readFile(join(outDir, "sw.js"), "utf8");
+    expect(worker).toMatch(/assets\/inter-latin-wght-normal-[^"']+\.woff2/);
+    expect(worker).toMatch(/assets\/inter-latin-ext-wght-normal-[^"']+\.woff2/);
+    // Scripts Spanish and English never use are fetched only if a key needs them, never precached.
+    expect(worker).not.toMatch(/inter-(cyrillic|greek|vietnamese)/);
   });
 
   it("starts the installed app at /speak-bot/", async () => {

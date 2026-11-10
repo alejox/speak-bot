@@ -1,3 +1,6 @@
+// Inter is bundled with the app (not loaded from a CDN) so the installed app and the desktop app look the
+// same offline. The package has no per-subset entry; unicode-range makes browsers fetch only the subsets in use.
+import "@fontsource-variable/inter";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { applyAppearance } from "./adapters/appearance-dom";

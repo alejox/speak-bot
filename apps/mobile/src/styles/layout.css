@@ -133,7 +133,8 @@
   border-radius: var(--radius-md);
   color: var(--color-text-muted);
   text-decoration: none;
-  font-weight: var(--weight-semibold);
+  /* Medium, not regular: Inter at 400 looks thin in the muted nav colour. The current item is semibold. */
+  font-weight: var(--weight-medium);
   transition:
     background-color var(--duration-fast) var(--ease),
     color var(--duration-fast) var(--ease);
@@ -145,6 +146,7 @@
 }
 
 .side-nav-link[aria-current="page"] {
+  font-weight: var(--weight-semibold);
   background: var(--color-accent);
   color: var(--color-on-accent);
 }

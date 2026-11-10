@@ -4,7 +4,8 @@
   min-height: var(--size-control);
   padding: 0 var(--space-4);
   font: inherit;
-  font-weight: var(--weight-semibold);
+  /* Medium; the one primary button per view is semibold. */
+  font-weight: var(--weight-medium);
   line-height: var(--leading-tight);
   color: var(--color-text);
   background: var(--color-surface-raised);
@@ -29,6 +30,7 @@
 
 /* The main action of a view, in the accent of the space it belongs to: one per view. */
 .button-primary {
+  font-weight: var(--weight-semibold);
   color: var(--color-on-accent);
   background: var(--color-accent);
   border-color: var(--color-accent);
@@ -238,7 +240,7 @@
 .field label,
 .field > span,
 .field-label {
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-medium);
 }
 
 .field-hint {
@@ -305,7 +307,7 @@
   gap: var(--space-3);
   min-height: var(--size-control-sm);
   margin-top: var(--space-2);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-medium);
 }
 
 .field-check input {

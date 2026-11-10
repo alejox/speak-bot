@@ -109,7 +109,7 @@
 .modal-title {
   margin: 0;
   font-size: var(--text-lg);
-  line-height: var(--leading-lg);
+  line-height: var(--leading-tight);
 }
 
 .modal-close {
@@ -312,7 +312,7 @@
 
 .menu-item-danger {
   color: var(--color-danger);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-medium);
 }
 
 .menu-confirm p {
@@ -374,7 +374,7 @@
 }
 
 .inspector-preview-text {
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-medium);
   text-align: center;
   overflow-wrap: normal;
 }
@@ -395,7 +395,7 @@
 .inspector-title {
   margin: 0;
   font-size: var(--text-xl);
-  line-height: var(--leading-xl);
+  line-height: var(--leading-tight);
   text-align: center;
   overflow-wrap: anywhere;
 }

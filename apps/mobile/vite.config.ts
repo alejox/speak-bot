@@ -45,7 +45,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,webmanifest}"],
+        // Inter's Latin files cover Spanish and English, so they are precached for offline use. Its other
+        // subsets (Cyrillic, Greek, Vietnamese) are fetched only if some text needs them.
+        globPatterns: ["**/*.{js,css,html,svg,webmanifest}", "**/inter-latin-wght-normal-*.woff2", "**/inter-latin-ext-wght-normal-*.woff2"],
         // The desktop server hosts these next to the app; never answer them with the cached app shell.
         navigateFallbackDenylist: [/^\/overlay/, /^\/api\//, /^\/ws/],
       },

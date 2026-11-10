@@ -24,21 +24,25 @@ h4 {
   margin: 0;
 }
 
+/* The app name: the only bold text in the interface. */
 h1 {
   font-size: var(--text-lg);
-  line-height: var(--leading-lg);
+  line-height: var(--leading-tight);
   font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tighter);
 }
 
+/* Section and panel headings: semibold, so bold stays with the app name. */
 h2 {
   font-size: var(--text-xl);
-  line-height: var(--leading-xl);
-  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
 }
 
 h3 {
   font-size: var(--text-md);
-  line-height: var(--leading-md);
+  line-height: var(--leading-tight);
   font-weight: var(--weight-semibold);
 }
 
@@ -48,7 +52,7 @@ h4 {
   font-weight: var(--weight-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-caps);
 }
 
 /* One focus ring for every interactive element. */

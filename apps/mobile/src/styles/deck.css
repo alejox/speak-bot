@@ -236,8 +236,8 @@
   gap: var(--space-1);
   padding: 0 var(--space-2);
   font-size: var(--text-xs);
-  font-weight: var(--weight-bold);
-  letter-spacing: 0.04em;
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-caps);
   border: calc(var(--border-width) * 2) solid currentColor;
   border-radius: var(--radius-full);
 }
@@ -325,6 +325,8 @@
 
 .deck-page {
   min-width: 8em;
+  /* Equal-width digits, so the arrows do not shift as the page number changes. */
+  font-variant-numeric: tabular-nums;
   text-align: center;
   color: var(--color-text-muted);
 }
