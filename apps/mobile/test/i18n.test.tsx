@@ -93,7 +93,7 @@ describe("App language", () => {
   it("speaks with a voice matching the interface language when none is chosen", async () => {
     const { synthesizer, user } = renderLocalApp({ language: null });
     await goTo(user, "Ajustes");
-    await screen.findByRole("option", { name: "Mónica (es-ES)" });
+    await screen.findByRole("option", { name: "Mónica · Español (España)" });
     await goTo(user, "Voz");
     await user.type(screen.getByLabelText("Texto para decir"), "Hola{Enter}");
     await goTo(user, "Ajustes");

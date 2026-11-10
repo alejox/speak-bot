@@ -26,11 +26,17 @@ import { DockApp } from "../src/app/DockApp";
 import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
 import { memoryLanguageStore } from "./i18n-helpers";
 
+const DEFAULT_TEST_VOICES: Voice[] = [
+  { id: "alex", name: "Alex", lang: "en-US", isDefault: true },
+  { id: "monica", name: "Mónica", lang: "es-ES", isDefault: false },
+];
+
 /** Speech on this device; records what it was asked to say, synchronously. */
 export class LocalSynthesizer implements AppSpeechSynthesizer {
   readonly isSupported = true;
   readonly spoken: Array<{ text: string; options: SpeakOptions | undefined }> = [];
   cancelled = 0;
+  constructor(private readonly voices: Voice[] = DEFAULT_TEST_VOICES) {}
   speak(text: string, options?: SpeakOptions) {
     this.spoken.push({ text, options });
     return Promise.resolve();
@@ -39,10 +45,7 @@ export class LocalSynthesizer implements AppSpeechSynthesizer {
     this.cancelled += 1;
   }
   async listVoices(): Promise<Voice[]> {
-    return [
-      { id: "alex", name: "Alex", lang: "en-US", isDefault: true },
-      { id: "monica", name: "Mónica", lang: "es-ES", isDefault: false },
-    ];
+    return this.voices;
   }
   onVoicesChanged() {
     return () => {};
@@ -70,12 +73,22 @@ export interface LocalSetupOptions {
   language?: UiLanguage | null;
   settings?: SpeechSettings;
   appearance?: Appearance;
+  /** The system voices of this device (two by default: one English, one Spanish). */
+  voices?: Voice[];
+  /** A synthesizer to use instead of the default one (e.g. one whose speech never ends). */
+  synthesizer?: LocalSynthesizer;
 }
 
 /** App services for phone-only mode, with boards in localStorage. */
-export function localServices({ boards, language = "en", settings = DEFAULT_SETTINGS, appearance: initialAppearance }: LocalSetupOptions = {}) {
+export function localServices({
+  boards,
+  language = "en",
+  settings = DEFAULT_SETTINGS,
+  appearance: initialAppearance,
+  voices,
+  synthesizer = new LocalSynthesizer(voices),
+}: LocalSetupOptions = {}) {
   if (boards) localStorage.setItem("speed-deck:boards", JSON.stringify({ version: 1, boards }));
-  const synthesizer = new LocalSynthesizer();
   let saved = settings;
   let id = 0;
   const appearance = memoryAppearanceStore(initialAppearance);

@@ -137,7 +137,7 @@ describe("App in Computer mode", () => {
   it("shows desktop voices and saves the output device on the desktop", async () => {
     const { requests, user } = renderRemoteApp();
     await goTo(user, "Settings");
-    expect(await screen.findByRole("option", { name: "Alex (en-US)" })).toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: "Alex · English (United States)" })).toBeInTheDocument();
     const device = await screen.findByRole("combobox", { name: "Output device" });
     await screen.findByRole("option", { name: "BlackHole 2ch" });
     await user.selectOptions(device, "BlackHole 2ch");

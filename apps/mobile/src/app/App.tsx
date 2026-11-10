@@ -257,38 +257,43 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
           <SectionView key="settings" title={t("nav.settings")} focusHeading={navigated}>
             <SettingsPanel
               voices={target.voices}
+              voicesLoaded={target.voicesLoaded}
+              voiceLanguage={target.voiceLanguage ?? language}
               settings={target.settings}
               onChange={target.updateSettings}
+              isSpeaking={speech.isSpeaking}
+              onPreview={speech.speak}
               onLanguageChange={preference.setLanguage}
               appearance={appearance.appearance}
               onAppearanceChange={appearance.setAppearance}
               speakOn={target.speakOn}
               outputDevice={target.outputDevice}
-            >
-              {target.obsSettings && (
-                <ObsSettings
-                  settings={target.obsSettings}
-                  live={spaces.deck.obs}
-                  canEdit={target.isOnComputer}
-                  onSave={(patch) =>
-                    target.saveObsSettings(patch).then(
-                      () => {
-                        setStatus({ key: "obs.saved" });
-                        return true;
-                      },
-                      (error: unknown) => {
-                        setStatus(describeRequestError(error));
-                        return false;
-                      },
-                    )
-                  }
-                  onTest={() => {
-                    setStatus(null);
-                    target.obs?.connect().catch((error: unknown) => setStatus(describeRequestError(error)));
-                  }}
-                />
-              )}
-            </SettingsPanel>
+              deckSettings={
+                target.obsSettings && (
+                  <ObsSettings
+                    settings={target.obsSettings}
+                    live={spaces.deck.obs}
+                    canEdit={target.isOnComputer}
+                    onSave={(patch) =>
+                      target.saveObsSettings(patch).then(
+                        () => {
+                          setStatus({ key: "obs.saved" });
+                          return true;
+                        },
+                        (error: unknown) => {
+                          setStatus(describeRequestError(error));
+                          return false;
+                        },
+                      )
+                    }
+                    onTest={() => {
+                      setStatus(null);
+                      target.obs?.connect().catch((error: unknown) => setStatus(describeRequestError(error)));
+                    }}
+                  />
+                )
+              }
+            />
           </SectionView>
         )}
       </main>

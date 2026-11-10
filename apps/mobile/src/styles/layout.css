@@ -136,7 +136,7 @@
   }
 
   .app-main {
-    padding: var(--space-4) var(--space-4) calc(var(--tab-height) + var(--space-6) + env(safe-area-inset-bottom));
+    padding: var(--space-3) var(--space-4) calc(var(--tab-height) + var(--space-6) + env(safe-area-inset-bottom));
   }
 
   .side-nav {
@@ -210,4 +210,22 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-3);
+}
+
+@media (max-width: 719px) {
+  /*
+   * A tighter rhythm on phones, so the first row of keys is whole above the tab bar on a 375x667
+   * screen even with the recent phrases showing. Only the space between blocks shrinks, never a control.
+   */
+  .section {
+    gap: var(--space-3);
+  }
+
+  .section-title {
+    margin-bottom: 0;
+  }
+
+  .section .deck {
+    gap: var(--space-2);
+  }
 }

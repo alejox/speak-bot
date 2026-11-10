@@ -2,7 +2,12 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
-const THEME_COLOR = "#1d4ed8";
+/*
+ * The manifest cannot read CSS variables, so these repeat tokens from src/styles/tokens.css (light theme):
+ * the header surface (--color-surface, also the light theme-color in index.html) and the page (--color-bg).
+ */
+const THEME_COLOR = "#ffffff";
+const BACKGROUND_COLOR = "#f0f2f5";
 
 /**
  * Public path the app is served from: "/" on the desktop server, "/speak-bot/" on GitHub Pages.
@@ -27,13 +32,13 @@ export default defineConfig({
       manifest: {
         name: "Speed Deck",
         short_name: "Speed Deck",
-        description: "Escribe o toca una frase y deja que tu teléfono hable por ti.",
+        description: "Voz: escribe o toca una frase y tu dispositivo habla por ti. Deck: controla OBS con la app de la computadora.",
         lang: "es",
         display: "standalone",
         start_url: base,
         scope: base,
         theme_color: THEME_COLOR,
-        background_color: "#ffffff",
+        background_color: BACKGROUND_COLOR,
         icons: [
           { src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
           { src: "icon-maskable.svg", sizes: "any", type: "image/svg+xml", purpose: "maskable" },

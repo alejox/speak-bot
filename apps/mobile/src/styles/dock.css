@@ -1,13 +1,17 @@
 /*
  * OBS Custom Browser Dock: compact, always dark (tokens.css gives .dock the dark theme), fits a panel
  * about 300px wide. It is a mouse surface inside OBS, so it is the one place where controls are
- * smaller than the 44px touch target.
+ * smaller than the 44px touch target: never under 36px, and they still grow with the text.
+ * It draws the same keys as the app (deck.css); only their size changes here.
  */
 
 .dock {
-  --size-control: 40px;
-  --size-control-sm: 40px;
+  --size-control: max(36px, 2.25rem);
+  --size-control-sm: max(36px, 2.25rem);
   --text-2xs: 0.625rem;
+  /* Icons follow the text scale instead of fixed pixels. */
+  --dock-icon: var(--text-md);
+  --dock-cue: var(--text-xs);
   min-height: 100vh;
   padding: var(--space-2);
   font-size: var(--text-sm);
@@ -48,8 +52,23 @@
   gap: var(--space-2);
 }
 
+/* The board selector takes the row; Edit / Done stays at its end and never wraps under it. */
+.dock .deck-header {
+  flex-wrap: nowrap;
+  gap: var(--space-2);
+}
+
 .dock .deck-board-select {
+  flex: 1 1 0;
   max-width: none;
+}
+
+.dock .deck-header .button {
+  flex: none;
+}
+
+.dock .deck-hint {
+  font-size: var(--text-xs);
 }
 
 /* Compact deck: 4 columns of smaller keys. */
@@ -62,15 +81,15 @@
 }
 
 .dock .deck-key {
-  gap: 2px;
+  gap: calc(var(--space-1) / 2);
   padding: var(--space-1);
   font-size: var(--text-xs);
   border-radius: var(--radius-md);
 }
 
 .dock .deck-key .key-icon {
-  width: 18px;
-  height: 18px;
+  width: var(--dock-icon);
+  height: var(--dock-icon);
 }
 
 .dock .deck-key-text {
@@ -88,8 +107,8 @@
 }
 
 .dock .deck-key-cue svg {
-  width: 12px;
-  height: 12px;
+  width: var(--dock-cue);
+  height: var(--dock-cue);
 }
 
 .dock .deck-key-plus {

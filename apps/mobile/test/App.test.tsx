@@ -37,7 +37,7 @@ describe("App composer", () => {
   it("persists the selected voice and rate", async () => {
     const { user, getSettings } = renderLocalApp();
     await goTo(user, "Settings");
-    await screen.findByRole("option", { name: "Alex (en-US)" });
+    await screen.findByRole("option", { name: "Alex · English (United States)" });
     await user.selectOptions(screen.getByRole("combobox", { name: "Voice" }), "alex");
     expect(getSettings()).toEqual({ voiceId: "alex", rate: 1 });
   });
