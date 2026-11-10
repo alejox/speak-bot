@@ -1,3 +1,4 @@
+import { buildDefaultBoards } from "@speed-deck/core";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { boardOf, desktopState, renderRemoteApp, speakKey, writes } from "./app-fakes";
@@ -11,7 +12,6 @@ describe("App in Computer mode", () => {
     const { requests, local, user } = renderRemoteApp();
     expect(await screen.findByRole("button", { name: "Hello" })).toBeInTheDocument();
 
-    await goTo(user, "Speak");
     await user.type(screen.getByLabelText("Text to speak"), "Hi stream");
     await user.click(screen.getByRole("button", { name: "Speak" }));
 
@@ -36,20 +36,23 @@ describe("App in Computer mode", () => {
   });
 
   it("toggles captions and the voice language on the desktop, showing the new state", async () => {
-    const state = desktopState();
+    const state = desktopState({ boards: buildDefaultBoards("en") });
     state.execute["captions.toggle"] = { body: { ok: true, captionsVisible: false } };
     state.execute["voice.toggleLanguage"] = { body: { ok: true, voiceLanguage: "es" } };
     const { user } = renderRemoteApp({ state });
 
-    const captions = await screen.findByRole("button", { name: "Hide or show captions" });
-    expect(captions).toHaveAttribute("aria-pressed", "false");
-    await user.click(captions);
-    await waitFor(() => expect(captions).toHaveAttribute("aria-pressed", "true"));
-    expect(screen.getByRole("status")).toHaveTextContent("Captions hidden in OBS.");
-
-    const language = screen.getByRole("button", { name: /Switch voice language/ });
+    // The voice commands are in the Voice space; captions are in the Deck space.
+    const language = await screen.findByRole("button", { name: /Switch voice language/ });
+    expect(screen.queryByRole("button", { name: "Hide or show captions" })).not.toBeInTheDocument();
     await user.click(language);
     await waitFor(() => expect(language).toHaveTextContent("Voice: Español"));
+
+    await goTo(user, "Deck");
+    const captions = await screen.findByRole("button", { name: /Hide or show captions/ });
+    expect(captions).toHaveAttribute("aria-pressed", "true");
+    await user.click(captions);
+    await waitFor(() => expect(captions).toHaveAttribute("aria-pressed", "false"));
+    expect(screen.getByRole("status")).toHaveTextContent("Captions hidden in OBS.");
   });
 
   it("explains desktop refusals in the interface language", async () => {
@@ -63,7 +66,6 @@ describe("App in Computer mode", () => {
   it("keeps Stop enabled while the desktop speaks, whoever started it", async () => {
     const { emit, user } = renderRemoteApp();
     await screen.findByRole("button", { name: "Hello" });
-    await goTo(user, "Speak");
     const stop = screen.getByRole("button", { name: "Stop" });
     expect(stop).toBeDisabled();
     act(() => emit({ type: "speaking", state: "start" }));
@@ -79,13 +81,14 @@ describe("App in Computer mode", () => {
           { slot: 0, action: { type: "obs.toggleMute", inputName: "Mic" } },
           { slot: 1, action: { type: "obs.switchScene", sceneName: "Main" } },
           { slot: 2, action: { type: "obs.toggleStream" } },
-        ]),
+        ], "deck"),
       ],
     });
     state.obs.state = { currentScene: "Main", mutedInputs: ["Mic"], streaming: false, recording: false };
     const { emit, requests, user } = renderRemoteApp({ state });
+    await goTo(user, "Deck");
 
-    const mic = await screen.findByRole("button", { name: "Mic" });
+    const mic = await screen.findByRole("button", { name: /^Mic/ });
     await waitFor(() => expect(mic).toHaveAttribute("aria-pressed", "true"));
     expect(screen.getByRole("button", { name: "Main" })).toHaveAttribute("aria-pressed", "true");
     const stream = screen.getByRole("button", { name: "Start or stop stream" });
@@ -134,7 +137,7 @@ describe("App in Computer mode", () => {
   it("shows desktop voices and saves the output device on the desktop", async () => {
     const { requests, user } = renderRemoteApp();
     await goTo(user, "Settings");
-    expect(await screen.findByRole("option", { name: "Alex (en-US)" })).toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: "Alex · English (United States)" })).toBeInTheDocument();
     const device = await screen.findByRole("combobox", { name: "Output device" });
     await screen.findByRole("option", { name: "BlackHole 2ch" });
     await user.selectOptions(device, "BlackHole 2ch");
@@ -156,7 +159,7 @@ describe("App in Computer mode", () => {
     await user.selectOptions(await screen.findByRole("combobox", { name: "Speak on" }), "device");
     expect(getTarget()).toBe("device");
     expect(screen.queryByRole("combobox", { name: "Output device" })).not.toBeInTheDocument();
-    await goTo(user, "Board");
+    await goTo(user, "Voice");
     await user.click(await screen.findByRole("button", { name: "Local phrase" }));
     expect(local.texts).toEqual(["Local phrase"]);
     expect(executed(requests)).toEqual([]);

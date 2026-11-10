@@ -1,0 +1,138 @@
+/*
+ * What the person asked of their device: more contrast, forced colours, less motion.
+ * Last in the cascade so these rules win over every area file.
+ */
+
+/* More contrast: every edge becomes a control edge, muted text becomes full text, borders thicken. */
+@media (prefers-contrast: more) {
+  :root,
+  .dock {
+    --color-border-strong: var(--color-text);
+    --color-border: var(--color-text);
+    --color-text-muted: var(--color-text);
+    --key-border: var(--color-text);
+    --key-empty: var(--color-text);
+    --border-width: 2px;
+  }
+
+  /* Layering alone is too quiet here: draw the lines between the shell and the content. */
+  .app-header {
+    border-bottom: var(--border-width) solid var(--color-border);
+  }
+
+  .side-nav {
+    border-right: var(--border-width) solid var(--color-border);
+  }
+
+  .settings,
+  .connect,
+  .board-list,
+  .board-editor-side,
+  .key-editor-panel {
+    border: var(--border-width) solid var(--color-border);
+  }
+
+  .side-nav-link {
+    color: var(--color-text);
+  }
+}
+
+/*
+ * Forced colours (Windows contrast themes): backgrounds and shadows are dropped, so every state that
+ * was drawn with them gets a border or an outline in a system colour instead.
+ */
+@media (forced-colors: active) {
+  :focus-visible,
+  .picker-choice:has(input:focus-visible),
+  .deck-key-selected:focus-visible,
+  .deck-grid-editing .deck-key.deck-key-selected:focus-visible {
+    outline-color: Highlight;
+  }
+
+  .app-header {
+    border-bottom: 1px solid CanvasText;
+  }
+
+  .side-nav {
+    border-right: 1px solid CanvasText;
+  }
+
+  .settings,
+  .connect,
+  .board-list,
+  .board-editor-side,
+  .key-editor-panel,
+  .deck-grid {
+    border: 1px solid CanvasText;
+  }
+
+  /* Keys stay visible as buttons, with or without a colour of their own. */
+  .deck-key {
+    border: 2px solid ButtonText;
+  }
+
+  .deck-key-empty {
+    border-style: dashed;
+  }
+
+  .deck-key-unavailable {
+    color: GrayText;
+    border-color: GrayText;
+  }
+
+  /* A toggle that is on, and the key being said: a thick system-colour edge next to their words or icon. */
+  .deck-key[aria-pressed="true"],
+  .deck-key-speaking {
+    border: 4px solid Highlight;
+  }
+
+  .board-editor .deck-key[aria-pressed="true"] {
+    border: 2px solid ButtonText;
+  }
+
+  .deck-key-selected,
+  .deck-grid-editing .deck-key.deck-key-selected {
+    outline-color: Highlight;
+  }
+
+  .deck-key-drop {
+    outline-color: Highlight;
+  }
+
+  /* Selected states that were a background or a shadow. */
+  .side-nav-link[aria-current="page"],
+  .board-list-item-selected,
+  .picker-choice:has(input:checked),
+  .button[aria-pressed="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  .button:disabled,
+  .button[aria-disabled="true"] {
+    opacity: 1;
+    color: GrayText;
+    border-color: GrayText;
+  }
+
+  /* Colour choices must keep their real colour to be choosable. */
+  .swatch,
+  .connect-qr {
+    forced-color-adjust: none;
+  }
+}
+
+/* Less motion: no transitions or animations anywhere in the app. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  .deck-key:active {
+    transform: none;
+  }
+}

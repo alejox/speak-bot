@@ -47,6 +47,8 @@ export interface SpeechTarget {
   settings: SpeechSettings;
   updateSettings: (next: SpeechSettings) => void;
   voices: Voice[];
+  /** False until the current synthesizer answered with its voices once. */
+  voicesLoaded: boolean;
   /** Null when no desktop is available, so the "Speak on" choice is hidden. */
   speakOn: { value: SpeakTarget; onChange: (target: SpeakTarget) => void } | null;
   /** Null unless speaking on a desktop that can route audio to a chosen device. */
@@ -87,6 +89,7 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
   const [desktopSettings, setDesktopSettings] = useState<DesktopSettings | null>(null);
   const [devices, setDevices] = useState<AudioDevice[]>([]);
   const [voices, setVoices] = useState<Voice[]>([]);
+  const [voicesLoaded, setVoicesLoaded] = useState(false);
   const [error, setError] = useState<MessageKey | null>(null);
 
   useEffect(() => {
@@ -146,9 +149,12 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
 
   useEffect(() => {
     let active = true;
+    setVoicesLoaded(false);
     const loadVoices = () => {
       void synthesizer.listVoices().then((loaded) => {
-        if (active) setVoices(loaded);
+        if (!active) return;
+        setVoices(loaded);
+        setVoicesLoaded(true);
       });
     };
     loadVoices();
@@ -200,6 +206,7 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
     settings,
     updateSettings,
     voices,
+    voicesLoaded,
     speakOn:
       desktop && capabilities && !forceComputer
         ? {

@@ -53,7 +53,7 @@ export function ObsSettings({ settings, live, canEdit, onSave, onTest }: ObsSett
   return (
     <section className="obs-settings" aria-labelledby={ids.heading}>
       <div className="obs-settings-header">
-        <h3 id={ids.heading}>{t("obs.title")}</h3>
+        <h4 id={ids.heading}>{t("obs.title")}</h4>
         <span className={`badge badge-${status}`} role="status">
           {t("obs.status", { status: t(`obs.status.${status}`) })}
         </span>

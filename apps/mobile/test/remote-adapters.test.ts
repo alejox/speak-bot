@@ -45,24 +45,26 @@ describe("DesktopApiClient boards", () => {
     const { api, requests } = setup((request) => ({ status: request.method === "DELETE" ? 204 : 200, body: request.method === "GET" ? boardsOf([]) : {} }));
 
     expect(await api.listBoards()).toEqual(boardsOf([]));
-    await api.createBoard("OBS");
+    await api.createBoard("OBS", "deck");
     await api.renameBoard("a/b", "Escenas");
     await api.deleteBoard("a/b");
     await api.setKey("b1", 3, { label: "Hi", action: { type: "voice.stop" } }, { replace: true });
     await api.clearKey("b1", 3);
     await api.moveKey("b1", 3, 4);
     await api.restoreDefaultBoard("en");
+    await api.restoreDefaultBoard("es", "deck");
     await api.executeAction({ type: "captions.clear" });
 
     expect(requests).toEqual([
       { method: "GET", url: "/api/boards", body: undefined },
-      { method: "POST", url: "/api/boards", body: { name: "OBS" } },
+      { method: "POST", url: "/api/boards", body: { name: "OBS", kind: "deck" } },
       { method: "PATCH", url: "/api/boards/a%2Fb", body: { name: "Escenas" } },
       { method: "DELETE", url: "/api/boards/a%2Fb", body: undefined },
       { method: "PUT", url: "/api/boards/b1/keys/3", body: { label: "Hi", action: { type: "voice.stop" }, replace: true } },
       { method: "DELETE", url: "/api/boards/b1/keys/3", body: undefined },
       { method: "POST", url: "/api/boards/b1/keys/move", body: { from: 3, to: 4 } },
       { method: "POST", url: "/api/boards/restore-default", body: { language: "en" } },
+      { method: "POST", url: "/api/boards/restore-default", body: { language: "es", boardId: "deck" } },
       { method: "POST", url: "/api/actions/execute", body: { action: { type: "captions.clear" } } },
     ]);
   });

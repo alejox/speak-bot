@@ -31,6 +31,7 @@ export class JsonFileBoardRepository implements BoardRepository {
     });
   }
 
+  /** Boards stored before boards had a kind get one here (a mixed board is split), the same on every read. */
   private async read(): Promise<Board[]> {
     const content = await readJsonFile(this.file);
     if (content.status !== "ok" || typeof content.value !== "object" || content.value === null) return [];

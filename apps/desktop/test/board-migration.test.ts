@@ -21,9 +21,10 @@ describe("prepareBoards", () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  it("creates the default communication board in the given language on a new install", async () => {
+  it("creates the default communication and deck boards in the given language on a new install", async () => {
     expect(await prepareBoards(repository, { legacyPhrasesFile: legacyFile, language: "en" })).toBe("created-default");
-    const [board] = await repository.list();
+    const [board, deck] = await repository.list();
+    expect([board!.kind, deck!.kind]).toEqual(["voice", "deck"]);
     expect(board!.id).toBe(DEFAULT_BOARD_ID);
     expect(board!.name).toBe("Communication");
     expect(board!.keys.slice(0, 8).map((key) => (key.action as { text: string }).text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.en]);
@@ -40,14 +41,15 @@ describe("prepareBoards", () => {
     await writeFile(legacyFile, JSON.stringify(legacy));
 
     expect(await prepareBoards(repository, { legacyPhrasesFile: legacyFile, language: "es" })).toBe("migrated");
-    const [board] = await repository.list();
+    const [board, deck] = await repository.list();
+    expect(deck).toMatchObject({ id: "deck", kind: "deck" });
     expect(board!.name).toBe("Comunicación");
     expect(board!.keys.slice(0, 3)).toEqual([
       { slot: 0, label: "Saludo", action: { type: "voice.speak", text: "Hola" } },
       { slot: 1, action: { type: "voice.speak", text: "Agua" } },
       { slot: 9, action: { type: "voice.speak", text: "Gracias" } },
     ]);
-    expect(board!.keys.slice(3).map((key) => key.slot)).toEqual([10, 11, 12, 13, 14]);
+    expect(board!.keys.slice(3).map((key) => key.slot)).toEqual([10, 11, 14]);
 
     const files = await readdir(dir);
     expect(files).not.toContain("phrases.json");

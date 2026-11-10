@@ -1,4 +1,4 @@
-import type { Action, Key, UiLanguage } from "@speed-deck/core";
+import type { Action, Board, BoardKind, Key, UiLanguage } from "@speed-deck/core";
 import { useMemo } from "react";
 import type { KeyInput } from "../adapters/board-stores";
 import type { BoardPositionStore } from "../adapters/local-storage-board-position-store";
@@ -25,22 +25,33 @@ export interface Deck {
   moveKey: (from: number, to: number) => Promise<boolean>;
 }
 
-/** Boards, this client's position, OBS state and key execution for one view (the app or the dock). */
-export function useDeck(
-  target: SpeechTarget,
-  speech: Speech,
-  language: UiLanguage,
-  positionStore: BoardPositionStore,
-  report: (message: Message | null) => void,
-): Deck {
+/** What every view of the boards shares, whichever board it shows. */
+interface DeckState {
+  boards: Boards;
+  obs: ObsLive | null;
+  context: KeyContext;
+  voiceLanguage: UiLanguage;
+}
+
+function useDeckState(target: SpeechTarget, language: UiLanguage, report: (message: Message | null) => void): DeckState {
   const boards = useBoards(target.boards, language, report);
-  const navigation = useBoardNavigation(boards.boards, positionStore);
   const obs = useObs(target.obs, target.obsSettings?.enabled ?? null);
   const voiceLanguage = target.voiceLanguage ?? language;
   const context = useMemo<KeyContext>(
     () => ({ isRemote: target.isRemote, obs, captionsVisible: target.captionsVisible, voiceLanguage, boards: boards.boards }),
     [target.isRemote, obs, target.captionsVisible, voiceLanguage, boards.boards],
   );
+  return { boards, obs, context, voiceLanguage };
+}
+
+/** Key execution and key editing on the board `navigation` shows. */
+function deckOf(
+  { boards, obs, context, voiceLanguage }: DeckState,
+  navigation: BoardNavigation,
+  target: SpeechTarget,
+  speech: Speech,
+  report: (message: Message | null) => void,
+): Deck {
   const run = createKeyRunner({ target, speech, voiceLanguage, navigate: navigation.navigate, report });
   const boardId = navigation.board?.id;
 
@@ -72,4 +83,65 @@ export function useDeck(
       return moved !== undefined;
     },
   };
+}
+
+/** Boards, this client's position, OBS state and key execution for a view of every board (the OBS dock). */
+export function useDeck(
+  target: SpeechTarget,
+  speech: Speech,
+  language: UiLanguage,
+  positionStore: BoardPositionStore,
+  report: (message: Message | null) => void,
+): Deck {
+  const state = useDeckState(target, language, report);
+  const navigation = useBoardNavigation(state.boards.boards, positionStore);
+  return deckOf(state, navigation, target, speech, report);
+}
+
+/** One space of the app: the boards of one kind, with its own position. `boards` still holds every board. */
+export interface SpaceDeck extends Deck {
+  kind: BoardKind;
+  /** The boards this space lists. */
+  spaceBoards: readonly Board[];
+}
+
+/**
+ * The Voice and Deck spaces of the app. They share the boards and OBS state, and each one keeps its
+ * own board and page. A key that opens a board of the other kind (possible in boards made before
+ * spaces) opens it there and calls `onOpenSpace` with that kind.
+ */
+export function useSpaceDecks(
+  target: SpeechTarget,
+  speech: Speech,
+  language: UiLanguage,
+  positionStores: Readonly<Record<BoardKind, BoardPositionStore>>,
+  onOpenSpace: (kind: BoardKind) => void,
+  report: (message: Message | null) => void,
+): Record<BoardKind, SpaceDeck> {
+  const state = useDeckState(target, language, report);
+  const all = state.boards.boards;
+  const spaceBoards = useMemo<Record<BoardKind, Board[]>>(
+    () => ({ voice: all.filter((board) => board.kind === "voice"), deck: all.filter((board) => board.kind === "deck") }),
+    [all],
+  );
+  const navigations: Record<BoardKind, BoardNavigation> = {
+    voice: useBoardNavigation(spaceBoards.voice, positionStores.voice),
+    deck: useBoardNavigation(spaceBoards.deck, positionStores.deck),
+  };
+
+  const spaceOf = (kind: BoardKind): SpaceDeck => {
+    const other: BoardKind = kind === "voice" ? "deck" : "voice";
+    const own = navigations[kind];
+    const navigation: BoardNavigation = {
+      ...own,
+      navigate: (action) => {
+        if (action.type === "nav.goToBoard" && spaceBoards[other].some((board) => board.id === action.boardId)) {
+          navigations[other].go({ boardId: action.boardId, page: 0 });
+          onOpenSpace(other);
+        } else own.navigate(action);
+      },
+    };
+    return { ...deckOf(state, navigation, target, speech, report), kind, spaceBoards: spaceBoards[kind] };
+  };
+  return { voice: spaceOf("voice"), deck: spaceOf("deck") };
 }

@@ -58,8 +58,10 @@ export class LocalStorageBoardRepository implements BoardRepository {
 }
 
 /**
- * Makes sure this device has a board: the phrases saved by older versions become the communication
- * board, otherwise the default one in `language` is created. Resolves true when it created a board.
+ * Makes sure this device has boards: the phrases saved by older versions become the communication
+ * board, otherwise the default one in `language` is created, and the default deck board follows it.
+ * Resolves true when it created them. Boards stored before boards had a kind need no step here:
+ * `readStoredBoards` gives them one on every read, and the next change stores the result.
  */
 export function prepareLocalBoards(repository: LocalStorageBoardRepository, language: UiLanguage): Promise<boolean> {
   return initializeBoards({ repository }, { language, legacyPhrases: repository.legacyPhrases() });

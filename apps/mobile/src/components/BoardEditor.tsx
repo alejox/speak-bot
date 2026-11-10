@@ -1,9 +1,13 @@
 import {
   ACTION_REGISTRY,
   boardPageCount,
+  isActionAllowedOnBoard,
   isActionType,
   keysOnPage,
   KEYS_PER_PAGE,
+  DEFAULT_BOARD_NAMES,
+  DEFAULT_DECK_BOARD_ID,
+  DEFAULT_DECK_BOARD_NAMES,
   MAX_BOARD_PAGES,
   type Action,
   type ActionType,
@@ -12,7 +16,7 @@ import {
 } from "@speed-deck/core";
 import { useId, useState, type DragEvent } from "react";
 import type { ObsServices } from "../app/composition-root";
-import { keyIconId, keyLabel, presentKey, type KeyContext } from "../app/key-presentation";
+import { keyLabel, keyLook, presentKey, type KeyContext } from "../app/key-presentation";
 import type { BoardNavigation, Boards } from "../app/use-boards";
 import { useT } from "../i18n/I18nProvider";
 import type { Message, MessageKey } from "../i18n/messages";
@@ -26,6 +30,8 @@ const SLOT_DRAG_TYPE = "application/x-speed-deck-slot";
 
 interface BoardEditorProps {
   boards: Boards;
+  /** The space's boards and its position among them: the editor lists, creates and restores boards of their kind. */
+  spaceBoards: readonly Board[];
   navigation: BoardNavigation;
   context: KeyContext;
   obs: ObsServices | null;
@@ -46,11 +52,11 @@ interface Assignment {
 }
 
 /**
- * The desktop board editor: boards on the left, the key grid with pages in the middle, the action
+ * The desktop board editor of one space: its boards on the left, the key grid with pages in the middle, the action
  * library and the key editor on the right. Drag and drop always has a keyboard alternative: select a key,
  * then "Assign" an action or "Move" the key.
  */
-export function BoardEditor({ boards: boardsState, navigation, context, obs, language, onTest, statusText, report }: BoardEditorProps) {
+export function BoardEditor({ boards: boardsState, spaceBoards, navigation, context, obs, language, onTest, statusText, report }: BoardEditorProps) {
   const t = useT();
   const gridLabelId = useId();
   const { boards, change } = boardsState;
@@ -115,19 +121,23 @@ export function BoardEditor({ boards: boardsState, navigation, context, obs, lan
     setDropSlot(null);
     const type = event.dataTransfer.getData(ACTION_DRAG_TYPE);
     const from = event.dataTransfer.getData(SLOT_DRAG_TYPE);
-    if (isActionType(type)) void assign(slot, type);
-    else if (from !== "") void move(Number(from), slot);
+    if (isActionType(type)) {
+      // The library only offers allowed actions; a drag from elsewhere (another board's tab) is ignored.
+      if (isActionAllowedOnBoard(board.kind, type)) void assign(slot, type);
+    } else if (from !== "") void move(Number(from), slot);
   };
 
   return (
     <div className="board-editor">
       <BoardList
-        boards={boards}
+        boards={spaceBoards}
+        canDelete={boards.length > 1}
+        defaultBoardName={(board.kind === "deck" ? DEFAULT_DECK_BOARD_NAMES : DEFAULT_BOARD_NAMES)[language]}
         selectedId={board.id}
         onSelect={selectBoard}
         onCreate={() =>
           change(
-            (store) => store.create(t("boards.defaultName", { number: boards.length + 1 })),
+            (store) => store.create(t("boards.defaultName", { number: boards.length + 1 }), board.kind),
             (created) => ({ key: "boards.created", params: { name: created.name } }),
           )
         }
@@ -145,7 +155,11 @@ export function BoardEditor({ boards: boardsState, navigation, context, obs, lan
           )) === true
         }
         onRestore={async () => {
-          const restored = await change((store) => store.restoreDefault(language), () => ({ key: "boards.restored" }));
+          // Without a board id the store restores the built-in voice board.
+          const restored = await change(
+            (store) => store.restoreDefault(language, board.kind === "deck" ? DEFAULT_DECK_BOARD_ID : undefined),
+            (fresh) => ({ key: "boards.restored", params: { name: fresh.name } }),
+          );
           if (restored) selectBoard(restored.id);
         }}
       />
@@ -196,7 +210,7 @@ export function BoardEditor({ boards: boardsState, navigation, context, obs, lan
               <li key={slot}>
                 <BoardKey
                   label={label}
-                  iconId={keyIconId(key)}
+                  {...keyLook(key)}
                   color={key.color}
                   detail={presentation.detail ? t(presentation.detail.key, presentation.detail.params) : undefined}
                   selected={isSelected}
@@ -246,6 +260,7 @@ export function BoardEditor({ boards: boardsState, navigation, context, obs, lan
                 slot={selectedSlot}
                 existing={selectedKey}
                 assignedType={assignment?.slot === selectedSlot ? assignment.type : undefined}
+                boardKind={board.kind}
                 boards={boards}
                 obs={obs}
                 onTest={onTest}
@@ -271,7 +286,7 @@ export function BoardEditor({ boards: boardsState, navigation, context, obs, lan
       </section>
 
       <div className="board-editor-side">
-        <ActionLibrary selectedSlot={selectedSlot} onAssign={(type) => selectedSlot !== null && void assign(selectedSlot, type)} />
+        <ActionLibrary boardKind={board.kind} selectedSlot={selectedSlot} onAssign={(type) => selectedSlot !== null && void assign(selectedSlot, type)} />
       </div>
     </div>
   );

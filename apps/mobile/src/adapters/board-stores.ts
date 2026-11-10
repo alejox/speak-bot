@@ -9,6 +9,7 @@ import {
   setKey,
   type Action,
   type Board,
+  type BoardKind,
   type Key,
   type UiLanguage,
 } from "@speed-deck/core";
@@ -30,7 +31,8 @@ export interface BoardStore {
   /** Creates the first board when there is none (first run on this device); a no-op on the desktop. */
   prepare(language: UiLanguage): Promise<void>;
   list(): Promise<Board[]>;
-  create(name: string): Promise<Board>;
+  /** Creates an empty board of `kind`. */
+  create(name: string, kind: BoardKind): Promise<Board>;
   rename(boardId: string, name: string): Promise<Board>;
   /** Rejects for the only board. */
   remove(boardId: string): Promise<void>;
@@ -39,7 +41,8 @@ export interface BoardStore {
   clearKey(boardId: string, slot: number): Promise<void>;
   /** Moves the key at `from` to `to`, swapping with a key already there. */
   moveKey(boardId: string, from: number, to: number): Promise<Board>;
-  restoreDefault(language: UiLanguage): Promise<Board>;
+  /** Puts back a built-in board: the communication board unless `boardId` names the built-in deck board. */
+  restoreDefault(language: UiLanguage, boardId?: string): Promise<Board>;
   /** Boards changed somewhere else (another device). Returns an unsubscribe function. */
   onChanged(listener: () => void): () => void;
 }
@@ -54,13 +57,13 @@ export function createLocalBoardStore(repository: LocalStorageBoardRepository, g
       await preparing;
     },
     list: () => listBoards(repository),
-    create: (name) => createBoard({ repository, generateId }, { name }),
+    create: (name, kind) => createBoard({ repository, generateId }, { name, kind }),
     rename: (boardId, name) => renameBoard(repository, boardId, name),
     remove: (boardId) => deleteBoard(repository, boardId),
     setKey: (boardId, key, options) => setKey(repository, boardId, key, options),
     clearKey: (boardId, slot) => clearKey(repository, boardId, slot),
     moveKey: (boardId, from, to) => moveKey(repository, boardId, from, to),
-    restoreDefault: (language) => restoreDefaultBoard(repository, language),
+    restoreDefault: (language, boardId) => restoreDefaultBoard(repository, language, boardId),
     onChanged: () => () => {},
   };
 }
@@ -70,13 +73,13 @@ export function createRemoteBoardStore(api: DesktopApiClient, events: DesktopEve
   return {
     prepare: async () => {},
     list: () => api.listBoards(),
-    create: (name) => api.createBoard(name),
+    create: (name, kind) => api.createBoard(name, kind),
     rename: (boardId, name) => api.renameBoard(boardId, name),
     remove: (boardId) => api.deleteBoard(boardId),
     setKey: (boardId, { slot, ...key }, options) => api.setKey(boardId, slot, key, options),
     clearKey: (boardId, slot) => api.clearKey(boardId, slot),
     moveKey: (boardId, from, to) => api.moveKey(boardId, from, to),
-    restoreDefault: (language) => api.restoreDefaultBoard(language),
+    restoreDefault: (language, boardId) => api.restoreDefaultBoard(language, boardId),
     onChanged: (listener) =>
       events.subscribe((event) => {
         if (event.type === "boards-changed") listener();

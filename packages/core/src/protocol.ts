@@ -3,7 +3,7 @@
  * Pure types and tiny guards only: no runtime dependencies.
  */
 import type { Action } from "./domain/actions";
-import type { Board, Key } from "./domain/board";
+import type { Board, BoardKind, Key } from "./domain/board";
 import type { ObsConnectionStatus, ObsErrorCode, ObsInput, ObsSceneItem, ObsState } from "./ports/obs-controller";
 import type { Voice } from "./ports/speech-synthesizer";
 
@@ -165,9 +165,14 @@ export interface HealthResponse {
 /** GET /api/boards → Board[] in display order. */
 export type BoardsResponse = Board[];
 
-/** POST /api/boards → 201 Board; PATCH /api/boards/:id → Board. */
+/** PATCH /api/boards/:id → Board. */
 export interface BoardNameRequest {
   name: string;
+}
+
+/** POST /api/boards → 201 Board: an empty board of `kind`. */
+export interface CreateBoardRequest extends BoardNameRequest {
+  kind: BoardKind;
 }
 
 /**
@@ -190,9 +195,13 @@ export interface MoveKeyRequest {
   to: number;
 }
 
-/** POST /api/boards/restore-default → Board: puts back the built-in communication board. */
+/**
+ * POST /api/boards/restore-default → Board: puts back a built-in board, the communication board
+ * unless `boardId` names the built-in deck board.
+ */
 export interface RestoreDefaultBoardRequest {
   language: UiLanguage;
+  boardId?: string;
 }
 
 /**

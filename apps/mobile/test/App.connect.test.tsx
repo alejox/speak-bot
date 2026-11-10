@@ -7,8 +7,10 @@ import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesize
 import { App } from "../src/app/App";
 import { createDesktopServices, type AppServices } from "../src/app/composition-root";
 import { createLocalBoardStore } from "../src/adapters/board-stores";
+import { LocalStorageRecentPhrasesStore } from "../src/adapters/local-storage-recent-phrases-store";
 import { LocalStorageBoardRepository } from "../src/adapters/local-storage-board-repository";
 import { boardsOf, createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
+import { memoryAppearanceStore } from "./app-fakes";
 import { goTo, memoryLanguageStore } from "./i18n-helpers";
 
 const synthesizer: AppSpeechSynthesizer = {
@@ -51,6 +53,8 @@ function setup({ hostname = "localhost", answer = route } = {}) {
     boards: createLocalBoardStore(new LocalStorageBoardRepository(null), () => "x"),
     settings: { load: () => DEFAULT_SETTINGS, save: () => {} },
     language: memoryLanguageStore("en"),
+    appearance: memoryAppearanceStore(),
+    recentPhrases: new LocalStorageRecentPhrasesStore(null),
     desktop: createDesktopServices({
       fetch,
       createSocket: (url) => new FakeSocket(url),
@@ -97,7 +101,7 @@ describe("App connect panel", () => {
 
   it("is hidden when no desktop serves the page (e.g. GitHub Pages)", async () => {
     const { requests } = setup({ answer: () => undefined });
-    await screen.findByRole("link", { name: "Board" });
+    await screen.findByRole("link", { name: "Voice" });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(screen.queryByRole("heading", { name: "Connect your phone" })).not.toBeInTheDocument();
     expect(requests.some((request) => request.url === "/api/connection")).toBe(false);

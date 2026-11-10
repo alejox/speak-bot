@@ -4,6 +4,7 @@ import {
   BoardNotFoundError,
   clearKey,
   createBoard,
+  DEFAULT_BOARD_ID,
   deleteBoard,
   DESKTOP_SERVER_NAME,
   InvalidBoardError,
@@ -126,8 +127,8 @@ export function createApiHandler(deps: ApiDependencies) {
       method: "POST",
       path: "/api/boards",
       handler: async (request, response) => {
-        const { name } = asObject(await readJsonBody(request));
-        const board = await createBoard({ repository, generateId }, { name });
+        const { name, kind } = asObject(await readJsonBody(request));
+        const board = await createBoard({ repository, generateId }, { name, kind });
         boardsChanged();
         sendJson(response, 201, board);
       },
@@ -136,9 +137,9 @@ export function createApiHandler(deps: ApiDependencies) {
       method: "POST",
       path: "/api/boards/restore-default",
       handler: async (request, response) => {
-        const { language } = asObject(await readJsonBody(request));
+        const { language, boardId } = asObject(await readJsonBody(request));
         if (!isUiLanguage(language)) throw new HttpError(400, 'language must be "es" or "en".');
-        const board = await restoreDefaultBoard(repository, language);
+        const board = await restoreDefaultBoard(repository, language, boardId ?? DEFAULT_BOARD_ID);
         boardsChanged();
         sendJson(response, 200, board);
       },

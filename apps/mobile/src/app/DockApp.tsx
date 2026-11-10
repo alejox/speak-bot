@@ -46,6 +46,7 @@ function DockContent({ target }: { target: SpeechTarget }) {
   const [positionStore] = useState(() => new LocalStorageBoardPositionStore(DOCK_BOARD_POSITION_STORAGE_KEY));
   const deck = useDeck(target, speech, language, positionStore, setStatus);
   const [dialogSlot, setDialogSlot] = useState<number | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [text, setText] = useState("");
   const board = deck.navigation.board;
 
@@ -65,16 +66,25 @@ function DockContent({ target }: { target: SpeechTarget }) {
       <BoardPlayer
         variant="dock"
         boards={deck.boards.boards}
+        groupByKind
         navigation={deck.navigation}
         context={deck.context}
         onRun={deck.run}
+        isSpeaking={speech.isSpeaking}
         onEditKey={setDialogSlot}
+        isEditing={isEditing}
+        toolbar={
+          <button type="button" className="button button-small" aria-pressed={isEditing} onClick={() => setIsEditing((value) => !value)}>
+            {isEditing ? t("board.done") : t("board.edit")}
+          </button>
+        }
       />
       {dialogSlot !== null && board && (
         <KeyEditorDialog
           key={`${board.id}:${dialogSlot}`}
           slot={dialogSlot}
           existing={board.keys.find((key) => key.slot === dialogSlot)}
+          boardKind={board.kind}
           boards={deck.boards.boards}
           obs={target.obs}
           onTest={deck.run}

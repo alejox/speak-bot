@@ -7,7 +7,9 @@ export type PrepareBoardsResult = "unchanged" | "migrated" | "created-default";
 /**
  * Makes sure there is at least one board. On the first start after an update, the phrases saved by
  * older versions (`legacyPhrasesFile`) become the communication board and the old file is kept as
- * `<file>.migrated.bak`. A new install gets the default communication board in `language`.
+ * `<file>.migrated.bak`. A new install gets the default communication board in `language`. Either
+ * way the default deck board follows it. Boards stored before boards had a kind are not handled
+ * here: `readStoredBoards` gives them one on every read, and the next change stores the result.
  * Phrases a key cannot hold (e.g. text over the speech limit) are skipped and counted in `log`,
  * so an old file never stops the desktop from starting.
  */

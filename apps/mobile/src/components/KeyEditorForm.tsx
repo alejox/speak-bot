@@ -1,7 +1,7 @@
 import {
-  ACTION_CATEGORIES,
   ACTION_TYPES,
   ACTION_REGISTRY,
+  allowedActionCategories,
   isHexColor,
   KEY_ICON_IDS,
   MAX_KEY_LABEL_LENGTH,
@@ -9,6 +9,7 @@ import {
   type Action,
   type ActionType,
   type Board,
+  type BoardKind,
   type Key,
 } from "@speed-deck/core";
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -27,6 +28,9 @@ export interface KeyEditorFormProps {
   existing: Key | undefined;
   /** An action type chosen in the library for this slot, replacing the key's action in the draft. */
   assignedType?: ActionType;
+  /** Kind of the board the key is on; only the actions it allows are offered. */
+  boardKind: BoardKind;
+  /** Every board; a key that opens a board is offered the ones of `boardKind`. */
   boards: readonly Board[];
   obs: ObsServices | null;
   /** Resolves true when saved. */
@@ -44,7 +48,7 @@ export interface KeyEditorFormProps {
 }
 
 /** Edits one key: action and its parameters, label, icon and color; tests, saves, moves and deletes it. */
-export function KeyEditorForm({ slot, existing, assignedType, boards, obs, onSave, onDelete, onTest, onMove, onCancel, heading }: KeyEditorFormProps) {
+export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards, obs, onSave, onDelete, onTest, onMove, onCancel, heading }: KeyEditorFormProps) {
   const t = useT();
   const ids = { action: useId(), label: useId(), labelHint: useId(), hex: useId(), move: useId(), confirm: useId(), error: useId() };
   const form = useRef<HTMLFormElement>(null);
@@ -106,6 +110,9 @@ export function KeyEditorForm({ slot, existing, assignedType, boards, obs, onSav
     });
   };
 
+  // A key opens boards of its own space. A target saved before spaces stays, so editing the key does not lose it.
+  const savedTargetId = existing?.action.type === "nav.goToBoard" ? existing.action.boardId : undefined;
+  const targetBoards = boards.filter((board) => board.kind === boardKind || board.id === savedTargetId);
   const hexInvalid = draft.color !== "" && !isHexColor(draft.color);
   const number = slot + 1;
 
@@ -125,7 +132,7 @@ export function KeyEditorForm({ slot, existing, assignedType, boards, obs, onSav
           }}
         >
           <option value="">{t("editor.chooseAction")}</option>
-          {ACTION_CATEGORIES.map((category) => (
+          {allowedActionCategories(boardKind).map((category) => (
             <optgroup key={category} label={t(`category.${category}`)}>
               {ACTION_TYPES.filter((type) => ACTION_REGISTRY[type].category === category).map((type) => (
                 <option key={type} value={type}>
@@ -143,7 +150,7 @@ export function KeyEditorForm({ slot, existing, assignedType, boards, obs, onSav
           actionType={draft.actionType}
           values={draft.params}
           onChange={(params) => update({ params })}
-          boards={boards}
+          boards={targetBoards}
           obs={obs}
           invalidField={error?.field}
         />

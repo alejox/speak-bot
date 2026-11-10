@@ -1,10 +1,16 @@
-import { buildDefaultBoard } from "@speed-deck/core";
+import { buildDefaultBoard, buildDefaultDeckBoard } from "@speed-deck/core";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LONG_PRESS_MS } from "../src/components/BoardPlayer";
 import { boardOf, renderLocalApp, speakKey } from "./app-fakes";
 
 const grid = () => screen.getByRole("list", { name: /^Keys of/ });
+
+/** Opens the key dialog the only way there is on a phone: edit mode, then the key. */
+async function editKey(user: { click: (element: Element) => Promise<void> }, name: string) {
+  await user.click(screen.getByRole("button", { name: "Edit" }));
+  await user.click(screen.getByRole("button", { name }));
+  return screen.getByRole("dialog");
+}
 
 describe("board player in phone-only mode", () => {
   afterEach(() => vi.useRealTimers());
@@ -26,7 +32,8 @@ describe("board player in phone-only mode", () => {
   });
 
   it("disables caption keys without the desktop and says why", async () => {
-    renderLocalApp();
+    const { user } = renderLocalApp({ boards: [buildDefaultDeckBoard("en")] });
+    await user.click(screen.getByRole("link", { name: "Deck" }));
     const clear = await screen.findByRole("button", { name: "Clear caption" });
     expect(clear).toHaveAttribute("aria-disabled", "true");
     expect(clear).toHaveAccessibleDescription("Needs the computer app.");
@@ -127,8 +134,7 @@ describe("key editing on the phone", () => {
   it("tests a speak key from the editor synchronously, without saving", async () => {
     const { synthesizer, user } = renderLocalApp();
     await screen.findByRole("button", { name: "Hello" });
-    fireEvent.contextMenu(screen.getByRole("button", { name: "Hello" }));
-    const dialog = screen.getByRole("dialog");
+    const dialog = await editKey(user, "Edit key 1: Hello");
     fireEvent.click(within(dialog).getByRole("button", { name: "Test" }));
     expect(synthesizer.texts).toEqual(["Hello"]);
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
@@ -138,8 +144,7 @@ describe("key editing on the phone", () => {
   it("deletes a key after an inline confirmation", async () => {
     const { user } = renderLocalApp();
     await screen.findByRole("button", { name: "Hello" });
-    fireEvent.contextMenu(screen.getByRole("button", { name: "Hello" }));
-    const dialog = screen.getByRole("dialog");
+    const dialog = await editKey(user, "Edit key 1: Hello");
     await user.click(within(dialog).getByRole("button", { name: "Delete key" }));
     expect(within(dialog).getByRole("button", { name: "No, keep it" })).toHaveFocus();
     await user.click(within(dialog).getByRole("button", { name: "Yes, delete" }));
@@ -151,8 +156,7 @@ describe("key editing on the phone", () => {
   it("moves a key to another position from the editor", async () => {
     const { user } = renderLocalApp({ boards: [boardOf("main", "Main", [speakKey(0, "Hello")])] });
     await screen.findByRole("button", { name: "Hello" });
-    fireEvent.contextMenu(screen.getByRole("button", { name: "Hello" }));
-    const dialog = screen.getByRole("dialog");
+    const dialog = await editKey(user, "Edit key 1: Hello");
     const position = within(dialog).getByRole("spinbutton", { name: "Move to position" });
     await user.clear(position);
     await user.type(position, "17");
@@ -162,52 +166,44 @@ describe("key editing on the phone", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Key moved to position 17.");
   });
 
-  it("opens the editor with a long press, and a keyboard press afterwards still runs the key", async () => {
+  it("never opens the editor from a slow press or a right click outside edit mode", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const { synthesizer } = renderLocalApp({ boards: [buildDefaultBoard("en")] });
     const key = await screen.findByRole("button", { name: "Hello" });
     fireEvent.pointerDown(key);
-    act(() => void vi.advanceTimersByTime(LONG_PRESS_MS));
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    // The release ends the press without a click; then the dialog is closed.
+    act(() => void vi.advanceTimersByTime(3000));
     fireEvent.pointerUp(key);
-    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    // Keyboard activation (click with detail 0) must not be swallowed by the earlier long press.
-    fireEvent.click(screen.getByRole("button", { name: "Hello" }), { detail: 0 });
+    // The click that ends a slow press runs the key like any other tap.
+    fireEvent.click(key, { detail: 1 });
     expect(synthesizer.texts).toEqual(["Hello"]);
+
+    expect(fireEvent.contextMenu(key)).toBe(true);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("swallows only the click that ends a long press", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const { synthesizer } = renderLocalApp({ boards: [buildDefaultBoard("en")] });
-    const key = await screen.findByRole("button", { name: "Hello" });
-    fireEvent.pointerDown(key);
-    act(() => void vi.advanceTimersByTime(LONG_PRESS_MS));
-    fireEvent.click(key, { detail: 1 });
-    expect(synthesizer.texts).toEqual([]);
-    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-    fireEvent.click(screen.getByRole("button", { name: "Hello" }), { detail: 1 });
-    expect(synthesizer.texts).toEqual(["Hello"]);
+  it("explains edit mode without mentioning holding a key or right-clicking", async () => {
+    const { user } = renderLocalApp();
+    await screen.findByRole("button", { name: "Hello" });
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    const hint = screen.getByText(/Tap a key to change it/);
+    expect(hint).not.toHaveTextContent(/hold|right-click/i);
   });
 });
 
-describe("Speak section", () => {
-  it("offers the first five speak keys of the current board and saves typed text on a free key", async () => {
+describe("Voice space composer", () => {
+  it("saves typed text on the first free key of the current voice board, shown on the same screen", async () => {
     const { synthesizer, user } = renderLocalApp({
-      boards: [boardOf("main", "Main", [speakKey(0, "One"), { slot: 1, action: { type: "voice.stop" } }, speakKey(2, "Two"), speakKey(3, "3"), speakKey(4, "4"), speakKey(5, "5"), speakKey(6, "6")])],
+      boards: [boardOf("main", "Main", [speakKey(0, "One"), { slot: 1, action: { type: "voice.stop" } }, speakKey(3, "Two")]), boardOf("stream", "Stream", [], "deck")],
     });
-    await screen.findByRole("button", { name: "One" });
-    await user.click(screen.getByRole("link", { name: "Speak" }));
-    const quick = screen.getByRole("region", { name: "Quick keys" });
-    expect(within(quick).getAllByRole("button").map((button) => button.textContent)).toEqual(["One", "Two", "3", "4", "5"]);
-    fireEvent.click(within(quick).getByRole("button", { name: "Two" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Two" }));
     expect(synthesizer.texts).toEqual(["Two"]);
 
     await user.click(screen.getByRole("button", { name: "Save as key" }));
     expect(screen.getByRole("status")).toHaveTextContent("Type something to save it on a key.");
     await user.type(screen.getByRole("textbox", { name: "Text to speak" }), "See you");
     await user.click(screen.getByRole("button", { name: "Save as key" }));
-    expect(await screen.findByText("Saved on key 8.")).toBeInTheDocument();
+    expect(await screen.findByText("Saved on key 3.")).toBeInTheDocument();
+    expect(within(grid()).getByRole("button", { name: "See you" })).toBeInTheDocument();
   });
 });

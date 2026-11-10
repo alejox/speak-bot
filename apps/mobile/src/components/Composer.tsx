@@ -1,5 +1,8 @@
-import type { KeyboardEvent } from "react";
+import { BookmarkPlus, Square, Volume2 } from "lucide-react";
+import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import { useT } from "../i18n/I18nProvider";
+
+const ICON_SIZE = 20;
 
 interface ComposerProps {
   text: string;
@@ -10,8 +13,28 @@ interface ComposerProps {
   onSave: () => void;
 }
 
-export function Composer({ text, isSpeaking, onTextChange, onSpeak, onStop, onSave }: ComposerProps) {
+export interface ComposerHandle {
+  focusText: () => void;
+}
+
+/**
+ * Type to speak: a text box two lines tall that grows with what is typed (the stylesheet caps it and
+ * scrolls from there), the Speak action, and Stop and Save on one row.
+ */
+export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer({ text, isSpeaking, onTextChange, onSpeak, onStop, onSave }, ref) {
   const t = useT();
+  const textarea = useRef<HTMLTextAreaElement>(null);
+  useImperativeHandle(ref, () => ({ focusText: () => textarea.current?.focus() }), []);
+
+  // Grow with the content: the height follows the text, between the CSS minimum and maximum.
+  useLayoutEffect(() => {
+    const element = textarea.current;
+    if (!element) return;
+    element.style.height = "auto";
+    const borders = element.offsetHeight - element.clientHeight;
+    if (element.scrollHeight > 0) element.style.height = `${element.scrollHeight + borders}px`;
+  }, [text]);
+
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     // Enter speaks, Shift+Enter inserts a new line. Ignore Enter while an IME is composing.
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -26,26 +49,31 @@ export function Composer({ text, isSpeaking, onTextChange, onSpeak, onStop, onSa
         {t("composer.textLabel")}
       </label>
       <textarea
+        ref={textarea}
         id="composer-text"
         className="composer-text"
         value={text}
-        rows={3}
+        rows={2}
         placeholder={t("composer.placeholder")}
         enterKeyHint="send"
         onChange={(event) => onTextChange(event.target.value)}
         onKeyDown={handleKeyDown}
       />
+      <button type="button" className="button button-primary composer-speak" onClick={onSpeak}>
+        <Volume2 size={ICON_SIZE + 4} aria-hidden="true" focusable="false" />
+        {t("composer.speak")}
+      </button>
       <div className="composer-actions">
-        <button type="button" className="button button-primary" onClick={onSpeak}>
-          {t("composer.speak")}
-        </button>
-        <button type="button" className="button" onClick={onStop} disabled={!isSpeaking}>
+        <button type="button" className="button button-icon" onClick={onStop} disabled={!isSpeaking}>
+          <Square size={ICON_SIZE} aria-hidden="true" focusable="false" />
           {t("composer.stop")}
         </button>
-        <button type="button" className="button" onClick={onSave}>
-          {t("composer.save")}
+        {/* The short label is what is drawn; the full one stays the button's name. */}
+        <button type="button" className="button button-icon" onClick={onSave} aria-label={t("composer.save")}>
+          <BookmarkPlus size={ICON_SIZE} aria-hidden="true" focusable="false" />
+          {t("composer.saveShort")}
         </button>
       </div>
     </section>
   );
-}
+});

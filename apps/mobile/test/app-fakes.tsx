@@ -1,7 +1,10 @@
 import {
   buildDefaultBoard,
+  buildDefaultDeckBoard,
+  DEFAULT_DECK_BOARD_ID,
   makeBoard,
   type Board,
+  type BoardKind,
   type Key,
   type ObsState,
   type SpeakOptions,
@@ -11,7 +14,9 @@ import {
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createLocalBoardStore } from "../src/adapters/board-stores";
+import { DEFAULT_APPEARANCE, type Appearance, type AppearanceStore } from "../src/adapters/local-storage-appearance-store";
 import { LocalStorageBoardRepository } from "../src/adapters/local-storage-board-repository";
+import { LocalStorageRecentPhrasesStore } from "../src/adapters/local-storage-recent-phrases-store";
 import { DEFAULT_SETTINGS, type SpeechSettings } from "../src/adapters/local-storage-settings-store";
 import type { SpeakTarget } from "../src/adapters/local-storage-speak-target-store";
 import type { AppSpeechSynthesizer } from "../src/adapters/web-speech-synthesizer";
@@ -21,11 +26,17 @@ import { DockApp } from "../src/app/DockApp";
 import { createFakeFetch, FakeSocket, type RecordedRequest } from "./desktop-fakes";
 import { memoryLanguageStore } from "./i18n-helpers";
 
+const DEFAULT_TEST_VOICES: Voice[] = [
+  { id: "alex", name: "Alex", lang: "en-US", isDefault: true },
+  { id: "monica", name: "Mónica", lang: "es-ES", isDefault: false },
+];
+
 /** Speech on this device; records what it was asked to say, synchronously. */
 export class LocalSynthesizer implements AppSpeechSynthesizer {
   readonly isSupported = true;
   readonly spoken: Array<{ text: string; options: SpeakOptions | undefined }> = [];
   cancelled = 0;
+  constructor(private readonly voices: Voice[] = DEFAULT_TEST_VOICES) {}
   speak(text: string, options?: SpeakOptions) {
     this.spoken.push({ text, options });
     return Promise.resolve();
@@ -34,10 +45,7 @@ export class LocalSynthesizer implements AppSpeechSynthesizer {
     this.cancelled += 1;
   }
   async listVoices(): Promise<Voice[]> {
-    return [
-      { id: "alex", name: "Alex", lang: "en-US", isDefault: true },
-      { id: "monica", name: "Mónica", lang: "es-ES", isDefault: false },
-    ];
+    return this.voices;
   }
   onVoicesChanged() {
     return () => {};
@@ -50,29 +58,49 @@ export class LocalSynthesizer implements AppSpeechSynthesizer {
 const speakKey = (slot: number, text: string, extra: Partial<Key> = {}): Key => ({ slot, ...extra, action: { type: "voice.speak", text } });
 export { speakKey };
 
-/** A board with an id and name, from keys. */
-export const boardOf = (id: string, name: string, keys: Key[] = []): Board => makeBoard(id, name, keys);
+/** A board with an id and name, from keys; a voice board unless `kind` says otherwise. */
+export const boardOf = (id: string, name: string, keys: Key[] = [], kind: BoardKind = "voice"): Board => makeBoard(id, name, kind, keys);
+
+/** An appearance store that starts from `initial` and keeps what is saved in memory. */
+export function memoryAppearanceStore(initial: Appearance = DEFAULT_APPEARANCE): AppearanceStore {
+  let current = initial;
+  return { load: () => current, save: (next) => void (current = next) };
+}
 
 export interface LocalSetupOptions {
   /** Boards already on this device; none means a first run (the default board is created). */
   boards?: Board[];
   language?: UiLanguage | null;
   settings?: SpeechSettings;
+  appearance?: Appearance;
+  /** The system voices of this device (two by default: one English, one Spanish). */
+  voices?: Voice[];
+  /** A synthesizer to use instead of the default one (e.g. one whose speech never ends). */
+  synthesizer?: LocalSynthesizer;
 }
 
 /** App services for phone-only mode, with boards in localStorage. */
-export function localServices({ boards, language = "en", settings = DEFAULT_SETTINGS }: LocalSetupOptions = {}) {
+export function localServices({
+  boards,
+  language = "en",
+  settings = DEFAULT_SETTINGS,
+  appearance: initialAppearance,
+  voices,
+  synthesizer = new LocalSynthesizer(voices),
+}: LocalSetupOptions = {}) {
   if (boards) localStorage.setItem("speed-deck:boards", JSON.stringify({ version: 1, boards }));
-  const synthesizer = new LocalSynthesizer();
   let saved = settings;
   let id = 0;
+  const appearance = memoryAppearanceStore(initialAppearance);
   const services: AppServices = {
     synthesizer,
     boards: createLocalBoardStore(new LocalStorageBoardRepository(localStorage), () => `board-${++id}`),
     settings: { load: () => saved, save: (next) => void (saved = next) },
     language: memoryLanguageStore(language),
+    appearance,
+    recentPhrases: new LocalStorageRecentPhrasesStore(localStorage),
   };
-  return { services, synthesizer, getSettings: () => saved };
+  return { services, synthesizer, appearance, getSettings: () => saved };
 }
 
 export function renderLocalApp(options: LocalSetupOptions = {}) {
@@ -131,12 +159,13 @@ export function desktopRoute(state: DesktopState) {
       case "GET /api/boards":
         return { body: state.boards };
       case "POST /api/boards": {
-        const created = makeBoard(`new-${state.boards.length}`, String(body.name));
+        const created = makeBoard(`new-${state.boards.length}`, String(body.name), body.kind as BoardKind);
         state.boards = [...state.boards, created];
         return { status: 201, body: created };
       }
       case "POST /api/boards/restore-default": {
-        const fresh = buildDefaultBoard(body.language as UiLanguage);
+        const language = body.language as UiLanguage;
+        const fresh = body.boardId === DEFAULT_DECK_BOARD_ID ? buildDefaultDeckBoard(language) : buildDefaultBoard(language);
         state.boards = state.boards.some((candidate) => candidate.id === fresh.id)
           ? state.boards.map((candidate) => (candidate.id === fresh.id ? fresh : candidate))
           : [fresh, ...state.boards];
@@ -184,11 +213,11 @@ export function desktopRoute(state: DesktopState) {
         const { replace, ...key } = body as { replace?: boolean } & Omit<Key, "slot">;
         if (!replace && target.keys.some((candidate) => candidate.slot === slot)) return { status: 409, body: { error: "Taken.", code: "slot-occupied" } };
         const stored: Key = { slot, ...(key.label ? { label: key.label } : {}), ...(key.icon ? { icon: key.icon } : {}), ...(key.color ? { color: key.color } : {}), action: key.action };
-        replaceBoard(makeBoard(target.id, target.name, [...target.keys.filter((candidate) => candidate.slot !== slot), stored]));
+        replaceBoard(makeBoard(target.id, target.name, target.kind, [...target.keys.filter((candidate) => candidate.slot !== slot), stored]));
         return { body: stored };
       }
       if (request.method === "DELETE") {
-        replaceBoard(makeBoard(target.id, target.name, target.keys.filter((candidate) => candidate.slot !== slot)));
+        replaceBoard(makeBoard(target.id, target.name, target.kind, target.keys.filter((candidate) => candidate.slot !== slot)));
         return { status: 204 };
       }
     }
@@ -197,7 +226,7 @@ export function desktopRoute(state: DesktopState) {
       const target = board(moveMatch[1]!)!;
       const { from, to } = body as { from: number; to: number };
       const keys = target.keys.map((key) => (key.slot === from ? { ...key, slot: to } : key.slot === to ? { ...key, slot: from } : key));
-      const moved = makeBoard(target.id, target.name, keys);
+      const moved = makeBoard(target.id, target.name, target.kind, keys);
       replaceBoard(moved);
       return { body: moved };
     }

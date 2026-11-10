@@ -5,6 +5,7 @@ import {
   type ApiErrorCode,
   type AudioDevice,
   type Board,
+  type BoardKind,
   type DesktopSettings,
   type DesktopSettingsPatch,
   type Key,
@@ -76,8 +77,8 @@ export class DesktopApiClient {
     return readStoredBoards(await this.request("GET", "/api/boards"));
   }
 
-  createBoard(name: string): Promise<Board> {
-    return this.request("POST", "/api/boards", { name }) as Promise<Board>;
+  createBoard(name: string, kind: BoardKind): Promise<Board> {
+    return this.request("POST", "/api/boards", { name, kind }) as Promise<Board>;
   }
 
   renameBoard(boardId: string, name: string): Promise<Board> {
@@ -105,8 +106,8 @@ export class DesktopApiClient {
   }
 
   /** Puts back the built-in communication board in `language`. */
-  restoreDefaultBoard(language: UiLanguage): Promise<Board> {
-    return this.request("POST", "/api/boards/restore-default", { language }) as Promise<Board>;
+  restoreDefaultBoard(language: UiLanguage, boardId?: string): Promise<Board> {
+    return this.request("POST", "/api/boards/restore-default", boardId === undefined ? { language } : { language, boardId }) as Promise<Board>;
   }
 
   /** Runs a voice, captions or OBS action on the desktop; navigation actions are refused ("client-action"). */
