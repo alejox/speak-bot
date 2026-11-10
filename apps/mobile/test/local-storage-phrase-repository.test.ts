@@ -1,12 +1,12 @@
-import type { Phrase } from "@speak-bot/core";
+import { PhraseNotFoundError, type Phrase } from "@speak-bot/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   LocalStoragePhraseRepository,
   PHRASES_STORAGE_KEY,
 } from "../src/adapters/local-storage-phrase-repository";
 
-const hello: Phrase = { id: "a", text: "Hello", createdAt: 1 };
-const thanks: Phrase = { id: "b", text: "Thank you", label: "Thanks", createdAt: 2 };
+const hello: Phrase = { id: "a", text: "Hello", slot: 0, createdAt: 1 };
+const thanks: Phrase = { id: "b", text: "Thank you", label: "Thanks", slot: 1, createdAt: 2 };
 
 describe("LocalStoragePhraseRepository", () => {
   beforeEach(() => localStorage.clear());
@@ -105,5 +105,36 @@ describe("LocalStoragePhraseRepository", () => {
     await repository.save(thanks);
 
     expect(await repository.list()).toEqual([hello, thanks]);
+  });
+
+  it("gives old phrases without a slot the lowest free slots and stores them on the next write", async () => {
+    localStorage.setItem(
+      PHRASES_STORAGE_KEY,
+      JSON.stringify([
+        { id: "b", text: "Bye", createdAt: 2 },
+        { id: "a", text: "Hello", createdAt: 1 },
+      ]),
+    );
+    const repository = new LocalStoragePhraseRepository(localStorage);
+
+    expect((await repository.list()).map((p) => [p.id, p.slot])).toEqual([
+      ["a", 0],
+      ["b", 1],
+    ]);
+    await repository.delete("zzz");
+    expect(JSON.parse(localStorage.getItem(PHRASES_STORAGE_KEY) ?? "[]")).toEqual([
+      { id: "a", text: "Hello", slot: 0, createdAt: 1 },
+      { id: "b", text: "Bye", slot: 1, createdAt: 2 },
+    ]);
+  });
+
+  it("updates an existing phrase and rejects unknown ids", async () => {
+    const repository = new LocalStoragePhraseRepository(localStorage);
+    await repository.save(hello);
+
+    await repository.update({ ...hello, text: "Hi", slot: 3 });
+    await expect(repository.update({ ...thanks, id: "zzz" })).rejects.toBeInstanceOf(PhraseNotFoundError);
+
+    expect(await repository.list()).toEqual([{ ...hello, text: "Hi", slot: 3 }]);
   });
 });

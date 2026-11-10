@@ -33,6 +33,9 @@ class MemoryRepository implements PhraseRepository {
   async save(phrase: Phrase) {
     this.phrases = [...this.phrases.filter((p) => p.id !== phrase.id), phrase];
   }
+  async update(phrase: Phrase) {
+    this.phrases = this.phrases.map((p) => (p.id === phrase.id ? phrase : p));
+  }
   async delete(id: string) {
     this.phrases = this.phrases.filter((p) => p.id !== id);
   }
@@ -42,8 +45,8 @@ class MemoryRepository implements PhraseRepository {
 }
 
 const saved: Phrase[] = [
-  { id: "p1", text: "Water please", createdAt: 1 },
-  { id: "p2", text: "I am tired", createdAt: 2 },
+  { id: "p1", text: "Water please", slot: 0, createdAt: 1 },
+  { id: "p2", text: "I am tired", slot: 1, createdAt: 2 },
 ];
 
 function setupLocal(language: "es" | "en" = "en") {
@@ -109,7 +112,7 @@ describe("navigation", () => {
 });
 
 describe("phrase board", () => {
-  it("speaks a phrase on tap and adds one inline in edit mode", async () => {
+  it("speaks a phrase on tap and opens the editor instead in edit mode", async () => {
     const { synthesizer, repository, user } = setupLocal();
     await goTo(user, "Phrases");
     const board = screen.getByRole("region", { name: "Saved phrases" });
@@ -118,12 +121,11 @@ describe("phrase board", () => {
     expect(synthesizer.spoken).toEqual(["Water please"]);
 
     await user.click(within(board).getByRole("button", { name: "Edit" }));
-    await user.type(within(board).getByRole("textbox", { name: "New phrase" }), "See you later{Enter}");
+    await user.click(within(board).getByRole("button", { name: "Edit phrase: Water please" }));
 
-    expect(await within(board).findByRole("button", { name: "Delete phrase: See you later" })).toBeInTheDocument();
-    expect(within(board).getByRole("textbox", { name: "New phrase" })).toHaveValue("");
-    expect(repository.phrases.map((p) => p.text)).toContain("See you later");
-    expect(screen.getByRole("status")).toHaveTextContent("Phrase saved.");
+    expect(screen.getByRole("dialog", { name: "Edit phrase · button 1" })).toBeInTheDocument();
+    expect(synthesizer.spoken).toEqual(["Water please"]);
+    expect(repository.phrases).toHaveLength(2);
   });
 
   it("asks before restoring the defaults and keeps the phrases on cancel", async () => {
@@ -159,7 +161,7 @@ describe("phrase board", () => {
 });
 
 function desktopRoute() {
-  let phrases: Phrase[] = [{ id: "d1", text: "Hello from desktop", createdAt: 1 }];
+  let phrases: Phrase[] = [{ id: "d1", text: "Hello from desktop", slot: 0, createdAt: 1 }];
   return (request: RecordedRequest) => {
     switch (`${request.method} ${request.url}`) {
       case "GET /api/health":
@@ -173,7 +175,7 @@ function desktopRoute() {
       case "POST /api/speak":
         return { status: 202, body: { ok: true } };
       case "POST /api/phrases/restore":
-        phrases = [{ id: "r1", text: "Hello", createdAt: 1 }];
+        phrases = [{ id: "r1", text: "Hello", slot: 0, createdAt: 1 }];
         return { body: phrases };
       default:
         return undefined;
@@ -185,7 +187,7 @@ function setupRemote() {
   FakeSocket.instances = [];
   const fake = createFakeFetch(desktopRoute());
   const local = new Synthesizer();
-  const localRepository = new MemoryRepository([{ id: "l1", text: "Local phrase", createdAt: 1 }]);
+  const localRepository = new MemoryRepository([{ id: "l1", text: "Local phrase", slot: 0, createdAt: 1 }]);
   const services: AppServices = {
     synthesizer: local,
     phrases: { repository: localRepository, generateId: () => "x", now: () => 1 },
@@ -229,7 +231,7 @@ describe("phrase board in Computer mode", () => {
 
     expect(await screen.findByText("Default phrases restored.")).toBeInTheDocument();
     expect(requests).toContainEqual({ method: "POST", url: "/api/phrases/restore", body: { language: "en" } });
-    expect(await screen.findByRole("button", { name: "Delete phrase: Hello" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Edit phrase: Hello" })).toBeInTheDocument();
     expect(localRepository.phrases.map((p) => p.text)).toEqual(["Local phrase"]);
   });
 });

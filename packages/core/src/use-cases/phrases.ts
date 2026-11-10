@@ -1,4 +1,5 @@
-import { createPhrase, type Phrase } from "../domain/phrase";
+import { createPhrase, PhraseNotFoundError, SlotOccupiedError, type Phrase } from "../domain/phrase";
+import { lowestFreeSlot } from "../domain/phrase-slots";
 import type { PhraseRepository } from "../ports/phrase-repository";
 import type { UiLanguage } from "../protocol";
 
@@ -35,18 +36,53 @@ export const DEFAULT_PHRASES_BY_LANGUAGE: Readonly<Record<UiLanguage, readonly s
   en: DEFAULT_PHRASE_TEXTS,
 };
 
+/**
+ * Creates a phrase in `slot`, or in the lowest free slot when none is given.
+ * Rejects with `SlotOccupiedError` when another phrase already uses that slot.
+ */
 export async function savePhrase(
   { repository, generateId, now }: PhraseDependencies,
-  input: { text: string; label?: string },
+  input: { text: string; label?: string; slot?: number },
 ): Promise<Phrase> {
-  const phrase = createPhrase({ id: generateId(), text: input.text, label: input.label, createdAt: now() });
+  const existing = await repository.list();
+  const slot = input.slot ?? lowestFreeSlot(existing);
+  const phrase = createPhrase({ id: generateId(), text: input.text, label: input.label, slot, createdAt: now() });
+  if (existing.some((other) => other.slot === phrase.slot)) throw new SlotOccupiedError(phrase.slot);
   await repository.save(phrase);
   return phrase;
 }
 
+export interface PhraseChanges {
+  text?: string;
+  /** An empty label removes it. */
+  label?: string;
+  slot?: number;
+}
+
+/**
+ * Changes an existing phrase. Fields left out keep their value. Rejects with `PhraseNotFoundError`,
+ * `InvalidPhraseError` or `SlotOccupiedError` without writing anything.
+ */
+export async function updatePhrase(repository: PhraseRepository, id: string, changes: PhraseChanges): Promise<Phrase> {
+  const phrases = await repository.list();
+  const current = phrases.find((phrase) => phrase.id === id);
+  if (!current) throw new PhraseNotFoundError(id);
+  const updated = createPhrase({
+    id: current.id,
+    text: changes.text ?? current.text,
+    label: changes.label ?? current.label,
+    slot: changes.slot ?? current.slot,
+    createdAt: current.createdAt,
+  });
+  if (phrases.some((other) => other.id !== id && other.slot === updated.slot)) throw new SlotOccupiedError(updated.slot);
+  await repository.update(updated);
+  return updated;
+}
+
+/** Phrases in deck order (by slot). */
 export async function listPhrases(repository: PhraseRepository): Promise<Phrase[]> {
   const phrases = await repository.list();
-  return [...phrases].sort((a, b) => a.createdAt - b.createdAt);
+  return [...phrases].sort((a, b) => a.slot - b.slot);
 }
 
 export async function deletePhrase(repository: PhraseRepository, id: string): Promise<void> {
@@ -86,7 +122,7 @@ async function saveInOrder({ repository, generateId, now }: PhraseDependencies, 
 function buildInOrder(generateId: () => string, now: () => number, texts: readonly string[]): Phrase[] {
   const start = now();
   return texts.map((text, index) =>
-    // Offset createdAt so the given order survives sorting.
-    createPhrase({ id: generateId(), text, createdAt: start + index }),
+    // Slots follow the given order; createdAt is offset too so the order survives sorting by age.
+    createPhrase({ id: generateId(), text, slot: index, createdAt: start + index }),
   );
 }

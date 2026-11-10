@@ -116,13 +116,13 @@ describe("desktop HTTP API", () => {
     const created = await post("/api/phrases", { text: "  I need water " });
     expect(created.status).toBe(201);
     const phrase = (await created.json()) as Phrase;
-    expect(phrase).toEqual({ id: "id-1", text: "I need water", createdAt: 1001 });
+    expect(phrase).toEqual({ id: "id-1", text: "I need water", slot: 0, createdAt: 1001 });
 
     const upserted = await post("/api/phrases", { id: "client-1", text: "Hello", createdAt: 5 });
-    expect(await upserted.json()).toEqual({ id: "client-1", text: "Hello", createdAt: 5 });
+    expect(await upserted.json()).toEqual({ id: "client-1", text: "Hello", slot: 1, createdAt: 5 });
 
     const listed = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
-    expect(listed.map((p) => p.id)).toEqual(["client-1", "id-1"]);
+    expect(listed.map((p) => p.id)).toEqual(["id-1", "client-1"]);
 
     const deleted = await fetch(`${baseUrl}/api/phrases/client-1`, { method: "DELETE" });
     expect(deleted.status).toBe(204);
@@ -130,6 +130,68 @@ describe("desktop HTTP API", () => {
 
     expect((await client.next(3)).map((e) => e.type)).toEqual(["phrases-changed", "phrases-changed", "phrases-changed"]);
     client.close();
+  });
+
+  it("saves phrases into chosen slots and rejects occupied ones", async () => {
+    const created = await post("/api/phrases", { text: "Water", slot: 7 });
+    expect(created.status).toBe(201);
+    expect(await created.json()).toMatchObject({ text: "Water", slot: 7 });
+
+    const clash = await post("/api/phrases", { text: "Other", slot: 7 });
+    expect(clash.status).toBe(409);
+    expect(await clash.json()).toEqual({ error: expect.any(String), code: "slot-occupied" });
+
+    // Upserting the same id keeps its slot when none is given.
+    const listed = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
+    const again = await post("/api/phrases", { id: listed[0]!.id, text: "Water please" });
+    expect(await again.json()).toMatchObject({ slot: 7, text: "Water please" });
+
+    for (const slot of [-1, 1.5, "3", 99999]) {
+      expect((await post("/api/phrases", { text: "Bad", slot })).status).toBe(400);
+    }
+  });
+
+  it("updates a phrase with PUT, validating it and broadcasting phrases-changed", async () => {
+    const first = (await (await post("/api/phrases", { text: "Hello" })).json()) as Phrase;
+    await post("/api/phrases", { text: "Bye" });
+    const client = await connect();
+
+    const updated = await post(`/api/phrases/${first.id}`, { text: "Hello there", label: "Hi" }, "PUT");
+    expect(updated.status).toBe(200);
+    expect(await updated.json()).toEqual({ id: first.id, text: "Hello there", label: "Hi", slot: 0, createdAt: first.createdAt });
+    expect((await client.next(1))[0]).toMatchObject({ type: "phrases-changed" });
+    client.close();
+
+    const moved = await post(`/api/phrases/${first.id}`, { slot: 5 }, "PUT");
+    expect(await moved.json()).toMatchObject({ slot: 5, text: "Hello there" });
+
+    const cases: Array<[unknown, number]> = [
+      [{ slot: 1 }, 409],
+      [{ text: "  " }, 400],
+      [{ text: "x".repeat(1001) }, 400],
+      [{ label: 3 }, 400],
+      [{ slot: "2" }, 400],
+      ["[1]", 400],
+    ];
+    for (const [body, status] of cases) {
+      const response = await post(`/api/phrases/${first.id}`, body, "PUT");
+      expect({ body, status: response.status }).toEqual({ body, status });
+    }
+    expect((await post("/api/phrases/missing", { text: "x" }, "PUT")).status).toBe(404);
+    const plain = await fetch(`${baseUrl}/api/phrases/${first.id}`, { method: "PUT", body: JSON.stringify({ text: "x" }) });
+    expect(plain.status).toBe(415);
+
+    const listed = (await (await fetch(`${baseUrl}/api/phrases`)).json()) as Phrase[];
+    expect(listed.map((p) => [p.text, p.slot])).toEqual([
+      ["Bye", 1],
+      ["Hello there", 5],
+    ]);
+  });
+
+  it("assigns slots 0..n-1 when restoring the defaults", async () => {
+    await post("/api/phrases", { text: "Mine", slot: 40 });
+    const restored = (await (await post("/api/phrases/restore", { language: "es" })).json()) as Phrase[];
+    expect(restored.map((p) => p.slot)).toEqual(DEFAULT_PHRASES_BY_LANGUAGE.es.map((_, index) => index));
   });
 
   it("speaks text with the saved settings and broadcasts caption and speaking events", async () => {

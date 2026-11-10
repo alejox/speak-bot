@@ -4,7 +4,13 @@ import {
   DESKTOP_SERVER_NAME,
   InvalidPhraseError,
   isUiLanguage,
+  isValidSlot,
   listPhrases,
+  lowestFreeSlot,
+  PhraseNotFoundError,
+  SlotOccupiedError,
+  updatePhrase,
+  type PhraseChanges,
   MAX_SPEAK_TEXT_LENGTH,
   pickVoiceForLanguage,
   restoreDefaultPhrases,
@@ -81,7 +87,7 @@ export function createApiHandler(deps: ApiDependencies) {
 
     "POST /api/phrases": async (request, response) => {
       const body = asObject(await readJsonBody(request));
-      const phrase = parsePhrase(body, generateId, now);
+      const phrase = parsePhrase(body, await listPhrases(repository), generateId, now);
       await repository.save(phrase);
       broadcast({ type: "phrases-changed", at: now() });
       sendJson(response, 201, phrase);
@@ -94,6 +100,14 @@ export function createApiHandler(deps: ApiDependencies) {
       const restored = await restoreDefaultPhrases({ repository, generateId, now }, DEFAULT_PHRASES_BY_LANGUAGE[language]);
       broadcast({ type: "phrases-changed", at: now() });
       sendJson(response, 200, restored);
+    },
+
+    /** Changes the text, label or slot of a phrase; fields left out keep their value. */
+    "PUT /api/phrases/:id": async (request, response, id) => {
+      const changes = parsePhraseChanges(asObject(await readJsonBody(request)));
+      const updated = await updatePhrase(repository, id!, changes);
+      broadcast({ type: "phrases-changed", at: now() });
+      sendJson(response, 200, updated);
     },
 
     "DELETE /api/phrases/:id": async (_request, response, id) => {
@@ -163,6 +177,8 @@ export function createApiHandler(deps: ApiDependencies) {
     } catch (error) {
       if (response.headersSent) return true;
       if (error instanceof HttpError) sendJson(response, error.status, { error: error.message });
+      else if (error instanceof SlotOccupiedError) sendJson(response, 409, { error: error.message, code: "slot-occupied" });
+      else if (error instanceof PhraseNotFoundError) sendJson(response, 404, { error: error.message, code: "phrase-not-found" });
       else if (error instanceof InvalidPhraseError || error instanceof InvalidSettingsError) {
         sendJson(response, 400, { error: error.message });
       } else {
@@ -174,8 +190,12 @@ export function createApiHandler(deps: ApiDependencies) {
   };
 }
 
-function parsePhrase(body: Record<string, unknown>, generateId: () => string, now: () => number): Phrase {
-  const { id, text, label, createdAt } = body;
+/**
+ * Builds the phrase for POST /api/phrases. Saving an existing id replaces it, keeping its slot unless
+ * a new one is given; a new phrase without a slot goes to the lowest free slot.
+ */
+function parsePhrase(body: Record<string, unknown>, existing: Phrase[], generateId: () => string, now: () => number): Phrase {
+  const { id, text, label, createdAt, slot } = body;
   if (typeof text !== "string") throw new HttpError(400, "text must be a string.");
   if (text.length > MAX_SPEAK_TEXT_LENGTH) throw new HttpError(400, `text must be at most ${MAX_SPEAK_TEXT_LENGTH} characters.`);
   if (id !== undefined && (typeof id !== "string" || id.length > 100)) throw new HttpError(400, "id must be a string.");
@@ -185,12 +205,33 @@ function parsePhrase(body: Record<string, unknown>, generateId: () => string, no
   if (createdAt !== undefined && (typeof createdAt !== "number" || !Number.isFinite(createdAt))) {
     throw new HttpError(400, "createdAt must be a number.");
   }
-  return createPhrase({
-    id: id ?? generateId(),
-    text,
-    label,
-    createdAt: createdAt ?? now(),
-  });
+  if (slot !== undefined && !isValidSlot(slot)) throw new HttpError(400, "slot must be a non-negative integer.");
+
+  const phraseId = id ?? generateId();
+  const others = existing.filter((phrase) => phrase.id !== phraseId);
+  const previous = existing.find((phrase) => phrase.id === phraseId);
+  const target = slot ?? previous?.slot ?? lowestFreeSlot(others);
+  if (others.some((phrase) => phrase.slot === target)) throw new SlotOccupiedError(target);
+  return createPhrase({ id: phraseId, text, label, slot: target, createdAt: createdAt ?? now() });
+}
+
+function parsePhraseChanges(body: Record<string, unknown>): PhraseChanges {
+  const { text, label, slot } = body;
+  const changes: PhraseChanges = {};
+  if (text !== undefined) {
+    if (typeof text !== "string") throw new HttpError(400, "text must be a string.");
+    if (text.length > MAX_SPEAK_TEXT_LENGTH) throw new HttpError(400, `text must be at most ${MAX_SPEAK_TEXT_LENGTH} characters.`);
+    changes.text = text;
+  }
+  if (label !== undefined) {
+    if (typeof label !== "string" || label.length > MAX_LABEL_LENGTH) throw new HttpError(400, "label must be a short string.");
+    changes.label = label;
+  }
+  if (slot !== undefined) {
+    if (!isValidSlot(slot)) throw new HttpError(400, "slot must be a non-negative integer.");
+    changes.slot = slot;
+  }
+  return changes;
 }
 
 async function resolveSpeakText(

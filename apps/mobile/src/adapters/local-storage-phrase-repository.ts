@@ -1,4 +1,4 @@
-import type { Phrase, PhraseRepository } from "@speak-bot/core";
+import { assignMissingSlots, PhraseNotFoundError, type Phrase, type PhraseRepository, type StoredPhrase } from "@speak-bot/core";
 import { getLocalStorage, readJson, writeJson } from "./browser-storage";
 
 export const PHRASES_STORAGE_KEY = "speak-bot:phrases";
@@ -36,6 +36,12 @@ export class LocalStoragePhraseRepository implements PhraseRepository {
     this.write([...this.read().filter((existing) => existing.id !== phrase.id), phrase]);
   }
 
+  async update(phrase: Phrase): Promise<void> {
+    const phrases = this.read();
+    if (!phrases.some((existing) => existing.id === phrase.id)) throw new PhraseNotFoundError(phrase.id);
+    this.write(phrases.map((existing) => (existing.id === phrase.id ? phrase : existing)));
+  }
+
   async delete(id: string): Promise<void> {
     this.write(this.read().filter((phrase) => phrase.id !== id));
   }
@@ -47,7 +53,8 @@ export class LocalStoragePhraseRepository implements PhraseRepository {
   private read(): Phrase[] {
     if (this.useMemory) return this.memory;
     const stored = readJson(this.storage, this.key);
-    return Array.isArray(stored) ? stored.filter(isPhrase) : [];
+    // Older data has no slots; they are assigned here and stored on the next write.
+    return Array.isArray(stored) ? assignMissingSlots(stored.filter(isStoredPhrase)) : [];
   }
 
   private write(phrases: Phrase[]): void {
@@ -56,7 +63,8 @@ export class LocalStoragePhraseRepository implements PhraseRepository {
   }
 }
 
-export function isPhrase(value: unknown): value is Phrase {
+/** A phrase as stored or sent by the desktop; the slot may be missing in older data. */
+export function isStoredPhrase(value: unknown): value is StoredPhrase {
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as Record<string, unknown>;
   return (
@@ -64,6 +72,7 @@ export function isPhrase(value: unknown): value is Phrase {
     typeof candidate.text === "string" &&
     candidate.text.trim() !== "" &&
     typeof candidate.createdAt === "number" &&
-    (candidate.label === undefined || typeof candidate.label === "string")
+    (candidate.label === undefined || typeof candidate.label === "string") &&
+    (candidate.slot === undefined || typeof candidate.slot === "number")
   );
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DockComposer } from "../components/DockComposer";
-import { PhraseBoard } from "../components/PhraseBoard";
+import { PhraseDeck } from "../components/PhraseDeck";
 import { I18nProvider, useLanguage, useMessageText, useT } from "../i18n/I18nProvider";
 import type { Message } from "../i18n/messages";
 import type { AppServices } from "./composition-root";
@@ -56,7 +56,16 @@ function DockContent({ target }: { target: SpeechTarget }) {
       <p className="status" role="status" aria-live="polite">
         {statusText || (target.error ? t(target.error) : "")}
       </p>
-      <PhraseBoard title={t("nav.phrases")} size="compact" phrases={book.phrases} onSpeak={(phrase) => speech.speak(phrase.text)} />
+      <PhraseDeck
+        title={t("nav.phrases")}
+        variant="dock"
+        phrases={book.phrases}
+        onSpeak={(phrase) => speech.speak(phrase.text)}
+        onTest={speech.speak}
+        onAdd={book.addAt}
+        onEdit={book.edit}
+        onDelete={book.remove}
+      />
     </main>
   );
 }

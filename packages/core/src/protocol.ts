@@ -94,13 +94,26 @@ export interface HealthResponse {
   readonly instanceId: string;
 }
 
-/** GET /api/phrases → Phrase[]; POST /api/phrases with this body → Phrase; DELETE /api/phrases/:id → 204. */
+/**
+ * GET /api/phrases → Phrase[] (slot order); POST /api/phrases with this body → 201 Phrase;
+ * PUT /api/phrases/:id with `UpdatePhraseRequest` → Phrase; DELETE /api/phrases/:id → 204.
+ * A slot already used by another phrase → 409 with code "slot-occupied".
+ */
 export interface SavePhraseRequest {
   /** Client-generated id; the server generates one when omitted. Saving an existing id replaces it. */
   id?: string;
   text: string;
   label?: string;
+  /** Deck slot; defaults to the phrase's current slot, or the lowest free one for a new phrase. */
+  slot?: number;
   createdAt?: number;
+}
+
+/** PUT /api/phrases/:id: fields left out keep their value; an empty label removes it. */
+export interface UpdatePhraseRequest {
+  text?: string;
+  label?: string;
+  slot?: number;
 }
 
 export type PhrasesResponse = Phrase[];
@@ -138,6 +151,11 @@ export interface DesktopSettings {
   language: UiLanguage;
 }
 
+/** Machine-readable reasons a request failed, so clients can explain them in their own language. */
+export type ApiErrorCode = "slot-occupied" | "phrase-not-found";
+
 export interface ErrorResponse {
+  /** Technical detail in English. */
   readonly error: string;
+  readonly code?: ApiErrorCode;
 }

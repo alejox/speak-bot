@@ -22,6 +22,12 @@ export class InMemoryPhraseRepository implements PhraseRepository {
     this.phrases.set(phrase.id, phrase);
   }
 
+  async update(phrase: Phrase): Promise<void> {
+    if (!this.phrases.has(phrase.id)) throw new Error(`Unknown phrase ${phrase.id}`);
+    this.writes.push("update");
+    this.phrases.set(phrase.id, phrase);
+  }
+
   async delete(id: string): Promise<void> {
     this.writes.push("delete");
     this.phrases.delete(id);

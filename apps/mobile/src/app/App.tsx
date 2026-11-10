@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Composer } from "../components/Composer";
 import { ConnectPanel } from "../components/ConnectPanel";
-import { PhraseBoard } from "../components/PhraseBoard";
+import { PhraseDeck } from "../components/PhraseDeck";
+import { QuickPhrases } from "../components/QuickPhrases";
 import { SectionView } from "../components/SectionView";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { SideNav, type NavItem } from "../components/SideNav";
@@ -16,9 +17,6 @@ import { useSpeech } from "./use-speech";
 import { useSpeechTarget, type SpeechTarget } from "./use-speech-target";
 
 export { describeSpeechError } from "./use-speech";
-
-/** How many phrases the Speak section offers next to the text box. */
-export const QUICK_PHRASE_COUNT = 6;
 
 const SECTION_ICONS: Record<Section, string> = { speak: "💬", phrases: "▦", connect: "📱", settings: "⚙" };
 
@@ -51,7 +49,6 @@ function AppContent({ services, target, preference }: AppContentProps) {
   const [storedSection, setSection] = useSection();
   const [navigated, setNavigated] = useState(false);
   const [text, setText] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
 
   // Connect only exists on the computer itself; fall back when it is not available.
   const section: Section = storedSection === "connect" && !connection ? "speak" : storedSection;
@@ -93,28 +90,21 @@ function AppContent({ services, target, preference }: AppContentProps) {
               onStop={speech.stop}
               onSave={() => void book.add(text)}
             />
-            <PhraseBoard
-              title={t("speak.quickPhrases")}
-              size="compact"
-              phrases={book.phrases.slice(0, QUICK_PHRASE_COUNT)}
-              onSpeak={(phrase) => speech.speak(phrase.text)}
-            />
+            <QuickPhrases title={t("speak.quickPhrases")} phrases={book.phrases} onSpeak={(phrase) => speech.speak(phrase.text)} />
           </SectionView>
         )}
 
         {section === "phrases" && (
           <SectionView key="phrases" title={t("nav.phrases")} focusHeading={navigated}>
-            <PhraseBoard
+            <PhraseDeck
               title={t("phrases.title")}
               phrases={book.phrases}
               onSpeak={(phrase) => speech.speak(phrase.text)}
-              editing={{
-                isEditing,
-                onToggle: () => setIsEditing((editing) => !editing),
-                onDelete: (phrase) => void book.remove(phrase),
-                onAdd: book.add,
-                onRestore: book.restoreDefaults,
-              }}
+              onTest={speech.speak}
+              onAdd={book.addAt}
+              onEdit={book.edit}
+              onDelete={book.remove}
+              onRestore={book.restoreDefaults}
             />
           </SectionView>
         )}

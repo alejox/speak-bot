@@ -1,5 +1,5 @@
 import type { Phrase, PhraseRepository, SpeakOptions, Voice } from "@speak-bot/core";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../src/adapters/local-storage-settings-store";
@@ -38,9 +38,10 @@ class LocalSynthesizer implements AppSpeechSynthesizer {
 }
 
 const localRepository: PhraseRepository = {
-  list: async (): Promise<Phrase[]> => [{ id: "l1", text: "Local phrase", createdAt: 1 }],
+  list: async (): Promise<Phrase[]> => [{ id: "l1", text: "Local phrase", slot: 0, createdAt: 1 }],
   save: async () => {},
   delete: async () => {},
+  update: async () => {},
   replaceAll: async () => {},
 };
 
@@ -49,7 +50,7 @@ function desktopRoute(request: RecordedRequest) {
     case "GET /api/health":
       return { body: { ok: true, name: "speak-bot-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: true } } };
     case "GET /api/phrases":
-      return { body: [{ id: "d1", text: "Hola desde la computadora", createdAt: 1 }] };
+      return { body: [{ id: "d1", text: "Hola desde la computadora", slot: 0, createdAt: 1 }] };
     case "GET /api/voices":
       return { body: [] };
     case "GET /api/settings":
@@ -100,13 +101,23 @@ describe("DockApp", () => {
     expect(screen.queryByRole("button", { name: "Decir: Local phrase" })).not.toBeInTheDocument();
   });
 
-  it("shows a neutral message when the desktop has no phrases", async () => {
-    setup((request) =>
-      request.method === "GET" && request.url === "/api/phrases" ? { body: [] } : desktopRoute(request),
-    );
+  it("shows an empty deck the streamer can fill from the dock", async () => {
+    let phrases: Phrase[] = [];
+    const { requests, user } = setup((request) => {
+      if (request.url !== "/api/phrases") return desktopRoute(request);
+      if (request.method === "POST") phrases = [request.body as Phrase];
+      return request.method === "GET" ? { body: phrases } : { status: 201, body: request.body };
+    });
 
-    expect(await screen.findByText("Aún no tienes frases guardadas.")).toBeInTheDocument();
-    expect(screen.queryByText(/Guardar como frase|Editar|Agregar/)).not.toBeInTheDocument();
+    const deck = await screen.findByRole("region", { name: "Frases" });
+    await user.click(await within(deck).findByRole("button", { name: "Agregar frase en el botón 1" }));
+    await user.type(screen.getByRole("textbox", { name: "Texto de la frase" }), "Bienvenidos");
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(await within(deck).findByRole("button", { name: "Decir: Bienvenidos" })).toBeInTheDocument();
+    expect(requests).toContainEqual(expect.objectContaining({ method: "POST", url: "/api/phrases", body: expect.objectContaining({ slot: 0 }) }));
+    expect(within(deck).getByText("Página 1 de 1")).toBeInTheDocument();
+    expect(within(deck).getAllByRole("listitem")).toHaveLength(15);
   });
 
   it("stops speech on the computer", async () => {

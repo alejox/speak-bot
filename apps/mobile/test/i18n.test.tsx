@@ -87,6 +87,9 @@ class MemoryRepository implements PhraseRepository {
   async save(phrase: Phrase) {
     this.phrases = [...this.phrases.filter((p) => p.id !== phrase.id), phrase];
   }
+  async update(phrase: Phrase) {
+    this.phrases = this.phrases.map((p) => (p.id === phrase.id ? phrase : p));
+  }
   async delete(id: string) {
     this.phrases = this.phrases.filter((p) => p.id !== id);
   }

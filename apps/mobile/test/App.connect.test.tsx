@@ -21,6 +21,7 @@ const repository: PhraseRepository = {
   list: async (): Promise<Phrase[]> => [],
   save: async () => {},
   delete: async () => {},
+  update: async () => {},
   replaceAll: async () => {},
 };
 

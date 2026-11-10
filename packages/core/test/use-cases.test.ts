@@ -49,7 +49,7 @@ describe("savePhrase", () => {
       { text: " I need help ", label: "Help" },
     );
 
-    expect(phrase).toEqual({ id: "p1", text: "I need help", label: "Help", createdAt: 42 });
+    expect(phrase).toEqual({ id: "p1", text: "I need help", label: "Help", slot: 0, createdAt: 42 });
     expect(await repository.list()).toEqual([phrase]);
   });
 
@@ -64,10 +64,10 @@ describe("savePhrase", () => {
 });
 
 describe("listPhrases", () => {
-  it("returns phrases ordered by creation time", async () => {
+  it("returns phrases in deck (slot) order", async () => {
     const repository = new InMemoryPhraseRepository([
-      { id: "b", text: "Second", createdAt: 2 },
-      { id: "a", text: "First", createdAt: 1 },
+      { id: "b", text: "Second", slot: 1, createdAt: 1 },
+      { id: "a", text: "First", slot: 0, createdAt: 2 },
     ]);
 
     const phrases = await listPhrases(repository);
@@ -79,8 +79,8 @@ describe("listPhrases", () => {
 describe("deletePhrase", () => {
   it("removes the phrase by id", async () => {
     const repository = new InMemoryPhraseRepository([
-      { id: "a", text: "First", createdAt: 1 },
-      { id: "b", text: "Second", createdAt: 2 },
+      { id: "a", text: "First", slot: 0, createdAt: 1 },
+      { id: "b", text: "Second", slot: 1, createdAt: 2 },
     ]);
 
     await deletePhrase(repository, "a");
@@ -109,7 +109,7 @@ describe("seedDefaultPhrases", () => {
   });
 
   it("does nothing when phrases already exist", async () => {
-    const existing = { id: "x", text: "Mine", createdAt: 1 };
+    const existing = { id: "x", text: "Mine", slot: 0, createdAt: 1 };
     const repository = new InMemoryPhraseRepository([existing]);
 
     const seeded = await seedDefaultPhrases({ repository, generateId: sequentialIds(), now: () => 100 });
@@ -138,8 +138,8 @@ describe("seedDefaultPhrases", () => {
 describe("restoreDefaultPhrases", () => {
   it("replaces every saved phrase with the given defaults, in order", async () => {
     const repository = new InMemoryPhraseRepository([
-      { id: "a", text: "Mine", createdAt: 1 },
-      { id: "b", text: "Hola", createdAt: 2 },
+      { id: "a", text: "Mine", slot: 0, createdAt: 1 },
+      { id: "b", text: "Hola", slot: 1, createdAt: 2 },
     ]);
 
     const restored = await restoreDefaultPhrases(
@@ -161,7 +161,7 @@ describe("restoreDefaultPhrases", () => {
   });
 
   it("replaces the whole list in a single write", async () => {
-    const repository = new InMemoryPhraseRepository([{ id: "a", text: "Mine", createdAt: 1 }]);
+    const repository = new InMemoryPhraseRepository([{ id: "a", text: "Mine", slot: 0, createdAt: 1 }]);
 
     await restoreDefaultPhrases({ repository, generateId: sequentialIds(), now: () => 100 }, ["Hola", "Gracias"]);
 
@@ -169,7 +169,7 @@ describe("restoreDefaultPhrases", () => {
   });
 
   it("ends with exactly the defaults when two restores run at the same time", async () => {
-    const repository = new InMemoryPhraseRepository([{ id: "a", text: "Mine", createdAt: 1 }]);
+    const repository = new InMemoryPhraseRepository([{ id: "a", text: "Mine", slot: 0, createdAt: 1 }]);
     const deps = { repository, generateId: sequentialIds(), now: () => 100 };
 
     await Promise.all([restoreDefaultPhrases(deps, ["Hola", "Gracias"]), restoreDefaultPhrases(deps, ["Hola", "Gracias"])]);
@@ -178,13 +178,13 @@ describe("restoreDefaultPhrases", () => {
   });
 
   it("keeps the previous phrases when the write fails", async () => {
-    const repository = new InMemoryPhraseRepository([{ id: "a", text: "Mine", createdAt: 1 }]);
+    const repository = new InMemoryPhraseRepository([{ id: "a", text: "Mine", slot: 0, createdAt: 1 }]);
     repository.failReplaceAll = new Error("disk full");
 
     await expect(
       restoreDefaultPhrases({ repository, generateId: sequentialIds(), now: () => 100 }, ["Hola", "Gracias"]),
     ).rejects.toThrow("disk full");
 
-    expect(await repository.list()).toEqual([{ id: "a", text: "Mine", createdAt: 1 }]);
+    expect(await repository.list()).toEqual([{ id: "a", text: "Mine", slot: 0, createdAt: 1 }]);
   });
 });

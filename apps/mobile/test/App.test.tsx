@@ -31,6 +31,9 @@ class MemoryRepository implements PhraseRepository {
   async save(phrase: Phrase) {
     this.phrases = [...this.phrases.filter((p) => p.id !== phrase.id), phrase];
   }
+  async update(phrase: Phrase) {
+    this.phrases = this.phrases.map((p) => (p.id === phrase.id ? phrase : p));
+  }
   async delete(id: string) {
     this.phrases = this.phrases.filter((p) => p.id !== id);
   }
@@ -109,11 +112,11 @@ describe("App", () => {
     await goTo(user, "Phrases");
     await user.click(screen.getByRole("button", { name: "Edit" }));
     const phrases = screen.getByRole("region", { name: "Saved phrases" });
-    await user.click(within(phrases).getByRole("button", { name: "Delete phrase: I need water" }));
+    await user.click(within(phrases).getByRole("button", { name: "Edit phrase: I need water" }));
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Yes, delete" }));
 
-    expect(
-      await within(phrases).findByText("No saved phrases yet. Press “Edit” to add one or restore the default ones."),
-    ).toBeInTheDocument();
+    expect(await within(phrases).findByRole("button", { name: "Add a phrase to button 1" })).toBeInTheDocument();
     expect(repository.phrases).toEqual([]);
   });
 

@@ -33,6 +33,9 @@ class MemoryRepository implements PhraseRepository {
   async save(phrase: Phrase) {
     this.phrases.push(phrase);
   }
+  async update(phrase: Phrase) {
+    this.phrases = this.phrases.map((p) => (p.id === phrase.id ? phrase : p));
+  }
   async delete(id: string) {
     this.phrases = this.phrases.filter((p) => p.id !== id);
   }
@@ -54,7 +57,7 @@ function desktopRoute(supportsDeviceSelection = true) {
           },
         };
       case "GET /api/phrases":
-        return { body: [{ id: "d1", text: "Hello from desktop", createdAt: 1 }] };
+        return { body: [{ id: "d1", text: "Hello from desktop", slot: 0, createdAt: 1 }] };
       case "GET /api/voices":
         return { body: [{ id: "Alex", name: "Alex", lang: "en-US", isDefault: false }] };
       case "GET /api/devices":
@@ -79,7 +82,7 @@ function setup({ route = desktopRoute(), storedTarget = null as SpeakTarget | nu
   const local = new LocalSynthesizer();
   const services: AppServices = {
     synthesizer: local,
-    phrases: { repository: new MemoryRepository([{ id: "l1", text: "Local phrase", createdAt: 1 }]), generateId: () => "x", now: () => 1 },
+    phrases: { repository: new MemoryRepository([{ id: "l1", text: "Local phrase", slot: 0, createdAt: 1 }]), generateId: () => "x", now: () => 1 },
     settings: { load: () => DEFAULT_SETTINGS, save: () => {} },
     isFirstRun: () => false,
     language: memoryLanguageStore("en"),
