@@ -9,6 +9,7 @@ import { loadConfig, type ConfigSources } from "./config";
 import { createDesktopServer } from "./server/create-server";
 import { connectionInfo } from "./server/network";
 import { listenWithFallback } from "./server/port-fallback";
+import { isPortOwnedBy } from "./server/port-ownership";
 import { createPageHandler, MOBILE_DIST_DIR, OVERLAY_FILE } from "./server/static-files";
 
 export interface StartDesktopOptions extends Partial<ConfigSources> {
@@ -25,6 +26,8 @@ export interface RunningDesktop {
   /** The port actually in use (may differ from the configured one). */
   port: number;
   host: string;
+  /** Random per launch; GET /api/health on `port` reports it. */
+  instanceId: string;
   dataDir: string;
   /** Every URL the app can be opened at, localhost first. */
   urls: string[];
@@ -58,11 +61,15 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
   });
   const server = createDesktopServer({ ...phraseDeps, settings, synthesizer, log, pageHandler, allowedHosts: config.allowedHosts });
 
+  const listeningPort = () => (server.httpServer.address() as { port: number }).port;
   const port = await listenWithFallback((candidate) => server.listen(candidate, config.host), {
     port: config.port,
     attempts: options.portAttempts ?? DEFAULT_PORT_ATTEMPTS,
+    // Loopback must reach this server, not another app sharing the port (possible on macOS).
+    isOwned: () => isPortOwnedBy(listeningPort(), server.instanceId),
+    release: () => server.unlisten(),
   });
-  const actualPort = port === 0 ? (server.httpServer.address() as { port: number }).port : port;
+  const actualPort = port === 0 ? listeningPort() : port;
   if (actualPort !== config.port && config.port !== 0) log(`Port ${config.port} is busy; using ${actualPort} instead.`);
 
   const { engine, supportsDeviceSelection } = synthesizer.capabilities;
@@ -73,6 +80,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
   return {
     port: actualPort,
     host: config.host,
+    instanceId: server.instanceId,
     dataDir: config.dataDir,
     urls: serverUrls(config.host, actualPort),
     overlayUrl: connectionInfo(actualPort, {}).overlayUrl,

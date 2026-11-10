@@ -69,7 +69,9 @@ function showWindow(): void {
 }
 
 function createWindow(port: number): BrowserWindow {
-  const origin = `http://localhost:${port}`;
+  // IPv4 loopback is what startDesktop verified reaches this server; `localhost` may resolve to
+  // [::1], where another app could be listening on the same port.
+  const origin = `http://127.0.0.1:${port}`;
   const created = new BrowserWindow({
     width: 960,
     height: 760,

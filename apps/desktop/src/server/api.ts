@@ -26,6 +26,8 @@ export interface ApiDependencies {
   log?: (message: string) => void;
   /** Lists this computer's network interfaces; defaults to os.networkInterfaces(). */
   networkInterfaces?: () => NetworkInterfaces;
+  /** Reported by GET /api/health so the desktop can recognise its own server. */
+  instanceId: string;
 }
 
 const MAX_LABEL_LENGTH = 100;
@@ -40,7 +42,7 @@ export function createApiHandler(deps: ApiDependencies) {
 
   const routes: Record<string, (request: IncomingMessage, response: ServerResponse, param?: string) => Promise<void>> = {
     "GET /api/health": async (_request, response) => {
-      const body: HealthResponse = { ok: true, name: DESKTOP_SERVER_NAME, capabilities: synthesizer.capabilities };
+      const body: HealthResponse = { ok: true, name: DESKTOP_SERVER_NAME, capabilities: synthesizer.capabilities, instanceId: deps.instanceId };
       sendJson(response, 200, body);
     },
 

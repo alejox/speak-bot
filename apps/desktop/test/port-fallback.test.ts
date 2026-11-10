@@ -59,3 +59,25 @@ describe("listenWithFallback", () => {
     ).rejects.toThrow("Ports 4545–4547 are all in use.");
   });
 });
+
+describe("listenWithFallback with an ownership check", () => {
+  it("releases a port another app still answers on and moves to the next one", async () => {
+    const released: number[] = [];
+    const port = await listenWithFallback(async () => {}, {
+      port: 4545,
+      attempts: 10,
+      isOwned: async (candidate) => candidate !== 4545,
+      release: async (candidate) => {
+        released.push(candidate);
+      },
+    });
+    expect(port).toBe(4546);
+    expect(released).toEqual([4545]);
+  });
+
+  it("reports the ports as in use when another app answers on all of them", async () => {
+    await expect(
+      listenWithFallback(async () => {}, { port: 4545, attempts: 2, isOwned: async () => false, release: async () => {} }),
+    ).rejects.toThrow("Ports 4545–4546 are all in use.");
+  });
+});

@@ -76,6 +76,8 @@ export interface HealthResponse {
   readonly ok: true;
   readonly name: typeof DESKTOP_SERVER_NAME;
   readonly capabilities: SpeechCapabilities;
+  /** Random per launch; lets the desktop confirm that a port really reaches itself. */
+  readonly instanceId: string;
 }
 
 /** GET /api/phrases → Phrase[]; POST /api/phrases with this body → Phrase; DELETE /api/phrases/:id → 204. */
