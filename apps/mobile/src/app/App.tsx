@@ -20,6 +20,7 @@ import { RecentPhrases } from "../components/RecentPhrases";
 import { SectionView } from "../components/SectionView";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { SideNav, type NavItem } from "../components/SideNav";
+import { VoicePanel } from "../components/VoicePanel";
 import { obsTone } from "../components/StatusDot";
 import { I18nProvider, useMessageText, useT } from "../i18n/I18nProvider";
 import type { Message, MessageKey } from "../i18n/messages";
@@ -145,8 +146,9 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const inspectedKey = inspected && board?.id === inspected.boardId ? board.keys.find((key) => key.slot === inspected.slot) : undefined;
   // The panel only shows while its key (or the action chosen for its slot) is still on the board on screen.
   const inspection = isWide && inspected && board?.id === inspected.boardId && (inspectedKey || inspected.assignedType) ? inspected : null;
-  // In the Deck the panel always keeps its place on wide screens, so selecting a key never moves the grid.
-  const reservesPanel = isWide && space === "deck" && board !== null;
+  // In both spaces the panel always keeps its place on wide screens, so selecting a key never moves the grid:
+  // the Deck shows its empty inspector there, Voice its composer.
+  const reservesPanel = isWide && space !== null && board !== null;
 
   const openKey = (slot: number) => {
     if (!isWide || !board) return setDialogSlot(slot);
@@ -170,8 +172,10 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   // Deck keys only run through the computer app; say so once instead of leaving every key to explain itself.
   const showDeckStatus = space === "deck" && target.detection !== "pending";
   const deckNote: MessageKey | null = !showDeckStatus || target.isRemote ? null : target.isDesktopAvailable ? "deck.computerNotChosen" : "deck.needsComputer";
-  // Wide screens keep the Deck workspace to keys and controls: texts stay for screen readers or move into the indicator.
-  const isDeckWorkspace = isWide && space === "deck";
+  // Wide screens keep a space's workspace to keys and controls: texts stay for screen readers, move into the
+  // Deck indicator, or (Voice) the composer moves to the side panel.
+  const isWorkspace = isWide && space !== null;
+  const isDeckWorkspace = isWorkspace && space === "deck";
   const hasPanel = Boolean(inspection) || reservesPanel;
 
   // Only what is typed here is remembered; phrases on board keys are already one tap away.
@@ -199,6 +203,22 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
     );
   };
 
+  // The composer and the recent phrases: above the keys, or in the side panel on wide screens.
+  const composerAndRecent = (
+    <>
+      <Composer
+        ref={composer}
+        text={text}
+        isSpeaking={speech.isSpeaking}
+        onTextChange={setText}
+        onSpeak={speakComposerText}
+        onStop={speech.stop}
+        onSave={() => void saveTextAsKey()}
+      />
+      <RecentPhrases phrases={recentPhrases} onSpeak={speech.speak} onClear={clearRecentPhrases} />
+    </>
+  );
+
   const deckIndicator = showDeckStatus && isDeckWorkspace && deck && (
     <DeckStatusIndicator
       isComputerConnected={target.isRemote}
@@ -212,7 +232,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   return (
     // data-space picks the accent colour: each space has its own, OBS shares the Deck one and the rest the Voice one.
     <div
-      className={["app", navCollapsed ? "app-nav-collapsed" : "", hasPanel ? "app-inspecting" : ""].filter(Boolean).join(" ")}
+      className={["app", navCollapsed ? "app-nav-collapsed" : "", hasPanel ? "app-inspecting" : "", isWorkspace ? "app-workspace" : ""].filter(Boolean).join(" ")}
       data-space={space ?? (section === "obs" ? "deck" : "voice")}
     >
       <header className="app-header">
@@ -231,27 +251,14 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
           </p>
         )}
 
-        <p className={isDeckWorkspace ? "status visually-hidden" : "status"} role="status" aria-live="polite">
+        <p className={isWorkspace ? "status visually-hidden" : "status"} role="status" aria-live="polite">
           {statusText || (target.error ? t(target.error) : "")}
         </p>
 
         {space && deck && (
-          <SectionView key={space} title={t(`nav.${space}`)} focusHeading={navigated} hideTitle={isDeckWorkspace}>
+          <SectionView key={space} title={t(`nav.${space}`)} focusHeading={navigated} hideTitle={isWorkspace}>
             <>
-              {space === "voice" && (
-                <>
-                  <Composer
-                    ref={composer}
-                    text={text}
-                    isSpeaking={speech.isSpeaking}
-                    onTextChange={setText}
-                    onSpeak={speakComposerText}
-                    onStop={speech.stop}
-                    onSave={() => void saveTextAsKey()}
-                  />
-                  <RecentPhrases phrases={recentPhrases} onSpeak={speech.speak} onClear={clearRecentPhrases} />
-                </>
-              )}
+              {space === "voice" && !isWorkspace && composerAndRecent}
               {showDeckStatus && !isDeckWorkspace && <DeckStatus isComputerConnected={target.isRemote} obs={deck.obs} />}
               {deckNote && !isDeckWorkspace && (
                 <div className="deck-note">
@@ -381,7 +388,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
         )}
       </main>
 
-      {/* The inspector docks to the window edge, beside the workspace (wide screens, Deck only while reserved). */}
+      {/* The side panel docks to the window edge, beside the workspace (wide screens): the inspector, else the Deck's empty one or the Voice composer. */}
       {inspection && deck && board && (
         <KeyInspector
           key={`${inspection.boardId}:${inspection.slot}:${inspection.assignedType ?? ""}`}
@@ -405,7 +412,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
           onClose={() => setInspected(null)}
         />
       )}
-      {!inspection && reservesPanel && <KeyInspectorEmpty addSlot={addSlot} onAdd={setPickerSlot} />}
+      {!inspection && reservesPanel && space === "deck" && <KeyInspectorEmpty addSlot={addSlot} onAdd={setPickerSlot} />}
+      {!inspection && reservesPanel && space === "voice" && <VoicePanel>{composerAndRecent}</VoicePanel>}
 
       {pickerSlot !== null && deck && board && (
         <ActionPickerDialog

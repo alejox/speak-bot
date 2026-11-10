@@ -375,3 +375,33 @@
 .nav-status-off {
   color: var(--color-danger);
 }
+
+/*
+ * The Voice side panel (wide screens): the composer stacked to the panel's width (Speak across it, Stop and
+ * Save under it), and the recent phrases below as chips that wrap instead of scrolling sideways.
+ */
+.voice-panel .composer {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.voice-panel .composer-speak {
+  padding: 0 var(--space-4);
+}
+
+.voice-panel .composer-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.voice-panel .recent {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.voice-panel .recent-list {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+
+.voice-panel .recent-clear {
+  align-self: flex-start;
+}

@@ -447,24 +447,25 @@
 }
 
 /*
- * The Deck workspace on wide screens: only the board pill, the status icon, the pager and the keys.
+ * A space's workspace on wide screens (Deck and Voice): only the board pill, the Deck status icon, the
+ * pager and the keys.
  * The keys are a 5 x 3 page like a hardware deck, each the largest square that fits both the width and
  * the height left for them (capped), centred, so the page never scrolls.
  */
 @media (min-width: 1000px) {
-  .app[data-space="deck"] .app-main {
+  .app-workspace .app-main {
     max-width: none;
   }
 
-  .app[data-space="deck"] .app-main > .section,
-  .app[data-space="deck"] .deck-layout {
+  .app-workspace .app-main > .section,
+  .app-workspace .deck-layout {
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
   }
 
-  .app[data-space="deck"] .deck {
+  .app-workspace .deck {
     flex: 1 1 auto;
     min-height: 0;
     display: grid;
@@ -476,19 +477,19 @@
     gap: var(--space-5) var(--space-2);
   }
 
-  .app[data-space="deck"] .deck-header {
+  .app-workspace .deck-header {
     grid-area: header;
     max-width: none;
     flex-wrap: nowrap;
   }
 
-  .app[data-space="deck"] .deck-pager {
+  .app-workspace .deck-pager {
     grid-area: pager;
     gap: var(--space-2);
   }
 
   /* The page number is still announced; on screen the arrows and the + say enough. */
-  .app[data-space="deck"] .deck-page {
+  .app-workspace .deck-page {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -498,7 +499,7 @@
     white-space: nowrap;
   }
 
-  .app[data-space="deck"] .deck-grid-area {
+  .app-workspace .deck-grid-area {
     grid-area: grid;
     min-height: 0;
     container-type: size;
@@ -507,7 +508,7 @@
     justify-content: center;
   }
 
-  .app[data-space="deck"] .deck-grid {
+  .app-workspace .deck-grid {
     --deck-gap: var(--space-4);
     --key-size: min(calc((100cqw - 4 * var(--deck-gap)) / 5), calc((100cqh - 2 * var(--deck-gap)) / 3), 190px);
     grid-template-columns: repeat(5, var(--key-size));
