@@ -24,6 +24,9 @@ User feedback (2026-11-09) after testing the macOS app:
 - [ ] T2b — "Restore default phrases" (user request, 2026-11-09): replaces all phrases with the defaults in the current language, with an inline two-step confirmation. Core use case `restoreDefaultPhrases`, desktop `POST /api/phrases/restore`, local and Computer modes. Tests.
 - [ ] T3 — OBS dock view at `/dock` + "Copy dock URL" (Connect section and tray). Tests.
 - [ ] T4 — README: OBS dock setup, language.
+- [ ] T5 — Stream Deck–style phrase deck (user request, 2026-11-09): fixed grid of square slots (5×3 per page, paged), empty slot shows "+", modal dialog to add, edit or delete a phrase, phrases pinned to slots. Existing phrases get sequential slots. Tests.
+- [ ] T6 — Actions deck (user-approved list): Stop, Repeat last phrase, Clear caption, Hide/show captions (overlay), Switch voice language es↔en. Desktop endpoints and WS events; OBS actions disabled in local mode. Also in the dock. Tests.
+- [ ] T7 — README update for the deck and actions.
 
 ## Constraints
 - Code identifiers and comments in English; UI copy through the i18n dictionaries (es default, en).
