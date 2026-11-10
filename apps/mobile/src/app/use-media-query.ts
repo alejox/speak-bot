@@ -16,3 +16,6 @@ export function useMediaQuery(query: string): boolean {
 
 /** Windows at least this wide edit keys in a side panel (the inspector) instead of a modal. */
 export const INSPECTOR_QUERY = "(min-width: 1000px)";
+
+/** Windows this narrow show the menu as a bottom tab bar instead of a sidebar. */
+export const TAB_BAR_QUERY = "(max-width: 719px)";

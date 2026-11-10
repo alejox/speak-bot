@@ -104,7 +104,7 @@ describe("OBS navigation item", () => {
   it("says the status in Spanish", async () => {
     renderRemoteApp({ hostname: "127.0.0.1", language: "es" });
     const nav = screen.getByRole("navigation", { name: "Secciones" });
-    expect(within(nav).getAllByRole("link").filter((link) => link.classList.contains("side-nav-link")).map((link) => link.textContent)).toEqual(["Deck", "Voz", "OBS, sin conexión", "Ajustes"]);
+    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Deck", "Voz", "OBS, sin conexión", "Ajustes"]);
     await waitFor(() => expect(within(nav).getByRole("link", { name: OBS_LINK })).toHaveAccessibleName("OBS, conectado"));
   });
 

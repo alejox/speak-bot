@@ -58,6 +58,8 @@ Out of scope (second delivery): custom `Select`, toggle switches and segmented c
 
 - [x] T11 — Boards in the sidebar for fast switching (user request 2026-11-10). Under "Deck" and "Voice" the expanded sidebar lists that space's boards (split by `board.kind`, the same `spaceBoards` the board pill offers), as a nested list named "Deck boards" / "Voice boards" (es: "Tableros de …"). Each link shows the board name and is named "<name>, board" (es: "tablero") so it never clashes with a section of the same name (the default deck board is "Deck"). Selecting one opens its section on that board (page 1); the board on screen has `aria-current="true"` and a background plus semibold weight (no accent line). New, renamed or deleted boards show at once (the list reads the live boards). Hidden in the collapsed rail (not rendered) and in the phone tab bar (CSS), where the board pill switches boards; the pill keeps new/rename/delete/restore.
   - Evidence: RED — new `nav-boards.test.tsx` 4/4 failed (no board lists). GREEN — 267/267 tests, typecheck and build pass; menu-order assertions now count section links only. Visual check in a real browser not done. Commit: see Progress.
+- [x] T12 — Deck boards as top-level menu items (user decision 2026-11-10, replaces T11; T11's nested lists, their CSS and the `nav.boards`/`nav.boardSuffix` strings are removed, so the phone sub-row seen on iPhone Safari is gone too). The menu lists each Deck-kind board as its own item (Deck grid icon, board name as label, board order), then Voz, OBS, Conectar, Ajustes; new deck boards show right after the other deck items, renames follow at once. Selecting one opens the Deck section on that board (page 1, or the page left there when it is already the deck's board); `aria-current="page"` sits on the item of the board on screen, also after switching with the board pill. With no deck boards one "Deck" item opens the Deck's existing empty state. Voice stays one item. Collapsed rail: each deck item is its icon with the board name as tooltip and accessible name. Phone tab bar (`TAB_BAR_QUERY` = max-width 719px, same breakpoint as the CSS): a single "Deck" tab whatever the number of deck boards; the board pill switches. The phone tab bar has no "Conectar" because Connect only shows on the computer itself (existing rule, unchanged). Remembered board: the Deck's own position store already reopens the last deck board, now with its item current. Long board names end in an ellipsis. `SideNav` keys its items by position so the Deck placeholder that becomes the first deck board once boards load keeps its element (a tap in flight still lands).
+  - Evidence: RED — rewritten `nav-boards.test.tsx` 7/7 failed. GREEN — 270/270 mobile tests and typecheck pass. Test helpers: `goTo(user, "Deck")` opens the first deck item when no item is named "Deck"; `setWideScreen` answers max-width queries the opposite way. Tests that relied on "Deck" resuming another deck board now open that board's item. Visual check in a real browser not done. Commit: see Progress.
 
 ## Route per task
 
@@ -69,6 +71,7 @@ Out of scope (second delivery): custom `Select`, toggle switches and segmented c
 - T9: delegated direct, one writer (App, use-section, SideNav, DeckStatus, new StatusDot, SettingsPanel, ObsSettings, styles, i18n, tests).
 - T10: delegated direct, one writer (App, new VoicePanel, deck/controls CSS, tests).
 - T11: delegated direct, one writer (SideNav, App, layout/preferences CSS, i18n, tests).
+- T12: delegated direct, one writer (App, SideNav, use-media-query, layout/preferences CSS, i18n, tests).
 
 ## Acceptance criteria
 
@@ -97,3 +100,4 @@ Out of scope (second delivery): custom `Select`, toggle switches and segmented c
 - 2026-11-10: T9 committed (`feat(mobile): give OBS its own section with a coloured connection status`).
 - 2026-11-10: T9 `0f06003`. T10 committed (`feat(mobile): move the voice composer into the side panel on wide screens`).
 - 2026-11-10: T10 `8a43ef8`. T11 committed (`feat(mobile): list each space's boards under its menu item`).
+- 2026-11-10: T11 `0ff9c33`. T12 committed (`feat(mobile): give each deck board its own menu item`).

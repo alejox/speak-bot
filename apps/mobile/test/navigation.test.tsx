@@ -9,7 +9,7 @@ describe("navigation", () => {
   it("starts in Deck and switches sections, marking the current one", async () => {
     const { user } = renderLocalApp({ section: null });
     const nav = screen.getByRole("navigation", { name: "Sections" });
-    expect(within(nav).getAllByRole("link").filter((link) => link.classList.contains("side-nav-link")).map((link) => link.textContent)).toEqual(["Deck", "Voice", "OBS, not connected", "Settings"]);
+    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Deck", "Voice", "OBS, not connected", "Settings"]);
     expect(within(nav).getByRole("link", { name: "Deck" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { level: 2, name: "Deck" })).toBeInTheDocument();
 

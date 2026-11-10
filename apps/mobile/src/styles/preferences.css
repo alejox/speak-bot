@@ -104,7 +104,6 @@
   }
 
   /* Selected states that were a background or a shadow. */
-  .side-nav-sub-link[aria-current="true"],
   .side-nav-link[aria-current="page"],
   .picker-choice:has(input:checked),
   .button[aria-pressed="true"] {

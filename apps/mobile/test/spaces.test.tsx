@@ -57,7 +57,8 @@ describe("Voice and Deck spaces", () => {
     view.unmount();
     const again = renderLocalApp();
     expect(await screen.findByRole("button", { name: "Mum" })).toBeInTheDocument();
-    await goTo(again.user, "Deck");
+    // The deck board's own menu item comes back to the page left there.
+    await goTo(again.user, "Games");
     expect(screen.getByRole("button", { name: "Outro" })).toBeInTheDocument();
   });
 
@@ -74,7 +75,8 @@ describe("Voice and Deck spaces", () => {
     const { user } = renderLocalApp({ boards: mixedBoards() });
     await screen.findByRole("button", { name: "Hi" });
     expect(boardPill()).toHaveAccessibleName("Board: Talk");
-    await goTo(user, "Deck");
+    expect(screen.getByRole("link", { name: "Games" })).not.toHaveAttribute("aria-current");
+    await goTo(user, "Games");
     expect(boardPill()).toHaveAccessibleName("Board: Games");
     expect(screen.getByRole("button", { name: "Outro" })).toBeInTheDocument();
   });
@@ -83,7 +85,7 @@ describe("Voice and Deck spaces", () => {
     const boards = [boardOf("talk", "Talk", [speakKey(0, "Hi"), openBoardKey(1, "games")]), boardOf("stream", "Stream", [], "deck"), boardOf("games", "Games", [sceneKey(0, "BRB"), openBoardKey(1, "talk")], "deck")];
     const { user } = renderLocalApp({ boards });
     await user.click(await screen.findByRole("button", { name: "Games" }));
-    expect(screen.getByRole("link", { name: "Deck" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Games" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { level: 2, name: "Deck" })).toHaveFocus();
     expect(boardPill()).toHaveAccessibleName("Board: Games");
     expect(screen.getByRole("button", { name: "BRB" })).toBeInTheDocument();

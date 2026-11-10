@@ -7,8 +7,6 @@ export const en = {
   "nav.voice": "Voice",
   "nav.deck": "Deck",
   "nav.obs": "OBS",
-  "nav.boards": "{section} boards",
-  "nav.boardSuffix": "board",
   "nav.obsStatus.ok": "connected",
   "nav.obsStatus.pending": "connecting",
   "nav.obsStatus.off": "not connected",

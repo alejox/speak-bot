@@ -308,10 +308,13 @@ export function writes(requests: readonly RecordedRequest[]): string[] {
   return requests.filter((request) => request.method !== "GET").map((request) => `${request.method} ${request.url}`);
 }
 
-/** Makes `matchMedia` answer `matches` for every query (jsdom has no layout). */
+/**
+ * Makes `matchMedia` answer as a wide (`matches`) or narrow window (jsdom has no layout): min-width queries
+ * answer `matches`, max-width ones the opposite.
+ */
 export function setWideScreen(matches: boolean) {
   window.matchMedia = ((query: string) => ({
-    matches,
+    matches: query.includes("max-width") ? !matches : matches,
     media: query,
     onchange: null,
     addEventListener: () => {},

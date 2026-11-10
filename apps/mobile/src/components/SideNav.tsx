@@ -10,18 +10,6 @@ export interface NavItem<Id extends string> {
   icon: ReactNode;
   /** A live state shown on the icon (colour and a dot) and spoken after the label, e.g. "OBS, connected". */
   status?: { tone: ObsTone; label: string };
-  /** Shortcuts listed under the item (a space's boards), hidden in the icons-only rail. */
-  children?: { label: string; items: readonly NavSubItem[] };
-}
-
-export interface NavSubItem {
-  id: string;
-  /** Shown as is; `suffix` follows it for screen readers only (e.g. "Talk, board"). */
-  label: string;
-  suffix: string;
-  /** The one on screen. */
-  current: boolean;
-  onSelect: () => void;
 }
 
 interface SideNavProps<Id extends string> {
@@ -35,8 +23,7 @@ interface SideNavProps<Id extends string> {
 
 /**
  * Section navigation: a left sidebar on wide screens and a bottom tab bar on narrow ones
- * (pure CSS), so every section stays one tap away without a drawer to open. The expanded sidebar also
- * lists each space's boards under it; the rail and the tab bar leave them to the board pill.
+ * (pure CSS), so every section stays one tap away without a drawer to open.
  */
 export function SideNav<Id extends string>({ items, active, onSelect, collapsed = false, onCollapsedChange }: SideNavProps<Id>) {
   const t = useT();
@@ -59,10 +46,13 @@ export function SideNav<Id extends string>({ items, active, onSelect, collapsed 
         </button>
       )}
       <ul>
-        {items.map((item) => {
+        {items.map((item, index) => {
           const name = item.status ? `${item.label}, ${item.status.label}` : item.label;
           return (
-            <li key={item.id}>
+            // Positional keys: an item that changes in place (the Deck item becoming the first deck board once the
+            // boards load) keeps its element, so a tap already on its way still lands.
+            // eslint-disable-next-line react/no-array-index-key
+            <li key={index}>
               <a
                 href={`#${item.id}`}
                 className={item.status ? `side-nav-link side-nav-link-${item.status.tone}` : "side-nav-link"}
@@ -79,26 +69,6 @@ export function SideNav<Id extends string>({ items, active, onSelect, collapsed 
                   {item.status && <span className="visually-hidden">, {item.status.label}</span>}
                 </span>
               </a>
-              {item.children && item.children.items.length > 0 && !collapsed && (
-                <ul className="side-nav-sub" aria-label={item.children.label}>
-                  {item.children.items.map((child) => (
-                    <li key={child.id}>
-                      <a
-                        href={`#${item.id}`}
-                        className="side-nav-sub-link"
-                        aria-current={child.current ? "true" : undefined}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          child.onSelect();
-                        }}
-                      >
-                        {child.label}
-                        <span className="visually-hidden">, {child.suffix}</span>
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </li>
           );
         })}

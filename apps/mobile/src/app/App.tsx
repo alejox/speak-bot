@@ -32,7 +32,7 @@ import { useConnection } from "./use-connection";
 import { useSpaceDecks } from "./use-deck";
 import { actionOnlyKey } from "./key-draft";
 import { useLanguagePreference, type LanguagePreference } from "./use-language-preference";
-import { INSPECTOR_QUERY, useMediaQuery } from "./use-media-query";
+import { INSPECTOR_QUERY, TAB_BAR_QUERY, useMediaQuery } from "./use-media-query";
 import { SECTIONS, spaceOfSection, useNavCollapsed, useSection, type Section } from "./use-section";
 import { useSpeech } from "./use-speech";
 import { useSpeechTarget, type SpeechTarget } from "./use-speech-target";
@@ -40,6 +40,8 @@ import { useSpeechTarget, type SpeechTarget } from "./use-speech-target";
 export { describeSpeechError } from "./use-speech";
 
 const ICON_SIZE = 22;
+/** Menu item ids of the deck boards: this prefix and the board id, so they never clash with a section. */
+const DECK_BOARD_ITEM_PREFIX = "deck-board:";
 const SECTION_ICONS: Record<Section, ReactNode> = {
   voice: <MessageSquare size={ICON_SIZE} />,
   deck: <LayoutGrid size={ICON_SIZE} />,
@@ -113,6 +115,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const [dialogSlot, setDialogSlot] = useState<number | null>(null);
   // Wide screens edit in a side panel; the + still asks for the action in a modal first.
   const isWide = useMediaQuery(INSPECTOR_QUERY);
+  const isTabBar = useMediaQuery(TAB_BAR_QUERY);
   const [pickerSlot, setPickerSlot] = useState<number | null>(null);
   const [inspected, setInspected] = useState<Inspected | null>(null);
   // The slot the player's + targets on the page on screen; the empty inspector adds there too.
@@ -130,32 +133,36 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   };
   const spaces = useSpaceDecks(target, speech, language, positionStores, select, setStatus);
 
-  // Each space's boards under its menu item: one tap opens the section on that board.
-  const boardShortcuts = (kind: BoardKind) => ({
-    label: t("nav.boards", { section: t(`nav.${kind}`) }),
-    items: spaces[kind].spaceBoards.map((candidate) => ({
-      id: candidate.id,
-      label: candidate.name,
-      suffix: t("nav.boardSuffix"),
-      current: spaceOfSection(section) === kind && spaces[kind].navigation.board?.id === candidate.id,
-      onSelect: () => {
-        select(kind);
-        spaces[kind].navigation.go({ boardId: candidate.id, page: 0 });
-      },
-    })),
-  });
-
   // Connect only exists on the computer itself; fall back when it is not available.
   const section: Section = storedSection === "connect" && !connection ? "deck" : storedSection;
   // OBS is reached through the computer app only; the menu item shows and says whether it is connected.
   const obsStatusTone = obsTone(target.isRemote, spaces.deck.obs);
-  const navItems: NavItem<Section>[] = SECTIONS.filter((id) => id !== "connect" || connection).map((id) => ({
-    id,
-    label: t(`nav.${id}`),
-    icon: SECTION_ICONS[id],
-    status: id === "obs" ? { tone: obsStatusTone, label: t(`nav.obsStatus.${obsStatusTone}`) } : undefined,
-    children: id === "voice" || id === "deck" ? boardShortcuts(id) : undefined,
-  }));
+  // Each deck board is a menu item of its own (the Deck section on that board). The phone tab bar has no
+  // room for them, so it keeps one Deck tab and leaves switching boards to the board pill.
+  const deckBoards = isTabBar ? [] : spaces.deck.spaceBoards;
+  const deckBoardOnScreen = section === "deck" ? spaces.deck.navigation.board : null;
+  const deckItems: NavItem<string>[] =
+    deckBoards.length === 0
+      ? [{ id: "deck", label: t("nav.deck"), icon: SECTION_ICONS.deck }]
+      : deckBoards.map((candidate) => ({ id: `${DECK_BOARD_ITEM_PREFIX}${candidate.id}`, label: candidate.name, icon: SECTION_ICONS.deck }));
+  const navItems: NavItem<string>[] = [
+    ...deckItems,
+    ...SECTIONS.filter((id) => id !== "deck" && (id !== "connect" || connection)).map((id) => ({
+      id,
+      label: t(`nav.${id}`),
+      icon: SECTION_ICONS[id],
+      status: id === "obs" ? { tone: obsStatusTone, label: t(`nav.obsStatus.${obsStatusTone}`) } : undefined,
+    })),
+  ];
+  const activeDeckItem = deckBoardOnScreen ? `${DECK_BOARD_ITEM_PREFIX}${deckBoardOnScreen.id}` : null;
+  const activeNavItem = activeDeckItem && navItems.some((item) => item.id === activeDeckItem) ? activeDeckItem : section;
+  const selectNavItem = (id: string) => {
+    if (!id.startsWith(DECK_BOARD_ITEM_PREFIX)) return select(id as Section);
+    const boardId = id.slice(DECK_BOARD_ITEM_PREFIX.length);
+    select("deck");
+    // Coming back to the board on screen keeps its page; another board opens on its first one.
+    if (spaces.deck.navigation.board?.id !== boardId) spaces.deck.navigation.go({ boardId, page: 0 });
+  };
   const space = spaceOfSection(section);
   const deck = space ? spaces[space] : null;
   const board = deck?.navigation.board ?? null;
@@ -258,7 +265,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
         </h1>
       </header>
 
-      <SideNav items={navItems} active={section} onSelect={select} collapsed={navCollapsed} onCollapsedChange={setNavCollapsed} />
+      <SideNav items={navItems} active={activeNavItem} onSelect={selectNavItem} collapsed={navCollapsed} onCollapsedChange={setNavCollapsed} />
 
       <main className="app-main">
         {!target.synthesizer.isSupported && (

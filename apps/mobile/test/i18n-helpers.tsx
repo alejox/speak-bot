@@ -25,6 +25,10 @@ export function renderWithLanguage(ui: ReactElement, language: UiLanguage = "en"
 
 /** Opens a section from the navigation menu. */
 export async function goTo(user: { click: (element: Element) => Promise<void> }, section: string | RegExp) {
-  const { screen } = await import("@testing-library/react");
-  await user.click(screen.getByRole("link", { name: section }));
+  const { screen, within } = await import("@testing-library/react");
+  const link = screen.queryByRole("link", { name: section });
+  if (link) return user.click(link);
+  // Each deck board is a menu item named after the board, and they come first: "Deck" opens the first one.
+  if (section === "Deck") return user.click(within(screen.getByRole("navigation", { name: "Sections" })).getAllByRole("link")[0]!);
+  throw new Error(`No menu item named ${String(section)}`);
 }
