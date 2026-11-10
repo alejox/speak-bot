@@ -1,0 +1,53 @@
+# Installers for macOS, Windows and Linux. Built by .github/workflows/release.yml on v* tags.
+# The apps are not code-signed: see the README for the Gatekeeper and SmartScreen warnings.
+appId: io.github.alejox.speakbot
+productName: Speak Bot
+artifactName: speak-bot-${version}-${os}-${arch}.${ext}
+directories:
+  output: release
+  buildResources: build
+# Everything the main process needs is bundled into dist/main.cjs, so no node_modules ship.
+files:
+  - package.json
+  - dist/**
+  - "!dist/**/*.map"
+  - assets/**
+extraResources:
+  - from: ../mobile/dist
+    to: mobile
+  - from: ../desktop/public/overlay.html
+    to: overlay.html
+npmRebuild: false
+# The release workflow uploads the installers itself.
+publish: null
+
+mac:
+  category: public.app-category.utilities
+  # No Apple Developer ID, so no notarization. "-" signs ad hoc: an unsigned Apple Silicon app
+  # is reported as "damaged" instead of showing the usual "unidentified developer" prompt.
+  identity: "-"
+  # Only needed for notarization; with ad-hoc signing it would block loading Electron's frameworks.
+  hardenedRuntime: false
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  executableName: speak-bot
+  category: Utility
+  synopsis: Speak typed phrases out loud and show captions in OBS
+  maintainer: alejox <alejox@users.noreply.github.com>
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]

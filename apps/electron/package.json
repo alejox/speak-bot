@@ -11,6 +11,8 @@
   "scripts": {
     "build": "node scripts/bundle.mjs",
     "dev": "npm run build && electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -19,6 +21,7 @@
     "@speak-bot/desktop": "0.0.0",
     "@types/node": "^26.6.6",
     "electron": "45.2.3",
+    "electron-builder": "^26.18.0",
     "esbuild": "^0.28.2",
     "typescript": "^5.9.3",
     "vitest": "^5.1.0"
