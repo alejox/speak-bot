@@ -14,6 +14,7 @@ import { GridSizeButton } from "../components/GridSizeButton";
 import { Composer, type ComposerHandle } from "../components/Composer";
 import { ConnectPanel } from "../components/ConnectPanel";
 import { DeckStatusIndicator } from "../components/DeckStatus";
+import { EditKeysToggle } from "../components/EditKeysToggle";
 import { AdBanner } from "../components/AdBanner";
 import { ActionPickerDialog, KeyEditorDialog } from "../components/KeyEditorDialog";
 import { KeyInspector } from "../components/KeyInspector";
@@ -38,7 +39,7 @@ import { useSpaceDecks } from "./use-deck";
 import { actionOnlyKey, needsDetails } from "./key-draft";
 import { useLanguagePreference, type LanguagePreference } from "./use-language-preference";
 import { useMonetization } from "./use-monetization";
-import { INSPECTOR_QUERY, SHORT_SIDEBAR_QUERY, TAB_BAR_QUERY, useMediaQuery } from "./use-media-query";
+import { COMPACT_HEIGHT_QUERY, COMPACT_WIDTH_QUERY, INSPECTOR_QUERY, SHORT_SIDEBAR_QUERY, TAB_BAR_QUERY, useMediaQuery } from "./use-media-query";
 import { SECTIONS, spaceOfSection, useNavCollapsed, useSection, type Section } from "./use-section";
 import { useSpeech } from "./use-speech";
 import { useSpeechTarget, type SpeechTarget } from "./use-speech-target";
@@ -125,6 +126,11 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const isTabBar = useMediaQuery(TAB_BAR_QUERY);
   // A sidebar too short for its labels (a phone on its side) shows as the icon rail; the stored choice stays.
   const isShortSidebar = useMediaQuery(SHORT_SIDEBAR_QUERY);
+  const isShortWindow = useMediaQuery(COMPACT_HEIGHT_QUERY);
+  const isNarrowWindow = useMediaQuery(COMPACT_WIDTH_QUERY);
+  const isPhoneSized = isShortWindow || isNarrowWindow;
+  // On a phone the Deck plays with its editing tools put away; the Edit keys toggle brings them back.
+  const [isEditingDeck, setEditingDeck] = useState(false);
   const [pickerSlot, setPickerSlot] = useState<number | null>(null);
   const [inspected, setInspected] = useState<Inspected | null>(null);
   // The slot the player's + targets on the page on screen; the empty inspector adds there too.
@@ -250,6 +256,9 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const isWorkspace = isWide && space !== null;
   const hidesStatus = isWorkspace || space === "deck";
   const railNav = navCollapsed || isShortSidebar;
+  // The Deck on a phone: only what playing needs. Larger windows keep every editing tool at hand, as before.
+  const isCompactDeck = isPhoneSized && space === "deck";
+  const canEditBoard = !isCompactDeck || isEditingDeck;
   const hasPanel = Boolean(inspection) || reservesPanel;
 
   // Typed text waits its turn behind what is being said; keys, quick and recent phrases cut in.
@@ -309,7 +318,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   return (
     // data-space picks the accent colour: each space has its own, OBS shares the Deck one and the rest the Voice one.
     <div
-      className={["app", railNav ? "app-nav-collapsed" : "", hasPanel ? "app-inspecting" : "", space ? "app-space" : "", isWorkspace ? "app-workspace" : ""]
+      className={["app", railNav ? "app-nav-collapsed" : "", hasPanel ? "app-inspecting" : "", space ? "app-space" : "", isWorkspace ? "app-workspace" : "", isPhoneSized ? "app-compact" : ""]
         .filter(Boolean)
         .join(" ")}
       data-space={space ?? (section === "obs" ? "deck" : "voice")}
@@ -372,10 +381,11 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   onRun={confirmed.run}
                   volumes={target.obs}
                   isSpeaking={speech.isSpeaking}
-                  onEditKey={openKey}
+                  onEditKey={canEditBoard ? openKey : undefined}
                   selectedSlot={inspection?.slot ?? null}
-                  onDeleteKey={deck.clearKey}
-                  onMoveKey={deck.moveKey}
+                  onDeleteKey={canEditBoard ? deck.clearKey : undefined}
+                  onMoveKey={canEditBoard ? deck.moveKey : undefined}
+                  compact={isCompactDeck}
                   // The same speak path as a phrase key: on the computer when it speaks, else on this device.
                   // Deck boards carry the ad banner in the same row instead; Voice never shows ads.
                   strip={
@@ -400,8 +410,9 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                             statusText={statusText}
                           />
                         )}
-                        <GridSizeButton board={board} boards={deck.boards} statusText={statusText} />
+                        {canEditBoard && <GridSizeButton board={board} boards={deck.boards} statusText={statusText} />}
                         {deckIndicator}
+                        {isCompactDeck && <EditKeysToggle isEditing={isEditingDeck} onChange={setEditingDeck} />}
                       </>
                     )
                   }

@@ -20,6 +20,7 @@ export const en = {
 
   "deck.openSettings": "Open Settings",
   "deck.openObs": "Open OBS",
+  "deck.editKeys": "Edit keys",
   "deck.status.noComputer": "Computer not connected",
   "deck.status.obsDisconnected": "OBS not connected",
   "deck.status.obsConnected": "OBS connected",

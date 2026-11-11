@@ -27,5 +27,12 @@ export const TAB_BAR_QUERY = "(max-width: 719px)";
  */
 export const PORTRAIT_BOARD_QUERY = "(max-width: 719px) and (orientation: portrait)";
 
+/**
+ * Phone-sized windows (a phone on its side is short, held upright it is narrow): the Deck shows only what
+ * playing needs, and its editing tools wait behind the Edit keys toggle. Two queries, either one is enough.
+ */
+export const COMPACT_HEIGHT_QUERY = "(max-height: 540px)";
+export const COMPACT_WIDTH_QUERY = "(max-width: 600px)";
+
 /** Sidebar layouts too short for a labelled menu (a phone on its side): the sidebar shows as the icon rail. */
 export const SHORT_SIDEBAR_QUERY = "(min-width: 720px) and (max-height: 500px)";

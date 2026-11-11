@@ -28,7 +28,7 @@ afterEach(() => {
 });
 
 describe("a space below the inspector width", () => {
-  it("shows the Deck as one compact row: hidden heading and page text, the status as an icon, the pager arrows", async () => {
+  it("shows the Deck as one compact row: hidden heading and page text, the status as an icon, the pager arrows while editing", async () => {
     setScreen(PHONE_UPRIGHT);
     const state = desktopState({ boards: boards() });
     state.obs = { enabled: true, status: "connected", state: idle };
@@ -38,6 +38,8 @@ describe("a space below the inspector width", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Deck" })).toHaveClass("visually-hidden");
     expect(await screen.findByRole("img", { name: "OBS connected" })).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Deck status" })).not.toBeInTheDocument();
+    // A phone plays with the editing tools (and a one-page pager) put away; the Edit keys toggle brings them back.
+    await user.click(screen.getByRole("button", { name: "Edit keys" }));
     expect(screen.getByText("Page 1 of 1")).toHaveClass("visually-hidden");
     expect(screen.getByRole("button", { name: "Previous page" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New page" })).toBeInTheDocument();

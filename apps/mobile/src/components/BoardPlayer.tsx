@@ -63,6 +63,11 @@ interface BoardPlayerProps {
   toolbar?: ReactNode;
   /** A row between the header and the keys that stays the same on every page (the Voice quick phrases). */
   strip?: ReactNode;
+  /**
+   * A phone-sized window: the deck shows only what playing needs. Without editing (no onEditKey) the pager
+   * shows only for boards of several pages.
+   */
+  compact?: boolean;
   /** "dock" is the compact layout for the OBS dock. */
   variant?: "full" | "dock";
   /** Reads, sets and follows OBS input volumes for volume keys; null in phone-only mode. */
@@ -84,6 +89,7 @@ export function BoardPlayer({
   strip,
   variant = "full",
   volumes = null,
+  compact = false,
 }: BoardPlayerProps) {
   const t = useT();
   const descriptionPrefix = useId();
@@ -148,6 +154,8 @@ export function BoardPlayer({
   const shownPageCount = Math.max(pageCount, page + 1);
   // Past the last page, "next" opens a new one for editors, up to the board limit.
   const opensNewPage = canEdit && page >= shownPageCount - 1 && shownPageCount < MAX_BOARD_PAGES;
+  // While playing on a phone a single page needs no pager; its arrows would only take room.
+  const showsPager = !compact || canEdit || shownPageCount > 1;
 
   const goToPage = (next: number) => {
     setNewPage(null);
@@ -308,7 +316,10 @@ export function BoardPlayer({
   };
 
   return (
-    <section className={["deck", `deck-${variant}`, strip ? "deck-with-strip" : ""].filter(Boolean).join(" ")} aria-label={board.name}>
+    <section
+      className={["deck", `deck-${variant}`, strip ? "deck-with-strip" : "", compact ? "deck-compact" : "", compact && !canEdit ? "deck-playing" : ""].filter(Boolean).join(" ")}
+      aria-label={board.name}
+    >
       {toolbar && <div className="deck-header">{toolbar}</div>}
       {strip && <div className="deck-strip">{strip}</div>}
 
@@ -480,29 +491,31 @@ export function BoardPlayer({
         </ol>
       </div>
 
-      <div className="deck-pager">
-        <button
-          type="button"
-          className="button button-small"
-          onClick={() => goToPage(page - 1)}
-          disabled={page === 0}
-          aria-label={t("board.previous")}
-        >
-          <span aria-hidden="true">‹</span>
-        </button>
-        <span className={variant === "full" ? "deck-page visually-hidden" : "deck-page"} aria-live="polite">
-          {t("board.page", { page: page + 1, count: shownPageCount })}
-        </span>
-        <button
-          type="button"
-          className="button button-small"
-          onClick={() => (opensNewPage ? openNewPage() : goToPage(page + 1))}
-          disabled={!opensNewPage && page >= shownPageCount - 1}
-          aria-label={opensNewPage ? t("board.addPage") : t("board.next")}
-        >
-          <span aria-hidden="true">{opensNewPage ? "+" : "›"}</span>
-        </button>
-      </div>
+      {showsPager && (
+        <div className="deck-pager">
+          <button
+            type="button"
+            className="button button-small"
+            onClick={() => goToPage(page - 1)}
+            disabled={page === 0}
+            aria-label={t("board.previous")}
+          >
+            <span aria-hidden="true">‹</span>
+          </button>
+          <span className={variant === "full" ? "deck-page visually-hidden" : "deck-page"} aria-live="polite">
+            {t("board.page", { page: page + 1, count: shownPageCount })}
+          </span>
+          <button
+            type="button"
+            className="button button-small"
+            onClick={() => (opensNewPage ? openNewPage() : goToPage(page + 1))}
+            disabled={!opensNewPage && page >= shownPageCount - 1}
+            aria-label={opensNewPage ? t("board.addPage") : t("board.next")}
+          >
+            <span aria-hidden="true">{opensNewPage ? "+" : "›"}</span>
+          </button>
+        </div>
+      )}
     </section>
   );
 }

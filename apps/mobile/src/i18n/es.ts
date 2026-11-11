@@ -23,6 +23,7 @@ export const es: Messages = {
 
   "deck.openSettings": "Abrir Ajustes",
   "deck.openObs": "Abrir OBS",
+  "deck.editKeys": "Editar teclas",
   "deck.status.noComputer": "Computadora no conectada",
   "deck.status.obsDisconnected": "OBS no conectado",
   "deck.status.obsConnected": "OBS conectado",

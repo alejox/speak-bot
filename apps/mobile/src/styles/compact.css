@@ -1,0 +1,114 @@
+/*
+ * Phone-sized windows (App adds .app-compact for a short or narrow window, see COMPACT_*_QUERY): the
+ * chrome gives its room to the keys. The rail is icons only, every control in the top bar is a 48px
+ * target, and the Deck (.deck-compact) packs its board pill, status, Edit keys toggle, sponsor line and
+ * pager into as few rows as fit. Larger windows never get these classes, so their layouts stay as they are.
+ */
+.app-compact {
+  --compact-target: 48px;
+}
+
+/* The icon rail on its side: just wide enough for a 48px target with a little air. */
+.app-compact.app-nav-collapsed {
+  --nav-width: calc(var(--compact-target) + 2 * var(--space-1));
+}
+
+@media (min-width: 720px) {
+  .app-compact .app-header {
+    padding: max(var(--space-2), env(safe-area-inset-top)) var(--space-1) var(--space-2);
+  }
+
+  .app-compact .side-nav {
+    padding: var(--space-1);
+  }
+
+  .app-compact.app-nav-collapsed .side-nav-link {
+    min-height: var(--compact-target);
+  }
+}
+
+/* Upright: the tab bar stays, with less dead space above it. */
+@media (max-width: 719px) {
+  .app-compact.app-space .app-main {
+    padding-bottom: calc(var(--tab-height) + var(--space-3) + env(safe-area-inset-bottom));
+  }
+}
+
+.app-compact.app-space .app-main {
+  padding-top: max(var(--space-2), env(safe-area-inset-top));
+  padding-inline: var(--space-3);
+}
+
+/* The top bar: 48px targets, tight gaps. */
+.app-space .deck-compact {
+  row-gap: var(--space-2);
+}
+
+.deck-compact .deck-header {
+  gap: var(--space-2);
+}
+
+.deck-compact .board-pill,
+.deck-compact .folder-path {
+  min-height: var(--compact-target);
+}
+
+.deck-compact .board-pill {
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+}
+
+.deck-compact .grid-size-button,
+.deck-compact .deck-indicator,
+.deck-compact .edit-keys-toggle,
+.deck-compact .deck-pager .button {
+  width: var(--compact-target);
+  min-width: var(--compact-target);
+  height: var(--compact-target);
+}
+
+/* Edit keys: a quiet pencil while playing; while editing it is filled with the accent and shows a check. */
+.edit-keys-toggle {
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.edit-keys-toggle[aria-pressed="true"],
+.edit-keys-toggle[aria-pressed="true"]:hover {
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+}
+
+/* The sponsor line: one slim row with the tag and the title only (the detail repeats it on a phone). */
+.deck-compact .ad-banner {
+  --ad-height: 2rem;
+  border-radius: var(--radius-md);
+}
+
+.deck-compact .ad-banner-detail {
+  display: none;
+}
+
+.deck-compact .ad-banner-title {
+  font-size: var(--text-sm);
+}
+
+/*
+ * On its side the bar has width to spare: the sponsor line moves up into it, between the controls and the
+ * pager, so the keys get a whole row more.
+ */
+@media (min-width: 601px) {
+  .app-space .deck-compact.deck-with-strip {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "header strip pager"
+      "grid grid grid";
+    column-gap: var(--space-2);
+  }
+
+  .app-space .deck-compact.deck-with-strip .deck-strip {
+    align-self: center;
+    min-width: 0;
+  }
+}

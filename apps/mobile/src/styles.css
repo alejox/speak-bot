@@ -11,4 +11,5 @@
 @import "./styles/editor.css";
 @import "./styles/settings.css";
 @import "./styles/dock.css";
+@import "./styles/compact.css";
 @import "./styles/preferences.css";
