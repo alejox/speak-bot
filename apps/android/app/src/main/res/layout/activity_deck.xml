@@ -10,6 +10,96 @@
         android:layout_height="match_parent"
         android:background="@color/deck_background" />
 
+    <!-- Voice-only mode: always offers a way to a computer. Top right, over the web app's header,
+         which holds only its name on the left; the text composer and tab bar stay clear. -->
+    <Button
+        android:id="@+id/deck_connect_pill"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/bg_connect_pill"
+        android:contentDescription="@string/connect_computer_pill"
+        android:drawableStart="@drawable/ic_computer"
+        android:drawablePadding="8dp"
+        android:drawableTint="@android:color/white"
+        android:elevation="4dp"
+        android:minWidth="48dp"
+        android:minHeight="48dp"
+        android:paddingStart="14dp"
+        android:paddingEnd="16dp"
+        android:stateListAnimator="@null"
+        android:text="@string/connect_computer_pill"
+        android:textAllCaps="false"
+        android:textColor="@android:color/white"
+        android:textSize="15sp"
+        android:visibility="gone" />
+
+    <!-- Voice-only mode: a computer was found on the network. Never takes focus. -->
+    <LinearLayout
+        android:id="@+id/deck_found_banner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/bg_found_banner"
+        android:elevation="6dp"
+        android:gravity="center_vertical"
+        android:maxWidth="560dp"
+        android:minHeight="56dp"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="4dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_computer"
+            android:tint="@color/deck_text" />
+
+        <TextView
+            android:id="@+id/deck_found_message"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:accessibilityLiveRegion="polite"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="@color/deck_text"
+            android:textSize="16sp" />
+
+        <Button
+            android:id="@+id/deck_found_connect"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_connect_pill"
+            android:minWidth="88dp"
+            android:minHeight="48dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:stateListAnimator="@null"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white"
+            android:textSize="15sp" />
+
+        <ImageButton
+            android:id="@+id/deck_found_close"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/found_close"
+            android:src="@drawable/ic_close"
+            android:tint="@color/deck_text" />
+    </LinearLayout>
+
     <LinearLayout
         android:id="@+id/deck_searching"
         android:layout_width="match_parent"

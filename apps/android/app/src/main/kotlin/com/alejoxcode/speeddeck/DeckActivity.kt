@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -16,10 +17,12 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -32,7 +35,10 @@ import androidx.core.view.WindowInsetsControllerCompat
  * The saved computer is looked up on the network at launch and whenever it cannot be reached:
  * when it shows up at a new IP address the deck follows it without asking. Only when that fails
  * too, a native screen offers to retry or change computer.
- * The system back button on the deck's first page offers to change computer or exit.
+ * The system back button at the deck's root offers to change computer (or connect to one) or exit.
+ *
+ * Speaking without a computer, a "Connect computer" pill is always on screen, and computers found on
+ * the network are offered in a banner that never takes focus or interrupts speech.
  */
 class DeckActivity : AppCompatActivity() {
     private lateinit var store: AddressStore
@@ -46,6 +52,16 @@ class DeckActivity : AppCompatActivity() {
     private lateinit var unreachablePanel: View
     private lateinit var searchingPanel: View
     private var discovery: DesktopDiscovery? = null
+
+    /** Voice-only mode: looks for computers to offer in the banner while the deck is on screen. */
+    private var offerDiscovery: DesktopDiscovery? = null
+    private lateinit var connectPill: View
+    private lateinit var foundBanner: View
+    /** Ids of computers whose banner the user closed in this session. */
+    private val dismissedIds = mutableSetOf<String>()
+    /** A banner was closed or used: stop looking for computers until the app is opened again. */
+    private var offerFinished = false
+    private var offer: FoundComputerOffer = FoundComputerOffer.None
 
     private val handler = Handler(Looper.getMainLooper())
     private val loadTimeout = Runnable { onDeckUnreachable() }
@@ -81,6 +97,9 @@ class DeckActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.deck_unreachable_address).text = address
         findViewById<Button>(R.id.deck_retry).setOnClickListener { retry() }
         findViewById<Button>(R.id.deck_change_computer).setOnClickListener { changeComputer() }
+        connectPill = findViewById(R.id.deck_connect_pill)
+        foundBanner = findViewById(R.id.deck_found_banner)
+        if (local) setUpComputerOffer(savedInstanceState)
         configureWebView()
         onBackPressedDispatcher.addCallback(this, backCallback)
 
@@ -93,6 +112,16 @@ class DeckActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         if (::webView.isInitialized) webView.saveState(outState)
+        outState.putStringArrayList(STATE_DISMISSED_IDS, ArrayList(dismissedIds))
+        outState.putBoolean(STATE_OFFER_FINISHED, offerFinished)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (local && !offerFinished && ::foundBanner.isInitialized) {
+            val search = offerDiscovery ?: DesktopDiscovery(this, ::onOfferChanged).also { offerDiscovery = it }
+            search.start()
+        }
     }
 
     override fun onResume() {
@@ -107,6 +136,7 @@ class DeckActivity : AppCompatActivity() {
 
     override fun onStop() {
         // Searching in the background would only drain the battery.
+        offerDiscovery?.stop()
         if (discovery != null) {
             stopSearch()
             if (waitingForSearch) showUnreachable()
@@ -117,6 +147,7 @@ class DeckActivity : AppCompatActivity() {
     override fun onDestroy() {
         handler.removeCallbacks(loadTimeout)
         stopSearch()
+        stopOfferDiscovery()
         speech?.shutdown()
         if (::webView.isInitialized) webView.destroy()
         super.onDestroy()
@@ -224,12 +255,107 @@ class DeckActivity : AppCompatActivity() {
         finish()
     }
 
+    /**
+     * Voice-only mode: opens the connect screen over the deck, so going back returns to the words
+     * being typed; choosing there replaces this deck.
+     */
+    private fun connectToComputer() {
+        startActivity(ConnectActivity.intent(this, store.load()?.address))
+    }
+
+    private fun setUpComputerOffer(savedInstanceState: Bundle?) {
+        savedInstanceState?.getStringArrayList(STATE_DISMISSED_IDS)?.let(dismissedIds::addAll)
+        offerFinished = savedInstanceState?.getBoolean(STATE_OFFER_FINISHED) ?: false
+        connectPill.setOnClickListener { connectToComputer() }
+        findViewById<Button>(R.id.deck_found_connect).setOnClickListener { acceptOffer() }
+        findViewById<ImageButton>(R.id.deck_found_close).setOnClickListener { dismissOffer() }
+        // Keep the overlays clear of a camera cutout; the system bars are hidden.
+        for (overlay in listOf(connectPill, foundBanner)) {
+            val margins = overlay.layoutParams as ViewGroup.MarginLayoutParams
+            val baseTop = margins.topMargin
+            ViewCompat.setOnApplyWindowInsetsListener(overlay) { view, insets ->
+                val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+                (view.layoutParams as ViewGroup.MarginLayoutParams).topMargin = baseTop + cutout.top
+                view.requestLayout()
+                insets
+            }
+        }
+        showOffer(FoundComputerOffer.None)
+    }
+
+    private fun onOfferChanged(desktops: List<DiscoveredDesktop>) {
+        if (!offerFinished) showOffer(FoundComputerOffer.choose(desktops, dismissedIds))
+    }
+
+    private fun showOffer(next: FoundComputerOffer) {
+        offer = next
+        val message = findViewById<TextView>(R.id.deck_found_message)
+        val action = findViewById<Button>(R.id.deck_found_connect)
+        when (next) {
+            FoundComputerOffer.None -> Unit
+            is FoundComputerOffer.Single -> {
+                message.text = getString(R.string.found_one, next.desktop.name)
+                action.setText(R.string.found_connect)
+            }
+            is FoundComputerOffer.Several -> {
+                message.text = getString(R.string.found_several, next.count)
+                action.setText(R.string.found_choose)
+            }
+        }
+        val showBanner = next != FoundComputerOffer.None
+        foundBanner.visibility = if (showBanner) View.VISIBLE else View.GONE
+        // One clear call to action at a time.
+        connectPill.visibility = if (showBanner) View.GONE else View.VISIBLE
+    }
+
+    private fun acceptOffer() {
+        when (val current = offer) {
+            FoundComputerOffer.None -> return
+            is FoundComputerOffer.Single -> {
+                finishOffer()
+                // Exactly like picking it on the connect screen.
+                store.save(SavedDesktop(current.desktop.address, current.desktop.id))
+                startActivity(Intent(this, DeckActivity::class.java))
+                finish()
+            }
+            is FoundComputerOffer.Several -> {
+                finishOffer()
+                connectToComputer()
+            }
+        }
+    }
+
+    private fun dismissOffer() {
+        when (val current = offer) {
+            FoundComputerOffer.None -> return
+            is FoundComputerOffer.Single -> dismissedIds += current.desktop.id
+            is FoundComputerOffer.Several -> current.desktops.mapTo(dismissedIds) { it.id }
+        }
+        finishOffer()
+    }
+
+    private fun finishOffer() {
+        offerFinished = true
+        stopOfferDiscovery()
+        showOffer(FoundComputerOffer.None)
+    }
+
+    private fun stopOfferDiscovery() {
+        offerDiscovery?.stop()
+        offerDiscovery = null
+    }
+
     private fun showLeaveMenu() {
-        val choices = arrayOf(getString(R.string.change_computer), getString(R.string.deck_menu_exit))
+        val computerChoice = if (local) R.string.connect_to_computer else R.string.change_computer
+        val choices = arrayOf(getString(computerChoice), getString(R.string.deck_menu_exit))
         AlertDialog.Builder(this)
             .setTitle(R.string.deck_menu_title)
             .setItems(choices) { _, which ->
-                if (which == 0) changeComputer() else finish()
+                when {
+                    which != 0 -> finish()
+                    local -> connectToComputer()
+                    else -> changeComputer()
+                }
             }
             .setNegativeButton(R.string.deck_menu_cancel, null)
             .show()
@@ -250,10 +376,10 @@ class DeckActivity : AppCompatActivity() {
 
     private val backCallback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
-            if (webView.visibility == View.VISIBLE && webView.canGoBack()) {
-                webView.goBack()
-            } else {
-                showLeaveMenu()
+            val canGoBack = webView.visibility == View.VISIBLE && webView.canGoBack()
+            when (DeckBack.choose(canGoBack, webView.url, address)) {
+                DeckBack.GO_BACK -> webView.goBack()
+                DeckBack.SHOW_MENU -> showLeaveMenu()
             }
         }
     }
@@ -302,5 +428,7 @@ class DeckActivity : AppCompatActivity() {
         const val LOAD_TIMEOUT_MS = 15_000L
         /** How long to look for the saved computer on the network. */
         const val SEARCH_WINDOW_MS = 6_000L
+        const val STATE_DISMISSED_IDS = "found_dismissed_ids"
+        const val STATE_OFFER_FINISHED = "found_offer_finished"
     }
 }

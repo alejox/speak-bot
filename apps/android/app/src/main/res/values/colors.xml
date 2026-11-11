@@ -6,4 +6,7 @@
     <color name="deck_text_muted">#FFAAB2BD</color>
     <color name="deck_accent">#FF4F8CFF</color>
     <color name="deck_error">#FFFF8A80</color>
+    <!-- Native controls drawn over the web app, which may be light or dark. -->
+    <color name="overlay_action">#FF1F5FD6</color>
+    <color name="overlay_outline">#E6FFFFFF</color>
 </resources>

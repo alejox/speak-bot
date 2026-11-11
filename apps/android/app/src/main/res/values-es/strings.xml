@@ -23,5 +23,13 @@
 
     <string name="deck_menu_title">¿Salir del panel?</string>
     <string name="deck_menu_exit">Salir</string>
+    <string name="connect_to_computer">Conectar con un equipo</string>
+
+    <string name="connect_computer_pill">Conectar equipo</string>
+    <string name="found_one">Se encontró %1$s</string>
+    <string name="found_several">Se encontraron %1$d equipos</string>
+    <string name="found_connect">Conectar</string>
+    <string name="found_choose">Elegir</string>
+    <string name="found_close">Cerrar</string>
     <string name="deck_menu_cancel">Cancelar</string>
 </resources>

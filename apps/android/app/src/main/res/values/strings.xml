@@ -27,5 +27,13 @@
 
     <string name="deck_menu_title">Leave the deck?</string>
     <string name="deck_menu_exit">Exit</string>
+    <string name="connect_to_computer">Connect to a computer</string>
+
+    <string name="connect_computer_pill">Connect computer</string>
+    <string name="found_one">Found %1$s</string>
+    <string name="found_several">Found %1$d computers</string>
+    <string name="found_connect">Connect</string>
+    <string name="found_choose">Choose</string>
+    <string name="found_close">Close</string>
     <string name="deck_menu_cancel">Cancel</string>
 </resources>

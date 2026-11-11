@@ -123,14 +123,19 @@ class ConnectActivity : AppCompatActivity() {
     /** Opens the web app bundled in the APK; launches go straight there until a computer is chosen. */
     private fun openLocal() {
         AddressStore(this).chooseLocal()
-        startActivity(Intent(this, DeckActivity::class.java))
+        // Opened from a deck already speaking without a computer: return to it as it was.
+        startActivity(
+            Intent(this, DeckActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        )
         finish()
     }
 
     /** The id is learned on the deck's first discovery when the computer was paired by QR or address. */
     private fun openDeck(desktop: SavedDesktop) {
         AddressStore(this).save(desktop)
-        startActivity(Intent(this, DeckActivity::class.java))
+        // Replaces a voice-only deck left below this screen with a deck on the computer.
+        startActivity(Intent(this, DeckActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
         finish()
     }
 
