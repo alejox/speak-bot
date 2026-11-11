@@ -101,6 +101,8 @@ export const en = {
   "editor.icon": "Icon",
   "editor.iconDefault": "Default",
   "editor.color": "Color",
+  "editor.colorOff": "Color when off",
+  "editor.colorOn": "Color when on",
   "editor.colorNone": "No color",
   "editor.colorHex": "Hex color",
   "editor.colorInvalid": "Type a color like #1a2b3c.",

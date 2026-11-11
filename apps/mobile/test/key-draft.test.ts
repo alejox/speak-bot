@@ -12,7 +12,7 @@ describe("key drafts", () => {
 
   it("keeps the label but not the parameters when another action is chosen", () => {
     const key = { slot: 0, label: "Hi", action: { type: "voice.speak" as const, text: "Hello" } };
-    expect(draftOf(key, "obs.switchScene")).toEqual({ label: "Hi", icon: "", color: "", actionType: "obs.switchScene", params: {} });
+    expect(draftOf(key, "obs.switchScene")).toEqual({ label: "Hi", icon: "", color: "", activeColor: "", actionType: "obs.switchScene", params: {} });
   });
 
   it("explains missing actions, parameters, bad numbers and bad colors", () => {
@@ -31,9 +31,17 @@ describe("key drafts", () => {
   });
 
   it("builds typed actions, trimming text and lowercasing colors", () => {
-    expect(draftToKey(2, { label: " ", icon: "", color: "#AABBCC", actionType: "nav.goToPage", params: { page: "2" } }, t)).toEqual({
+    expect(draftToKey(2, { label: " ", icon: "", color: "#AABBCC", activeColor: "", actionType: "nav.goToPage", params: { page: "2" } }, t)).toEqual({
       ok: true,
       key: { slot: 2, label: "", icon: "", color: "#aabbcc", action: { type: "nav.goToPage", page: 2 } },
     });
+  });
+
+  it("keeps a colour for when on only for actions with an on state", () => {
+    const draft = { label: "", icon: "", color: "", activeColor: "#AA0000", params: {} };
+    expect(draftToKey(0, { ...draft, actionType: "obs.toggleRecord" }, t)).toMatchObject({ ok: true, key: { activeColor: "#aa0000" } });
+    const stateless = draftToKey(0, { ...draft, actionType: "voice.stop" }, t);
+    expect(stateless.ok && "activeColor" in stateless.key).toBe(false);
+    expect(draftToKey(0, { ...draft, activeColor: "red", actionType: "obs.toggleRecord" }, t)).toMatchObject({ ok: false, field: "activeColor" });
   });
 });

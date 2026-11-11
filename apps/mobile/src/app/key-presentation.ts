@@ -1,4 +1,4 @@
-import { ACTION_REGISTRY, type Action, type Board, type Key, type ObsConnectionStatus, type ObsState, type UiLanguage } from "@speed-deck/core";
+import { ACTION_REGISTRY, type Action, type ActionType, type Board, type Key, type ObsConnectionStatus, type ObsState, type UiLanguage } from "@speed-deck/core";
 import type { Translate } from "../i18n/I18nProvider";
 import { LANGUAGE_NAMES, type Message, type MessageKey } from "../i18n/messages";
 
@@ -69,6 +69,24 @@ export function presentKey(action: Action, context: KeyContext): KeyPresentation
     default:
       return {};
   }
+}
+
+/** Actions whose key shows an on state (see `presentKey`); only these keys offer a colour for when they are on. */
+const ON_STATE_ACTION_TYPES: ReadonlySet<ActionType> = new Set<ActionType>([
+  "captions.toggle",
+  "obs.toggleMute",
+  "obs.toggleStream",
+  "obs.toggleRecord",
+  "obs.switchScene",
+]);
+
+export function hasOnState(actionType: ActionType): boolean {
+  return ON_STATE_ACTION_TYPES.has(actionType);
+}
+
+/** The colour a key is filled with: its on colour while its toggle is on, otherwise its own. */
+export function keyFillColor(key: Key, pressed: boolean | undefined): string | undefined {
+  return pressed && key.activeColor ? key.activeColor : key.color;
 }
 
 function toggle(isOn: boolean | undefined, state: KeyLiveState): KeyPresentation {

@@ -134,6 +134,16 @@ describe("boards and actions API", () => {
     expect(await missing.json()).toMatchObject({ code: "key-not-found" });
   });
 
+  it("stores a key's colour when on and reads it back", async () => {
+    const path = `/api/boards/${DEFAULT_DECK_BOARD_ID}/keys/20`;
+    const set = await send(path, "PUT", { color: "#112233", activeColor: "#FF0000", action: { type: "obs.toggleRecord" } });
+    expect(set.status).toBe(200);
+    expect(await set.json()).toEqual({ slot: 20, color: "#112233", activeColor: "#ff0000", action: { type: "obs.toggleRecord" } });
+    const deck = (await boards()).find((board) => board.id === DEFAULT_DECK_BOARD_ID)!;
+    expect(deck.keys.find((key) => key.slot === 20)).toEqual({ slot: 20, color: "#112233", activeColor: "#ff0000", action: { type: "obs.toggleRecord" } });
+    expect((await send(path, "PUT", { activeColor: "red", action: { type: "obs.toggleRecord" }, replace: true })).status).toBe(400);
+  });
+
   it("only accepts keys whose action the board kind allows", async () => {
     const scene = { action: { type: "obs.switchScene", sceneName: "Main" } };
     const onVoice = await send(`/api/boards/${DEFAULT_BOARD_ID}/keys/20`, "PUT", scene);

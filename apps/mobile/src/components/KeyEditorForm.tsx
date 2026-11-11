@@ -18,6 +18,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } fr
 import type { KeyInput } from "../adapters/board-stores";
 import type { ObsServices } from "../app/composition-root";
 import { draftAction, draftOf, draftToKey, KEY_COLOR_PRESETS, type KeyDraft } from "../app/key-draft";
+import { hasOnState } from "../app/key-presentation";
 import { useT } from "../i18n/I18nProvider";
 import type { Message, MessageKey } from "../i18n/messages";
 import { ActionParamsFields } from "./ActionParamsFields";
@@ -55,10 +56,10 @@ export interface KeyEditorFormProps {
   heading?: ReactNode;
 }
 
-/** Edits one key: action and its parameters, label, icon and color; tests, saves and moves it. Deleting lives in the key menu. */
+/** Edits one key: action and its parameters, label, icon and color (and its color when on, for keys with an on state); tests, saves and moves it. Deleting lives in the key menu. */
 export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards, obs, onSave, onTest, onMove, onCancel, cancelLabel, fixedAction = false, variant = "dialog", onDraftChange, heading }: KeyEditorFormProps) {
   const t = useT();
-  const ids = { action: useId(), label: useId(), labelHint: useId(), hex: useId(), move: useId(), error: useId() };
+  const ids = { action: useId(), label: useId(), labelHint: useId(), hex: useId(), activeHex: useId(), move: useId(), error: useId() };
   const form = useRef<HTMLFormElement>(null);
   const [draft, setDraft] = useState<KeyDraft>(() => draftOf(existing, assignedType));
   const [error, setError] = useState<{ message: Message; field: string } | null>(null);
@@ -79,7 +80,7 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
     // Focus the field to fix, so keyboard and screen reader users land on it.
     const element = form.current;
     if (!element) return;
-    const byId = field === "action" ? ids.action : field === "color" ? ids.hex : null;
+    const byId = field === "action" ? ids.action : field === "color" ? ids.hex : field === "activeColor" ? ids.activeHex : null;
     const target = byId ? element.ownerDocument.getElementById(byId) : element.querySelector<HTMLElement>(`[data-param="${field}"]`);
     target?.focus();
   };
@@ -117,7 +118,6 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
   // action, alone, so editing the key never loses it; the rest of the list is what the kind offers.
   const offeredCategories = allowedActionCategories(boardKind);
   const keptType = existing && !offeredCategories.includes(ACTION_REGISTRY[existing.action.type].category) ? existing.action.type : undefined;
-  const hexInvalid = draft.color !== "" && !isHexColor(draft.color);
   const number = slot + 1;
 
   return (
@@ -202,39 +202,26 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
         </div>
       </fieldset>
 
-      <fieldset className="picker">
-        <legend>{t("editor.color")}</legend>
-        <div className="color-picker">
-          <PickerChoice name={`color-${ids.action}`} checked={draft.color === ""} label={t("editor.colorNone")} onSelect={() => update({ color: "" })}>
-            <span className="swatch swatch-none" aria-hidden="true" />
-          </PickerChoice>
-          {KEY_COLOR_PRESETS.map((preset) => (
-            <PickerChoice
-              key={preset.name}
-              name={`color-${ids.action}`}
-              checked={draft.color.toLowerCase() === preset.value}
-              label={t(`color.${preset.name}`)}
-              onSelect={() => update({ color: preset.value })}
-            >
-              <span className="swatch" style={{ background: preset.value }} aria-hidden="true" />
-            </PickerChoice>
-          ))}
-        </div>
-        <div className="field field-inline">
-          <label htmlFor={ids.hex}>{t("editor.colorHex")}</label>
-          <input
-            id={ids.hex}
-            className="hex-input"
-            maxLength={7}
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="#1a2b3c"
+      {draft.actionType && hasOnState(draft.actionType) ? (
+        <>
+          <ColorPicker
+            legend={t("editor.colorOff")}
+            name={`color-${ids.action}`}
+            hexId={ids.hex}
             value={draft.color}
-            aria-invalid={hexInvalid || undefined}
-            onChange={(event) => update({ color: event.target.value.trim() })}
+            onChange={(color) => update({ color })}
           />
-        </div>
-      </fieldset>
+          <ColorPicker
+            legend={t("editor.colorOn")}
+            name={`active-color-${ids.action}`}
+            hexId={ids.activeHex}
+            value={draft.activeColor}
+            onChange={(activeColor) => update({ activeColor })}
+          />
+        </>
+      ) : (
+        <ColorPicker legend={t("editor.color")} name={`color-${ids.action}`} hexId={ids.hex} value={draft.color} onChange={(color) => update({ color })} />
+      )}
 
       <p id={ids.error} className="field-error" role="alert">
         {error ? t(error.message.key, error.message.params) : ""}
@@ -282,6 +269,51 @@ interface PickerChoiceProps {
   label: string;
   onSelect: () => void;
   children: ReactNode;
+}
+
+interface ColorPickerProps {
+  legend: string;
+  /** Name of the radio group. */
+  name: string;
+  hexId: string;
+  /** `#rrggbb` as typed, or empty for none. */
+  value: string;
+  onChange: (value: string) => void;
+}
+
+/** A key colour: none, a preset swatch or a typed hex value. */
+function ColorPicker({ legend, name, hexId, value, onChange }: ColorPickerProps) {
+  const t = useT();
+  const hexInvalid = value !== "" && !isHexColor(value);
+  return (
+    <fieldset className="picker">
+      <legend>{legend}</legend>
+      <div className="color-picker">
+        <PickerChoice name={name} checked={value === ""} label={t("editor.colorNone")} onSelect={() => onChange("")}>
+          <span className="swatch swatch-none" aria-hidden="true" />
+        </PickerChoice>
+        {KEY_COLOR_PRESETS.map((preset) => (
+          <PickerChoice key={preset.name} name={name} checked={value.toLowerCase() === preset.value} label={t(`color.${preset.name}`)} onSelect={() => onChange(preset.value)}>
+            <span className="swatch" style={{ background: preset.value }} aria-hidden="true" />
+          </PickerChoice>
+        ))}
+      </div>
+      <div className="field field-inline">
+        <label htmlFor={hexId}>{t("editor.colorHex")}</label>
+        <input
+          id={hexId}
+          className="hex-input"
+          maxLength={7}
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="#1a2b3c"
+          value={value}
+          aria-invalid={hexInvalid || undefined}
+          onChange={(event) => onChange(event.target.value.trim())}
+        />
+      </div>
+    </fieldset>
+  );
 }
 
 /** A radio button drawn as a tile (an icon or a color swatch), named for screen readers. */

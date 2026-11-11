@@ -8,6 +8,7 @@ import {
   type Key,
 } from "@speed-deck/core";
 import type { KeyInput } from "../adapters/board-stores";
+import { hasOnState } from "./key-presentation";
 import type { Message, MessageKey } from "../i18n/messages";
 
 /** What the key editor holds while the user types: every field as text. */
@@ -17,6 +18,8 @@ export interface KeyDraft {
   icon: string;
   /** Empty for no color; otherwise what the user typed or picked. */
   color: string;
+  /** The color while the key's toggle is on, like `color`; only kept for actions with an on state. */
+  activeColor: string;
   /** Empty until an action is chosen. */
   actionType: ActionType | "";
   /** Parameter values by name, as typed. */
@@ -47,6 +50,7 @@ export function draftOf(key: Key | undefined, actionType?: ActionType): KeyDraft
     label: key?.label ?? "",
     icon: key?.icon ?? "",
     color: key?.color ?? "",
+    activeColor: key?.activeColor ?? "",
     actionType: actionType ?? action?.type ?? "",
     params,
   };
@@ -85,9 +89,14 @@ export function draftAction(draft: KeyDraft, t: (key: MessageKey) => string): { 
 export function draftToKey(slot: number, draft: KeyDraft, t: (key: MessageKey) => string): DraftResult {
   const color = draft.color.trim();
   if (color !== "" && !isHexColor(color)) return { ok: false, error: { key: "editor.colorInvalid" }, field: "color" };
+  // Only a key with an on state has a colour for it; any other key is saved without one, which drops a stored one.
+  const withOnState = draft.actionType !== "" && hasOnState(draft.actionType);
+  const activeColor = withOnState ? draft.activeColor.trim() : "";
+  if (activeColor !== "" && !isHexColor(activeColor)) return { ok: false, error: { key: "editor.colorInvalid" }, field: "activeColor" };
   const action = draftAction(draft, t);
   if (!action.ok) return action;
-  return { ok: true, key: { slot, label: draft.label.trim(), icon: draft.icon, color: color.toLowerCase(), action: action.action } };
+  const key: KeyInput = { slot, label: draft.label.trim(), icon: draft.icon, color: color.toLowerCase(), action: action.action };
+  return { ok: true, key: withOnState ? { ...key, activeColor: activeColor.toLowerCase() } : key };
 }
 
 /** The key for an action without parameters: nothing to fill in, it shows the action's own name and icon. */

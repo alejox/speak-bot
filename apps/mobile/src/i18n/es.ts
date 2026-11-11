@@ -104,6 +104,8 @@ export const es: Messages = {
   "editor.icon": "Icono",
   "editor.iconDefault": "Predeterminado",
   "editor.color": "Color",
+  "editor.colorOff": "Color apagado",
+  "editor.colorOn": "Color encendido",
   "editor.colorNone": "Sin color",
   "editor.colorHex": "Color hexadecimal",
   "editor.colorInvalid": "Escribe un color como #1a2b3c.",

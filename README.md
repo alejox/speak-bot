@@ -67,7 +67,7 @@ Closing the window keeps the app running in the tray or menu bar, so OBS keeps w
 - The keys of a page always fit the screen, on a phone too: they stay square and shrink to fit, so the page never scrolls.
 - Every board has a **kind**: a **voice** board holds voice, caption and navigation keys and lives in **Voz**; a **deck** board holds OBS and navigation keys and lives in **Deck**. When you add a key, Speed Deck only offers the actions that fit the board.
 - Speed Deck starts with two boards: **Comunicación** (voice: common phrases plus stop, repeat, voice language and the two caption keys) and **Deck** (stream and recording).
-- Each **key** has an action and, optionally, a label, an icon and a color.
+- Each **key** has an action and, optionally, a label, an icon and a color. Keys that can be on or off (stream, recording, mute, the current scene, captions) take two colors instead: **Color when off** and **Color when on**; the key shows the second one while it is on, keeping its corner dot.
 
 **Boards from older versions** could mix both kinds of keys. The first time they are loaded, a mixed board is split in two automatically: the voice and caption keys stay on the board, and the OBS keys move to a new board named after it with **(Deck)** added. No key is lost and every key keeps its position.
 

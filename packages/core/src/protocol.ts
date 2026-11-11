@@ -185,6 +185,8 @@ export interface SetKeyRequest {
   icon?: string;
   /** `#rrggbb`; empty for none. */
   color?: string;
+  /** `#rrggbb` shown while the key's toggle is on; empty for none (then `color`). */
+  activeColor?: string;
   action: Action;
   replace?: boolean;
 }

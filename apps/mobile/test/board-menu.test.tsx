@@ -70,7 +70,7 @@ describe("editing in the player, without a board editor", () => {
     expect(requests).toContainEqual({
       method: "PUT",
       url: "/api/boards/main/keys/0",
-      body: { label: "", icon: "", color: "", action: { type: "obs.switchScene", sceneName: "BRB" } },
+      body: { label: "", icon: "", color: "", activeColor: "", action: { type: "obs.switchScene", sceneName: "BRB" } },
     });
   });
 

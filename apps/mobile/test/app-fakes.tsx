@@ -228,7 +228,7 @@ export function desktopRoute(state: DesktopState) {
       if (request.method === "PUT") {
         const { replace, ...key } = body as { replace?: boolean } & Omit<Key, "slot">;
         if (!replace && target.keys.some((candidate) => candidate.slot === slot)) return { status: 409, body: { error: "Taken.", code: "slot-occupied" } };
-        const stored: Key = { slot, ...(key.label ? { label: key.label } : {}), ...(key.icon ? { icon: key.icon } : {}), ...(key.color ? { color: key.color } : {}), action: key.action };
+        const stored: Key = { slot, ...(key.label ? { label: key.label } : {}), ...(key.icon ? { icon: key.icon } : {}), ...(key.color ? { color: key.color } : {}), ...(key.activeColor ? { activeColor: key.activeColor } : {}), action: key.action };
         replaceBoard(makeBoard(target.id, target.name, target.kind, [...target.keys.filter((candidate) => candidate.slot !== slot), stored], target));
         return { body: stored };
       }

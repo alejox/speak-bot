@@ -25,6 +25,8 @@ export interface KeyInput {
   label?: string;
   icon?: string;
   color?: string;
+  /** Color while the key's toggle is on; empty for none. */
+  activeColor?: string;
   action: Action;
 }
 

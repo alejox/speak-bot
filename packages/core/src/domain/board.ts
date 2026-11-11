@@ -121,6 +121,8 @@ export interface Key {
   readonly icon?: string;
   /** Background color as `#rrggbb` (lowercase). */
   readonly color?: string;
+  /** Background color while the key's toggle is on, as `#rrggbb` (lowercase); `color` is used when absent. */
+  readonly activeColor?: string;
   readonly action: Action;
 }
 
@@ -225,14 +227,14 @@ export function assertKeySlot(slot: unknown): asserts slot is number {
 }
 
 /**
- * Validates untrusted input as a key. Labels are trimmed and an empty label, icon or color means
+ * Validates untrusted input as a key. Labels are trimmed and an empty label, icon, color or activeColor means
  * none. Throws `InvalidBoardError` with an English message on any problem.
  */
 export function createKey(input: unknown): Key {
   if (typeof input !== "object" || input === null || Array.isArray(input)) throw new InvalidBoardError("key must be an object.");
-  const { slot, label, icon, color, action } = input as Record<string, unknown>;
+  const { slot, label, icon, color, activeColor, action } = input as Record<string, unknown>;
   assertKeySlot(slot);
-  const key: { slot: number; label?: string; icon?: string; color?: string; action: Action } = { slot, action: parseAction(action) };
+  const key: { slot: number; label?: string; icon?: string; color?: string; activeColor?: string; action: Action } = { slot, action: parseAction(action) };
 
   if (label !== undefined) {
     if (typeof label !== "string") throw new InvalidBoardError("label must be a string.");
@@ -247,6 +249,10 @@ export function createKey(input: unknown): Key {
   if (color !== undefined && color !== "") {
     if (!isHexColor(color)) throw new InvalidBoardError("color must be a hex color like #1a2b3c.");
     key.color = color.toLowerCase();
+  }
+  if (activeColor !== undefined && activeColor !== "") {
+    if (!isHexColor(activeColor)) throw new InvalidBoardError("activeColor must be a hex color like #1a2b3c.");
+    key.activeColor = activeColor.toLowerCase();
   }
   // Fixed property order keeps stored files and responses stable.
   const { action: parsed, ...rest } = key;

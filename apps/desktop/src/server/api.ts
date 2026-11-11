@@ -192,9 +192,9 @@ export function createApiHandler(deps: ApiDependencies) {
       method: "PUT",
       path: "/api/boards/:id/keys/:slot",
       handler: async (request, response, { id, slot }) => {
-        const { label, icon, color, action, replace } = asObject(await readJsonBody(request));
+        const { label, icon, color, activeColor, action, replace } = asObject(await readJsonBody(request));
         if (replace !== undefined && typeof replace !== "boolean") throw new HttpError(400, "replace must be true or false.");
-        const key = await setKey(repository, id!, { slot: parseSlot(slot!), label, icon, color, action }, { replace: replace === true });
+        const key = await setKey(repository, id!, { slot: parseSlot(slot!), label, icon, color, activeColor, action }, { replace: replace === true });
         boardsChanged();
         sendJson(response, 200, key);
       },

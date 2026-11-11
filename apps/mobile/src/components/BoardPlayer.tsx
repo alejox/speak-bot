@@ -2,7 +2,7 @@ import { boardPageCount, keysOnPage, keysPerPage, MAX_BOARD_PAGES, type Action, 
 import { MoreHorizontal } from "lucide-react";
 import { useEffect, useId, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import type { BoardNavigation } from "../app/use-boards";
-import { KEY_STATE_LABELS, keyLabel, keyLook, presentKey, type KeyContext } from "../app/key-presentation";
+import { KEY_STATE_LABELS, keyFillColor, keyLabel, keyLook, presentKey, type KeyContext } from "../app/key-presentation";
 import { useMediaQuery } from "../app/use-media-query";
 import { useT } from "../i18n/I18nProvider";
 import { BoardKey } from "./BoardKey";
@@ -259,7 +259,7 @@ export function BoardPlayer({
                   ref={slotRef(slot)}
                   label={label}
                   {...keyLook(key, presentation.iconId)}
-                  color={key.color}
+                  color={keyFillColor(key, presentation.pressed)}
                   pressed={presentation.pressed}
                   state={presentation.state}
                   stateLabel={stateLabel ? t(stateLabel) : undefined}
