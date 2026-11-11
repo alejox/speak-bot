@@ -84,6 +84,8 @@ export interface LocalSetupOptions {
    * most suites start; null keeps a first launch (which opens the Deck).
    */
   section?: Section | null;
+  /** The host name the page was served from (AppServices.servedFrom); none keeps every editing tool. */
+  servedFrom?: string;
 }
 
 /** App services for phone-only mode, with boards in localStorage. */
@@ -95,6 +97,7 @@ export function localServices({
   voices,
   synthesizer = new LocalSynthesizer(voices),
   section = "voice",
+  servedFrom,
 }: LocalSetupOptions = {}) {
   if (section && localStorage.getItem(SECTION_STORAGE_KEY) === null) localStorage.setItem(SECTION_STORAGE_KEY, JSON.stringify(section));
   if (boards) localStorage.setItem("speed-deck:boards", JSON.stringify({ version: 1, boards }));
@@ -108,6 +111,7 @@ export function localServices({
     language: memoryLanguageStore(language),
     appearance,
     recentPhrases: new LocalStorageRecentPhrasesStore(localStorage),
+    ...(servedFrom === undefined ? {} : { servedFrom }),
   };
   return { services, synthesizer, appearance, getSettings: () => saved };
 }
@@ -328,14 +332,16 @@ export interface RemoteSetupOptions {
   language?: UiLanguage | null;
   /** No desktop answers (e.g. GitHub Pages). */
   noDesktop?: boolean;
+  /** The host name the page was served from (AppServices.servedFrom); none keeps every editing tool. */
+  servedFrom?: string;
 }
 
 /** App services for a page served by the desktop, with a fake fetch and WebSocket. */
-export function remoteServices({ state = desktopState(), storedTarget = null, hostname = "192.168.1.20", language = "en", noDesktop = false }: RemoteSetupOptions = {}) {
+export function remoteServices({ state = desktopState(), storedTarget = null, hostname = "192.168.1.20", language = "en", noDesktop = false, servedFrom }: RemoteSetupOptions = {}) {
   FakeSocket.instances = [];
   const fake = createFakeFetch(noDesktop ? () => undefined : desktopRoute(state));
   let target = storedTarget;
-  const local = localServices({ language, boards: [boardOf("local", "Local board", [speakKey(0, "Local phrase")])] });
+  const local = localServices({ language, servedFrom, boards: [boardOf("local", "Local board", [speakKey(0, "Local phrase")])] });
   const services: AppServices = {
     ...local.services,
     desktop: createDesktopServices({

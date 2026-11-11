@@ -129,6 +129,8 @@ export interface AppServices {
   recentPhrases: RecentPhrasesStore;
   /** Present when the app may be served by the desktop companion. */
   desktop?: DesktopServices;
+  /** The host name this page was served from (location.hostname); decides where the Deck can be edited. */
+  servedFrom?: string;
 }
 
 export interface DesktopServicesOptions {
@@ -228,6 +230,7 @@ export function createAppServices(): AppServices {
     appearance: new LocalStorageAppearanceStore(),
     recentPhrases: new LocalStorageRecentPhrasesStore(),
     desktop: createDesktopServices(),
+    servedFrom: globalThis.location?.hostname ?? "",
   };
 }
 

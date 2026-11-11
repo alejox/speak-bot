@@ -37,6 +37,7 @@ import { describeRequestError } from "./describe-error";
 import { isDesktopShell } from "./desktop-shell";
 import { useAppearance, type AppearancePreference } from "./use-appearance";
 import { useConnection } from "./use-connection";
+import { canEditDeck } from "./edit-capability";
 import { useSpaceDecks } from "./use-deck";
 import { actionOnlyKey, needsDetails } from "./key-draft";
 import { useLanguagePreference, type LanguagePreference } from "./use-language-preference";
@@ -266,7 +267,9 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const setEditingSpace = (editing: boolean) => {
     if (space) setEditingSpaces((current) => ({ ...current, [space]: editing }));
   };
-  const canEditBoard = !isCompactSpace || isEditingSpace;
+  // Deck keys are created and edited on the computer only; Voice keys on every device.
+  const maySpaceBeEdited = space !== "deck" || canEditDeck(services.servedFrom);
+  const canEditBoard = maySpaceBeEdited && (!isCompactSpace || isEditingSpace);
   // Voice on a phone keeps the screen for its keys: the composer moves into a sheet behind one Write button.
   const usesComposerSheet = isCompactSpace && space === "voice" && !isWorkspace;
   // Leaving the Voice space (or growing out of the phone layout) puts the sheet away for good.
@@ -426,7 +429,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                         )}
                         {canEditBoard && <GridSizeButton board={board} boards={deck.boards} statusText={statusText} />}
                         {deckIndicator}
-                        {isCompactSpace && <EditKeysToggle isEditing={isEditingSpace} onChange={setEditingSpace} />}
+                        {isCompactSpace && maySpaceBeEdited && <EditKeysToggle isEditing={isEditingSpace} onChange={setEditingSpace} />}
                       </>
                     )
                   }
