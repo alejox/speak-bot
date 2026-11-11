@@ -19,6 +19,7 @@ import type {
   UiLanguage,
   Application,
 } from "@speed-deck/core";
+import { AndroidSpeechSynthesizer, findAndroidSpeechBridge } from "../adapters/android-speech-synthesizer";
 import { createLocalBoardStore, createRemoteBoardStore, type BoardStore } from "../adapters/board-stores";
 import { getLocalStorage, migrateLegacyStorageKeys } from "../adapters/browser-storage";
 import { copyText as copyToClipboard } from "../adapters/clipboard";
@@ -211,7 +212,7 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
 export function createAppServices(): AppServices {
   migrateLegacyStorageKeys(getLocalStorage());
   return {
-    synthesizer: new WebSpeechSynthesizer(),
+    synthesizer: createLocalSynthesizer(),
     boards: createLocalBoardStore(new LocalStorageBoardRepository(), createId),
     settings: new LocalStorageSettingsStore(),
     language: new LocalStorageLanguageStore(),
@@ -219,4 +220,10 @@ export function createAppServices(): AppServices {
     recentPhrases: new LocalStorageRecentPhrasesStore(),
     desktop: createDesktopServices(),
   };
+}
+
+/** Speech on this device: Android's TextToSpeech inside the Android app (its WebView has no speechSynthesis), else the Web Speech API. */
+function createLocalSynthesizer(): AppSpeechSynthesizer {
+  const android = findAndroidSpeechBridge(globalThis);
+  return android ? new AndroidSpeechSynthesizer(android.bridge, android.subscribe) : new WebSpeechSynthesizer();
 }
