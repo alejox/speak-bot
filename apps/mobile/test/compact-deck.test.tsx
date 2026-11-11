@@ -1,5 +1,5 @@
 import { makeBoard, type Board, type Key } from "@speed-deck/core";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { boardOf, desktopState, renderRemoteApp, setScreen, speakKey } from "./app-fakes";
 import { goTo } from "./i18n-helpers";
@@ -86,3 +86,49 @@ describe("the Deck on a phone, while playing", () => {
 });
 
 export { volume };
+
+describe("the Deck's keys on a phone, while playing", () => {
+  const grid = () => screen.getByRole("list", { name: "Keys of Stream" });
+  const cells = () => within(grid()).getAllByRole("listitem");
+  const cellOf = (slot: number) => grid().querySelector<HTMLElement>(`[data-slot="${slot}"]`);
+  const sevenScenes = () => Array.from({ length: 7 }, (_, slot) => scene(slot, `Scene ${slot}`));
+
+  it("draws only the keys, on the rows and columns they use, each in its own place", async () => {
+    setScreen(PHONE_SIDEWAYS);
+    await openDeck(sevenScenes());
+    expect(cells()).toHaveLength(7);
+    expect(grid().style.getPropertyValue("--grid-columns")).toBe("4");
+    expect(grid().style.getPropertyValue("--grid-rows")).toBe("2");
+    // Slot 5 is the second row, second column, wherever the empty cells around it went.
+    expect(cellOf(5)!.style.getPropertyValue("--cell-row")).toBe("2");
+    expect(cellOf(5)!.style.getPropertyValue("--cell-column")).toBe("2");
+  });
+
+  it("keeps a gap inside the keys it uses, and drops only the empty rows and columns after them", async () => {
+    setScreen(PHONE_SIDEWAYS);
+    await openDeck([scene(0, "Intro"), scene(9, "Outro")]);
+    expect(cells()).toHaveLength(2);
+    expect(grid().style.getPropertyValue("--grid-columns")).toBe("2");
+    expect(grid().style.getPropertyValue("--grid-rows")).toBe("3");
+    expect(cellOf(9)!.style.getPropertyValue("--cell-row")).toBe("3");
+    expect(cellOf(9)!.style.getPropertyValue("--cell-column")).toBe("2");
+  });
+
+  it("turns the used rows into columns when the phone is upright", async () => {
+    setScreen(PHONE_UPRIGHT);
+    await openDeck(sevenScenes());
+    expect(grid().style.getPropertyValue("--grid-columns")).toBe("2");
+    expect(grid().style.getPropertyValue("--grid-rows")).toBe("4");
+    expect(cellOf(5)!.style.getPropertyValue("--cell-row")).toBe("2");
+    expect(cellOf(5)!.style.getPropertyValue("--cell-column")).toBe("2");
+  });
+
+  it("shows the whole board again, empty places and +, while editing", async () => {
+    setScreen(PHONE_SIDEWAYS);
+    const { user } = await openDeck(sevenScenes());
+    await user.click(editToggle()!);
+    expect(cells()).toHaveLength(12);
+    expect(grid().style.getPropertyValue("--grid-rows")).toBe("3");
+    expect(screen.getByRole("button", { name: "Add a key at position 8" })).toBeInTheDocument();
+  });
+});

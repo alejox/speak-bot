@@ -112,3 +112,12 @@
     min-width: 0;
   }
 }
+
+/*
+ * The keys: the page is never taller than the room left, so it never scrolls. A key may shrink to a 48px
+ * target (instead of the 88px kept on tablets) before the window would have to scroll. While playing the
+ * page draws only its keys on the rows and columns they reach (BoardPlayer), so they come out larger.
+ */
+.app-space .deck-compact .deck-grid-area {
+  --key-min: var(--compact-target);
+}

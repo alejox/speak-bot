@@ -32,14 +32,33 @@ function addIndexOnPage(used: readonly boolean[]): number {
   return lastUsedIndex < used.length - 1 ? lastUsedIndex + 1 : used.findIndex((isUsed) => !isUsed);
 }
 
-/** Where a key covering several cells is drawn: its first row and column (1-based) and how many it covers, on screen. */
-function cellPlacement(index: number, key: Key, columns: number, transposed: boolean): CSSProperties | undefined {
+/**
+ * Where a key is drawn: its first row and column (1-based) and how many it covers, on screen. Only keys
+ * covering several cells need it, unless `always` (a page drawn without its empty cells).
+ */
+function cellPlacement(index: number, key: Key, columns: number, transposed: boolean, always = false): CSSProperties | undefined {
   const span = keySpanOf(key);
-  if (span.rows === 1 && span.columns === 1) return undefined;
+  if (!always && span.rows === 1 && span.columns === 1) return undefined;
   const row = Math.floor(index / columns);
   const column = index % columns;
   const [drawnRow, drawnColumn, rowSpan, columnSpan] = transposed ? [column, row, span.columns, span.rows] : [row, column, span.rows, span.columns];
   return { "--cell-row": drawnRow + 1, "--cell-column": drawnColumn + 1, "--row-span": rowSpan, "--column-span": columnSpan } as CSSProperties;
+}
+
+/**
+ * How many of the board's columns and rows (from the first) a page's keys reach, at least one of each:
+ * the page played on a phone drops the empty ones after them and keeps the gaps between keys.
+ */
+function usedExtent(keys: readonly (Key | undefined)[], columns: number): { columns: number; rows: number } {
+  let usedColumns = 1;
+  let usedRows = 1;
+  keys.forEach((key, index) => {
+    if (!key) return;
+    const span = keySpanOf(key);
+    usedColumns = Math.max(usedColumns, (index % columns) + span.columns);
+    usedRows = Math.max(usedRows, Math.floor(index / columns) + span.rows);
+  });
+  return { columns: usedColumns, rows: usedRows };
 }
 
 interface BoardPlayerProps {
@@ -64,8 +83,8 @@ interface BoardPlayerProps {
   /** A row between the header and the keys that stays the same on every page (the Voice quick phrases). */
   strip?: ReactNode;
   /**
-   * A phone-sized window: the deck shows only what playing needs. Without editing (no onEditKey) the pager
-   * shows only for boards of several pages.
+   * A phone-sized window: the deck shows only what playing needs. Without editing (no onEditKey) the page
+   * draws only its keys, on the rows and columns they reach, and the pager shows only for several pages.
    */
   compact?: boolean;
   /** "dock" is the compact layout for the OBS dock. */
@@ -149,8 +168,11 @@ export function BoardPlayer({
 
   const isTransposed = isPortraitBoard && board.columns !== board.rows;
   const cellIndexes = displayedCellIndexes(board.columns, board.rows, isTransposed);
+  // Playing on a phone: no empty cells, and the keys get the room of the rows and columns nobody uses.
+  const isPlaying = compact && !canEdit;
+  const extent = isPlaying ? usedExtent(keys, board.columns) : { columns: board.columns, rows: board.rows };
   // The page's drawn columns and rows; its box reads them too, to keep room for keys large enough to use.
-  const gridSize = { "--grid-columns": isTransposed ? board.rows : board.columns, "--grid-rows": isTransposed ? board.columns : board.rows } as CSSProperties;
+  const gridSize = { "--grid-columns": isTransposed ? extent.rows : extent.columns, "--grid-rows": isTransposed ? extent.columns : extent.rows } as CSSProperties;
   const shownPageCount = Math.max(pageCount, page + 1);
   // Past the last page, "next" opens a new one for editors, up to the board limit.
   const opensNewPage = canEdit && page >= shownPageCount - 1 && shownPageCount < MAX_BOARD_PAGES;
@@ -338,6 +360,7 @@ export function BoardPlayer({
             if (covered.has(slot)) return null;
             const dropClass = dropSlot === slot ? "deck-key-drop" : "";
             if (!key) {
+              if (isPlaying) return null;
               return (
                 <li key={slot} data-slot={slot}>
                   {onEditKey && index === plusIndex ? (
@@ -371,7 +394,8 @@ export function BoardPlayer({
             // Why the key is offline, or that it is being said: hidden text the key points to.
             const description = reason ?? (speaking ? t("key.speaking") : undefined);
             const descriptionId = `${descriptionPrefix}-${slot}`;
-            const placement = cellPlacement(index, key, board.columns, isTransposed);
+            // Without the empty cells every key needs its own place to stay where it is on the board.
+            const placement = cellPlacement(index, key, board.columns, isTransposed, isPlaying);
             const cellClass = [canEdit ? "deck-slot" : "", placement ? "deck-cell-span" : ""].filter(Boolean).join(" ") || undefined;
             const menu = canEdit && !isFixed && (
               <>
