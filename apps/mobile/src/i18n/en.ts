@@ -76,6 +76,11 @@ export const en = {
   "boards.restored": "The “{name}” board was restored.",
 
   "board.addPage": "New page",
+  "start.recordTitle": "Start recording?",
+  "start.recordYes": "Start recording",
+  "start.streamTitle": "Start streaming?",
+  "start.streamYes": "Start streaming",
+  "start.cancel": "Cancel",
   "grid.open": "Grid size",
   "grid.title": "Grid size",
   "grid.columns": "Columns",

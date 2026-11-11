@@ -20,6 +20,7 @@ import { RecentPhrases } from "../components/RecentPhrases";
 import { SectionView } from "../components/SectionView";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { SideNav, type NavItem } from "../components/SideNav";
+import { useConfirmedRun } from "../components/StartConfirmation";
 import { VoicePanel } from "../components/VoicePanel";
 import { obsTone } from "../components/StatusDot";
 import { I18nProvider, useMessageText, useT } from "../i18n/I18nProvider";
@@ -166,6 +167,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const space = spaceOfSection(section);
   const deck = space ? spaces[space] : null;
   const board = deck?.navigation.board ?? null;
+  // Starting a recording or a stream asks first, from a key or from the editor's Test button.
+  const confirmed = useConfirmedRun(deck?.run, deck?.obs ?? null, statusText);
   const inspectedKey = inspected && board?.id === inspected.boardId ? board.keys.find((key) => key.slot === inspected.slot) : undefined;
   // The panel only shows while its key (or the action chosen for its slot) is still on the board on screen.
   const inspection = isWide && inspected && board?.id === inspected.boardId && (inspectedKey || inspected.assignedType) ? inspected : null;
@@ -319,7 +322,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                 <BoardPlayer
                   navigation={deck.navigation}
                   context={deck.context}
-                  onRun={deck.run}
+                  onRun={confirmed.run}
                   isSpeaking={speech.isSpeaking}
                   onEditKey={openKey}
                   selectedSlot={inspection?.slot ?? null}
@@ -423,7 +426,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
           boardKind={board.kind}
           boards={deck.boards.boards}
           obs={target.obs}
-          onTest={deck.run}
+          onTest={confirmed.run}
           onSave={async (key) => {
             const saved = await deck.saveKey(key, inspectedKey);
             if (saved) setInspected({ boardId: board.id, slot: key.slot });
@@ -458,7 +461,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
           boardKind={board.kind}
           boards={deck.boards.boards}
           obs={target.obs}
-          onTest={deck.run}
+          onTest={confirmed.run}
           onSave={async (key) => {
             const saved = await deck.saveKey(key, board.keys.find((candidate) => candidate.slot === dialogSlot));
             if (saved) setDialogSlot(null);
@@ -473,6 +476,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
           statusText={statusText}
         />
       )}
+      {confirmed.dialog}
     </div>
   );
 }

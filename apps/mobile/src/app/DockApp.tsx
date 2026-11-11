@@ -9,6 +9,7 @@ import type { Message } from "../i18n/messages";
 import type { AppServices } from "./composition-root";
 import { useDeck } from "./use-deck";
 import { useLanguagePreference } from "./use-language-preference";
+import { useConfirmedRun } from "../components/StartConfirmation";
 import { useSpeech } from "./use-speech";
 import { useSpeechTarget, type SpeechTarget } from "./use-speech-target";
 
@@ -49,6 +50,8 @@ function DockContent({ target }: { target: SpeechTarget }) {
   const [dialogSlot, setDialogSlot] = useState<number | null>(null);
   const [text, setText] = useState("");
   const board = deck.navigation.board;
+  // Starting a recording or a stream asks first, from a key or from the editor's Test button.
+  const confirmed = useConfirmedRun(deck.run, deck.obs, statusText);
 
   return (
     <main className="dock-main">
@@ -67,7 +70,7 @@ function DockContent({ target }: { target: SpeechTarget }) {
         variant="dock"
         navigation={deck.navigation}
         context={deck.context}
-        onRun={deck.run}
+        onRun={confirmed.run}
         isSpeaking={speech.isSpeaking}
         onEditKey={setDialogSlot}
         onDeleteKey={deck.clearKey}
@@ -94,7 +97,7 @@ function DockContent({ target }: { target: SpeechTarget }) {
           boardKind={board.kind}
           boards={deck.boards.boards}
           obs={target.obs}
-          onTest={deck.run}
+          onTest={confirmed.run}
           onSave={async (key) => {
             const saved = await deck.saveKey(key, board.keys.find((candidate) => candidate.slot === dialogSlot));
             if (saved) setDialogSlot(null);
@@ -109,6 +112,7 @@ function DockContent({ target }: { target: SpeechTarget }) {
           statusText={statusText}
         />
       )}
+      {confirmed.dialog}
     </main>
   );
 }

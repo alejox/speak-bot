@@ -79,6 +79,11 @@ export const es: Messages = {
   "boards.restored": "Se restauró el tablero «{name}».",
 
   "board.addPage": "Página nueva",
+  "start.recordTitle": "¿Iniciar la grabación?",
+  "start.recordYes": "Iniciar grabación",
+  "start.streamTitle": "¿Iniciar la transmisión?",
+  "start.streamYes": "Iniciar transmisión",
+  "start.cancel": "Cancelar",
   "grid.open": "Tamaño de la cuadrícula",
   "grid.title": "Tamaño de la cuadrícula",
   "grid.columns": "Columnas",
