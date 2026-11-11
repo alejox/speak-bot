@@ -8,6 +8,11 @@ import {
   BoardNotFoundError,
   clearKey,
   createBoard,
+  createFolder,
+  isValidKeySlot,
+  parseBoardId,
+  type CreateFolderResponse,
+  type KeyRef,
   DEFAULT_BOARD_ID,
   deleteBoard,
   DESKTOP_SERVER_NAME,
@@ -229,6 +234,17 @@ export function createApiHandler(deps: ApiDependencies) {
       },
     },
     {
+      /** A folder in a board and the key that opens it, in one step. */
+      method: "POST",
+      path: "/api/boards/:id/folders",
+      handler: async (request, response, { id }) => {
+        const { slot, label, icon, color } = asObject(await readJsonBody(request));
+        const created: CreateFolderResponse = await createFolder({ repository, generateId }, id!, { slot, label, icon, color });
+        boardsChanged();
+        sendJson(response, 201, created);
+      },
+    },
+    {
       method: "DELETE",
       path: "/api/boards/:id/keys/:slot",
       handler: async (_request, response, { id, slot }) => {
@@ -243,8 +259,9 @@ export function createApiHandler(deps: ApiDependencies) {
       method: "POST",
       path: "/api/actions/execute",
       handler: async (request, response) => {
-        const { action } = asObject(await readJsonBody(request));
-        const result = await executor.execute(parseAction(action));
+        const { action, key } = asObject(await readJsonBody(request));
+        const parsedKey = key === undefined ? undefined : parseKeyRef(key);
+        const result = await executor.execute(parseAction(action), parsedKey ? { key: parsedKey } : {});
         sendJson(response, result.status, result.body);
       },
     },
@@ -550,6 +567,17 @@ function parseObsName(segment: string): string {
 }
 
 /** A slot from the URL: digits only, range checked by the use cases. */
+function parseKeyRef(value: unknown): KeyRef {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw new HttpError(400, "key must be an object.");
+  const { boardId, slot } = value as Record<string, unknown>;
+  if (!isValidKeySlot(slot)) throw new HttpError(400, "key.slot must be a key slot.");
+  try {
+    return { boardId: parseBoardId(boardId), slot };
+  } catch {
+    throw new HttpError(400, "key.boardId must be a board id.");
+  }
+}
+
 function parseSlot(segment: string): number {
   if (!/^\d{1,6}$/.test(segment)) throw new HttpError(400, "slot must be a non-negative integer.");
   return Number(segment);

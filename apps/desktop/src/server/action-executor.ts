@@ -9,7 +9,10 @@ import {
   voiceLanguageOf,
   type Action,
   type ApplicationLauncher,
+  type ActionOf,
   type DesktopSettings,
+  type KeyRef,
+  type MultiActionStepFailure,
   type ObsController,
   type ServerEvent,
   type SpeakErrorCode,
@@ -51,6 +54,14 @@ export interface ActionExecutorDependencies {
   obs?: ObsController;
   /** Opens applications for `system.openApp`; absent means this computer cannot. */
   apps?: ApplicationLauncher;
+  /** Waits before a multi-action step; a timer by default. */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+/** What else an action run needs to know. */
+export interface ExecuteOptions {
+  /** The key pressed: a multi-action runs once per key at a time, and clients show that key running. */
+  key?: KeyRef;
 }
 
 /** Per-request speech overrides; anything left out comes from the saved settings. */
@@ -62,7 +73,8 @@ export interface SpeechOverrides {
 /** 202 when speech started in the background, 200 when the action is done. */
 export interface ExecuteResult {
   status: 200 | 202;
-  body: { ok: true; captionsVisible?: boolean; voiceLanguage?: UiLanguage };
+  /** `ignored`: a multi-action that was already running for the same key, so nothing new started. */
+  body: { ok: true; captionsVisible?: boolean; voiceLanguage?: UiLanguage; ignored?: true };
 }
 
 /** Runs the actions the desktop owns: voice, captions and OBS. Keeps the speech state for repeat and stop. */
@@ -77,6 +89,10 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
   let lastSpokenText: string | undefined;
   // Listing system voices spawns a process, so a non-empty list is kept for the server's lifetime.
   let cachedVoices: Promise<Voice[]> | undefined;
+
+  // Multi-actions running now, by run id (see `runMultiAction`).
+  const runningSequences = new Set<string>();
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
 
   // Someone is typing something to say; turned off here when the client stops refreshing it.
   let composingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -201,7 +217,39 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
     await deps.apps.open(listed.id);
   }
 
-  async function execute(action: Action): Promise<ExecuteResult> {
+  /**
+   * Starts a multi-action in the background: each step waits its delay, then runs like a key of its own. A step
+   * that fails is logged and reported in the "end" event, and the steps after it still run. While a run is going,
+   * pressing the same key (or, without a key, sending the same steps) is ignored.
+   */
+  function runMultiAction(action: ActionOf<"system.multiAction">, key: KeyRef | undefined): ExecuteResult {
+    const runId = key ? `${key.boardId}:${key.slot}` : JSON.stringify(action.steps);
+    if (runningSequences.has(runId)) return { status: 200, body: { ok: true, ignored: true } };
+    runningSequences.add(runId);
+    const keyPart = key ? { key: { boardId: key.boardId, slot: key.slot } } : {};
+    broadcast({ type: "multi-action", runId, ...keyPart, state: "start", at: now() });
+    void (async () => {
+      const failures: MultiActionStepFailure[] = [];
+      try {
+        for (const [index, step] of action.steps.entries()) {
+          if (step.delayMs > 0) await sleep(step.delayMs);
+          try {
+            await execute(step.action);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            log(`Multi-action step ${index + 1} (${step.action.type}) failed: ${message}`);
+            failures.push({ index, type: step.action.type, message });
+          }
+        }
+      } finally {
+        runningSequences.delete(runId);
+        broadcast({ type: "multi-action", runId, ...keyPart, state: "end", failures, at: now() });
+      }
+    })();
+    return { status: 202, body: { ok: true } };
+  }
+
+  async function execute(action: Action, { key }: ExecuteOptions = {}): Promise<ExecuteResult> {
     switch (action.type) {
       case "voice.speak":
         await speak(action.text);
@@ -253,7 +301,7 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
         await openApplication(action.appId);
         return { status: 200, body: { ok: true } };
       case "system.multiAction":
-        throw new Error("Multi-actions are not supported yet.");
+        return runMultiAction(action, key);
     }
   }
 

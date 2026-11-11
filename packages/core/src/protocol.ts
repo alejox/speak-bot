@@ -2,7 +2,7 @@
  * Wire protocol shared by the desktop server and its clients (mobile app, OBS overlay).
  * Pure types and tiny guards only: no runtime dependencies.
  */
-import type { Action } from "./domain/actions";
+import type { Action, ActionType } from "./domain/actions";
 import type { Board, BoardKind, Key, KeySpan } from "./domain/board";
 import type { Application } from "./ports/application-launcher";
 import type { ObsConnectionStatus, ObsErrorCode, ObsInput, ObsSceneItem, ObsState } from "./ports/obs-controller";
@@ -112,6 +112,34 @@ export interface ComposingEvent {
 /** The desktop turns the composing flag off by itself this long after the last PUT /api/composing. */
 export const COMPOSING_TIMEOUT_MS = 10_000;
 
+/** A key on a board, e.g. the one whose multi-action is running. */
+export interface KeyRef {
+  readonly boardId: string;
+  readonly slot: number;
+}
+
+/** A step of a multi-action that failed; the steps after it still ran. */
+export interface MultiActionStepFailure {
+  /** 0-based position of the step. */
+  readonly index: number;
+  readonly type: ActionType;
+  /** Technical detail in English. */
+  readonly message: string;
+}
+
+/**
+ * A multi-action started or ended on the desktop. `runId` names the run (`<boardId>:<slot>` when the key that
+ * started it is known, which `key` then holds). On "end", `failures` lists the steps that failed.
+ */
+export interface MultiActionEvent {
+  readonly type: "multi-action";
+  readonly runId: string;
+  readonly key?: KeyRef;
+  readonly state: "start" | "end";
+  readonly failures?: readonly MultiActionStepFailure[];
+  readonly at: number;
+}
+
 /** The remove-ads license was activated, removed or re-validated on the computer. */
 export interface LicenseChangedEvent {
   readonly type: "license-changed";
@@ -120,6 +148,7 @@ export interface LicenseChangedEvent {
 }
 
 export type ServerEvent =
+  | MultiActionEvent
   | LicenseChangedEvent
   | SettingsChangedEvent
   | ComposingEvent
@@ -160,11 +189,24 @@ export function isServerEvent(value: unknown): value is ServerEvent {
       return typeof event.inputName === "string" && typeof event.volumeMul === "number" && Number.isFinite(event.volumeMul);
     case "license-changed":
       return isLicenseResponse(event.license);
+    case "multi-action":
+      return (
+        typeof event.runId === "string" &&
+        (event.state === "start" || event.state === "end") &&
+        (event.key === undefined || isKeyRef(event.key)) &&
+        (event.failures === undefined || Array.isArray(event.failures))
+      );
     case "settings-changed":
       return typeof event.settings === "object" && event.settings !== null && isUiLanguage((event.settings as { language?: unknown }).language);
     default:
       return false;
   }
+}
+
+function isKeyRef(value: unknown): value is KeyRef {
+  if (typeof value !== "object" || value === null) return false;
+  const key = value as Record<string, unknown>;
+  return typeof key.boardId === "string" && typeof key.slot === "number";
 }
 
 function isLicenseResponse(value: unknown): value is LicenseResponse {
@@ -268,10 +310,28 @@ export interface RestoreDefaultBoardRequest {
 
 /**
  * POST /api/actions/execute → 200 `{ ok: true }` (202 for speech, which runs in the background).
- * Navigation actions run in each client → 400 "client-action".
+ * Navigation actions run in each client → 400 "client-action". A multi-action → 202 when it started
+ * (it runs in the background and reports through `multi-action` events), or 200 `{ ok: true, ignored: true }`
+ * while the same key's sequence still runs.
  */
 export interface ExecuteActionRequest {
   action: Action;
+  /** The key pressed, so a multi-action runs once per key at a time and clients can show it running. */
+  key?: KeyRef;
+}
+
+/** POST /api/boards/:id/folders → 201 `CreateFolderResponse`: a folder in that board and the key that opens it. */
+export interface CreateFolderRequest {
+  slot: number;
+  /** The key's label and the folder's name. */
+  label: string;
+  icon?: string;
+  color?: string;
+}
+
+export interface CreateFolderResponse {
+  folder: Board;
+  key: Key;
 }
 
 export type { Board, Key };

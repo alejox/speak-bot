@@ -21,8 +21,8 @@ User request 2026-11-11 after the competitor research (Elgato Multi Action and F
 - Works on the desktop and paired phones (boards sync as today) and in phone-only mode.
 
 ## Tasks
-- [x] F1 — Core: folder boards (kind, parent link, hidden), `nav.openFolder`, Back key rules, cascade delete, depth limit, reflow and grid rules; multi-action action shape and validation; tests. Route: delegated. Commit `F1_HASH`. RED: new `folders.test.ts` + `multi-action.test.ts` 22/23 failed with the source changes stashed; GREEN: core 18 files / 221 tests; `npm run typecheck` clean, `npm test` all workspaces green (desktop 250, electron 24, mobile 384).
-- [ ] F2 — Desktop: sequential multi-action runner with delays, failure reporting, one-run-per-key, running-state events; API for folder create/delete if needed; tests. Route: delegated.
+- [x] F1 — Core: folder boards (kind, parent link, hidden), `nav.openFolder`, Back key rules, cascade delete, depth limit, reflow and grid rules; multi-action action shape and validation; tests. Route: delegated. Commit `bb61e70`. RED: new `folders.test.ts` + `multi-action.test.ts` 22/23 failed with the source changes stashed; GREEN: core 18 files / 221 tests; `npm run typecheck` clean, `npm test` all workspaces green (desktop 250, electron 24, mobile 384).
+- [x] F2 — Desktop: sequential multi-action runner with delays, failure reporting, one-run-per-key, running-state events; API for folder create/delete if needed; tests. Route: delegated. Commit `F2_HASH`. RED: `multi-action-runner.test.ts` (fake timers) + `folders-api.test.ts` 8/8 failed before the runner and route existed; GREEN: desktop 33 files / 258 tests; `npm run typecheck` clean, `npm test` all workspaces green (core 221, electron 24, mobile 384).
 - [ ] F3 — Mobile: folder navigation + Back + breadcrumb, folder key creation/deletion; multi-action editor and running state; start confirmation for sequences; en/es; tests. Route: delegated.
 
 ## Acceptance
@@ -38,6 +38,12 @@ User request 2026-11-11 after the competitor research (Elgato Multi Action and F
 - Multi-action: `system.multiAction { steps: { action, delayMs }[] }`, 2–10 steps, 0–10 000 ms; steps must be server actions other than volume sliders and multi-actions, and allowed on the board's kind (`isKeyActionAllowedOnBoard`).
 - New icon id `folder` (Lucide Folder); multi-action default icon `clock`.
 
+## Implementation notes (F2)
+- `POST /api/actions/execute` takes an optional `key: { boardId, slot }`. A multi-action answers 202 and runs in the background; the same key (or, without a key, the same steps) pressed again while it runs answers 200 `{ ok: true, ignored: true }`.
+- Events: `multi-action` with `runId`, `key`, `state: "start" | "end"`, and on end `failures: [{ index, type, message }]`. Failed steps are logged; the rest still run.
+- `POST /api/boards/:id/folders { slot, label, icon?, color? }` → 201 `{ folder, key }`; deleting the key (`DELETE /api/boards/:id/keys/:slot`) deletes the folder through the core cascade.
+
 ## Progress
 - Created 2026-11-11.
 - F1 done (core).
+- F2 done (desktop).
