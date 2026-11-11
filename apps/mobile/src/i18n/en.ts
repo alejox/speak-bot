@@ -31,6 +31,7 @@ export const en = {
   "composer.region": "Type to speak",
   "composer.textLabel": "Text to speak",
   "composer.placeholder": "Type what you want to say…",
+  "composer.clear": "Clear text",
   "composer.speak": "Speak",
   "composer.stop": "Stop",
   "composer.save": "Save as key",

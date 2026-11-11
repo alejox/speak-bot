@@ -1,4 +1,4 @@
-import { BookmarkPlus, Square, Volume2 } from "lucide-react";
+import { BookmarkPlus, Square, Volume2, X } from "lucide-react";
 import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import { useT } from "../i18n/I18nProvider";
 
@@ -19,7 +19,8 @@ export interface ComposerHandle {
 
 /**
  * Type to speak: a text box two lines tall that grows with what is typed (the stylesheet caps it and
- * scrolls from there), the Speak action, and Stop and Save on one row.
+ * scrolls from there) with a button to empty it while it holds text, the Speak action, and Stop and Save
+ * on one row.
  */
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer({ text, isSpeaking, onTextChange, onSpeak, onStop, onSave }, ref) {
   const t = useT();
@@ -48,17 +49,34 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       <label htmlFor="composer-text" className="visually-hidden">
         {t("composer.textLabel")}
       </label>
-      <textarea
-        ref={textarea}
-        id="composer-text"
-        className="composer-text"
-        value={text}
-        rows={2}
-        placeholder={t("composer.placeholder")}
-        enterKeyHint="send"
-        onChange={(event) => onTextChange(event.target.value)}
-        onKeyDown={handleKeyDown}
-      />
+      <div className="composer-field">
+        <textarea
+          ref={textarea}
+          id="composer-text"
+          className={text === "" ? "composer-text" : "composer-text composer-text-clearable"}
+          value={text}
+          rows={2}
+          placeholder={t("composer.placeholder")}
+          enterKeyHint="send"
+          onChange={(event) => onTextChange(event.target.value)}
+          onKeyDown={handleKeyDown}
+        />
+        {text !== "" && (
+          // Only the text goes: nothing is said, and the recent phrases and the captions stay.
+          <button
+            type="button"
+            className="icon-button composer-clear"
+            aria-label={t("composer.clear")}
+            title={t("composer.clear")}
+            onClick={() => {
+              onTextChange("");
+              textarea.current?.focus();
+            }}
+          >
+            <X size={ICON_SIZE} aria-hidden="true" focusable="false" />
+          </button>
+        )}
+      </div>
       <button type="button" className="button button-primary composer-speak" onClick={onSpeak}>
         <Volume2 size={ICON_SIZE + 4} aria-hidden="true" focusable="false" />
         {t("composer.speak")}

@@ -34,6 +34,7 @@ export const es: Messages = {
   "composer.region": "Escribe para hablar",
   "composer.textLabel": "Texto para decir",
   "composer.placeholder": "Escribe lo que quieres decir…",
+  "composer.clear": "Borrar texto",
   "composer.speak": "Hablar",
   "composer.stop": "Detener",
   "composer.save": "Guardar como tecla",
