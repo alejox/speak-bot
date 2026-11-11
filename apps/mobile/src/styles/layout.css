@@ -59,6 +59,13 @@
 }
 
 @media (min-width: 720px) {
+  /* The shell fills the window and its columns scroll on their own; the page itself never scrolls. */
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
   .app {
     height: 100vh;
     height: 100dvh;

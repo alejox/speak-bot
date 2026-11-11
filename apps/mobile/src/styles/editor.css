@@ -300,6 +300,11 @@
   cursor: pointer;
 }
 
+/* The label takes the row so a check mark sits at the item's end. */
+.menu-item-label {
+  flex: 1;
+}
+
 .menu-item:hover,
 .menu-item:focus-visible {
   background: var(--color-surface-sunken);
@@ -329,9 +334,10 @@
   position: relative;
 }
 
+/* The board pill sits at the start of the header, so its menu opens from the pill's left edge. */
 .board-menu-popover {
   top: calc(100% + var(--space-1));
-  right: 0;
+  left: 0;
 }
 
 /*

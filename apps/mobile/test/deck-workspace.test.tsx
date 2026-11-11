@@ -87,8 +87,10 @@ describe("Deck workspace on wide screens", () => {
   });
 
   it("docks the key inspector beside the workspace, not inside it", async () => {
-    await openLocalDeck();
-    const panel = screen.getByRole("complementary", { name: "New key" });
+    const { user } = await openLocalDeck();
+    await user.click(screen.getByRole("button", { name: "Add a key at position 2" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Start or stop stream" }));
+    const panel = await screen.findByRole("complementary", { name: "Key 2" });
     expect(screen.getByRole("main")).not.toContainElement(panel);
   });
 });

@@ -77,10 +77,6 @@ export const en = {
 
   "board.addPage": "New page",
   "inspector.label": "Key {number}",
-  "inspector.empty.title": "New key",
-  "inspector.empty.hint": "Add a key, or right-click a key to edit it.",
-  "inspector.empty.add": "Add key",
-  "inspector.empty.pageFull": "This page is full. Go to another page to add a key.",
   "keyMenu.label": "Key {number}: {label}",
   "keyMenu.options": "Options for key {number}",
   "keyMenu.edit": "Edit",
