@@ -62,6 +62,39 @@
   white-space: nowrap;
 }
 
+/* Where an open folder is ("Deck › Scenes"), in place of the board pill. */
+.folder-path {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.folder-path ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-height: var(--size-control);
+  margin: 0;
+  padding: 0 var(--space-4);
+  list-style: none;
+  font-weight: var(--weight-semibold);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+}
+
+.folder-path li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.folder-path li:not([aria-current]) {
+  color: var(--color-text-muted);
+}
+
+.folder-path-separator {
+  white-space: pre;
+  color: var(--color-text-muted);
+}
+
 /*
  * Large keys straight on the page: 4 columns on wide screens, 3 when the deck is narrow. A page holds the
  * board's columns × rows keys (--grid-columns, --grid-rows); only the wide workspace lays them out that way.

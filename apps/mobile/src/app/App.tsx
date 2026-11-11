@@ -1,4 +1,4 @@
-import { ACTION_REGISTRY, keysPerPage, MAX_BOARD_PAGES, type ActionType, type Board, type BoardKind } from "@speed-deck/core";
+import { folderDepth, folderPath, isFolderBoard, keysPerPage, MAX_BOARD_PAGES, MAX_FOLDER_DEPTH, type ActionType, type Board, type BoardKind } from "@speed-deck/core";
 import { LayoutGrid, MessageSquare, Settings, Smartphone, Video } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import {
@@ -9,6 +9,7 @@ import {
 } from "../adapters/local-storage-board-position-store";
 import { BoardMenu } from "../components/BoardMenu";
 import { BoardPlayer } from "../components/BoardPlayer";
+import { FolderBreadcrumb } from "../components/FolderBreadcrumb";
 import { GridSizeButton } from "../components/GridSizeButton";
 import { Composer, type ComposerHandle } from "../components/Composer";
 import { ConnectPanel } from "../components/ConnectPanel";
@@ -34,7 +35,7 @@ import { isDesktopShell } from "./desktop-shell";
 import { useAppearance, type AppearancePreference } from "./use-appearance";
 import { useConnection } from "./use-connection";
 import { useSpaceDecks } from "./use-deck";
-import { actionOnlyKey } from "./key-draft";
+import { actionOnlyKey, needsDetails } from "./key-draft";
 import { useLanguagePreference, type LanguagePreference } from "./use-language-preference";
 import { useMonetization } from "./use-monetization";
 import { INSPECTOR_QUERY, SHORT_SIDEBAR_QUERY, TAB_BAR_QUERY, useMediaQuery } from "./use-media-query";
@@ -183,7 +184,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   // Each deck board is a menu item of its own (the Deck section on that board). The phone tab bar has no
   // room for them, so it keeps one Deck tab and leaves switching boards to the board pill.
   const deckBoards = isTabBar ? [] : spaces.deck.spaceBoards;
-  const deckBoardOnScreen = section === "deck" ? spaces.deck.navigation.board : null;
+  // Inside a folder, the board it is in stays the active menu item.
+  const deckBoardOnScreen = section === "deck" && spaces.deck.navigation.board ? (folderPath(spaces.deck.boards.boards, spaces.deck.navigation.board.id)[0] ?? null) : null;
   const deckItems: NavItem<string>[] =
     deckBoards.length === 0
       ? [{ id: "deck", label: t("nav.deck"), icon: SECTION_ICONS.deck }]
@@ -209,6 +211,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const space = spaceOfSection(section);
   const deck = space ? spaces[space] : null;
   const board = deck?.navigation.board ?? null;
+  // Folders go only so deep: a board that deep offers no Folder key.
+  const canAddFolder = board !== null && deck !== null && folderDepth(deck.boards.boards, board) < MAX_FOLDER_DEPTH;
   // Starting a recording or a stream asks first, from a key or from the editor's Test button.
   const confirmed = useConfirmedRun(deck?.run, deck?.obs ?? null, statusText);
   const inspectedKey = inspected && board?.id === inspected.boardId ? board.keys.find((key) => key.slot === inspected.slot) : undefined;
@@ -226,7 +230,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
 
   const pickForSlot = async (slot: number, type: ActionType) => {
     if (!deck || !board) return;
-    if (ACTION_REGISTRY[type].params.length > 0) {
+    if (needsDetails(type)) {
       setPickerSlot(null);
       setInspected({ boardId: board.id, slot, assignedType: type });
       return;
@@ -384,14 +388,18 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   toolbar={
                     board && (
                       <>
-                        <BoardMenu
-                          board={board}
-                          offered={deck.spaceBoards}
-                          boards={deck.boards}
-                          language={language}
-                          onSelect={(boardId) => deck.navigation.go({ boardId, page: 0 })}
-                          statusText={statusText}
-                        />
+                        {isFolderBoard(board) ? (
+                          <FolderBreadcrumb board={board} boards={deck.boards.boards} />
+                        ) : (
+                          <BoardMenu
+                            board={board}
+                            offered={deck.spaceBoards}
+                            boards={deck.boards}
+                            language={language}
+                            onSelect={(boardId) => deck.navigation.go({ boardId, page: 0 })}
+                            statusText={statusText}
+                          />
+                        )}
                         <GridSizeButton board={board} boards={deck.boards} statusText={statusText} />
                         {deckIndicator}
                       </>
@@ -487,6 +495,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
           assignedType={inspectedKey ? undefined : inspection.assignedType}
           boardKind={board.kind}
           boards={deck.boards.boards}
+          canAddFolder={canAddFolder}
           obs={target.obs}
           listApplications={target.listApplications}
           onTest={confirmed.run}
@@ -510,6 +519,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
           key={`${board.id}:${pickerSlot}`}
           slot={pickerSlot}
           boardKind={board.kind}
+          canAddFolder={canAddFolder}
           onPick={(type) => void pickForSlot(pickerSlot, type)}
           onClose={() => setPickerSlot(null)}
           statusText={statusText}
@@ -523,6 +533,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
           existing={board.keys.find((key) => key.slot === dialogSlot)}
           boardKind={board.kind}
           boards={deck.boards.boards}
+          canAddFolder={canAddFolder}
           obs={target.obs}
           listApplications={target.listApplications}
           onTest={confirmed.run}

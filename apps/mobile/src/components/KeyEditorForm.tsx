@@ -10,6 +10,7 @@ import {
   MAX_KEY_LABEL_LENGTH,
   MAX_KEY_SPAN_COLUMNS,
   MAX_KEY_SPAN_ROWS,
+  visibleBoards,
   type Action,
   type ActionType,
   type Board,
@@ -26,6 +27,7 @@ import { useT } from "../i18n/I18nProvider";
 import type { Message, MessageKey } from "../i18n/messages";
 import { ActionParamsFields } from "./ActionParamsFields";
 import { KeyIcon } from "./KeyIcon";
+import { MultiActionSteps } from "./MultiActionSteps";
 
 export interface KeyEditorFormProps {
   /** 0-based slot being edited. */
@@ -59,10 +61,30 @@ export interface KeyEditorFormProps {
   onDraftChange?: (draft: KeyDraft) => void;
   /** Rendered first inside the form (e.g. the dialog title). */
   heading?: ReactNode;
+  /** False when the board is already as deep in folders as they go: Folder is not offered. */
+  canAddFolder?: boolean;
 }
 
 /** Edits one key: action and its parameters, label, icon and color (and its color when on, for keys with an on state); tests, saves and moves it. Deleting lives in the key menu. */
-export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards, obs, listApplications, onSave, onTest, onMove, onCancel, cancelLabel, fixedAction = false, variant = "dialog", onDraftChange, heading }: KeyEditorFormProps) {
+export function KeyEditorForm({
+  slot,
+  existing,
+  assignedType,
+  boardKind,
+  boards,
+  obs,
+  listApplications,
+  onSave,
+  onTest,
+  onMove,
+  onCancel,
+  cancelLabel,
+  fixedAction = false,
+  variant = "dialog",
+  onDraftChange,
+  heading,
+  canAddFolder = true,
+}: KeyEditorFormProps) {
   const t = useT();
   const ids = { action: useId(), spanRows: useId(), spanColumns: useId(), spanHint: useId(), label: useId(), labelHint: useId(), hex: useId(), activeHex: useId(), move: useId(), error: useId() };
   const form = useRef<HTMLFormElement>(null);
@@ -118,7 +140,12 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
 
   // A key opens boards of its own space. A target saved before spaces stays, so editing the key does not lose it.
   const savedTargetId = existing?.action.type === "nav.goToBoard" ? existing.action.boardId : undefined;
-  const targetBoards = boards.filter((board) => board.kind === boardKind || board.id === savedTargetId);
+  const targetBoards = visibleBoards(boards).filter((board) => board.kind === boardKind || board.id === savedTargetId);
+  // A folder key keeps its action: changing it would delete the folder, which only Delete does (and asks first).
+  // A folder is created with a new key, so another key cannot become one.
+  const isFolderKey = existing?.action.type === "nav.openFolder";
+  const offersFolder = canAddFolder && !existing;
+  const showsFixedAction = (fixedAction || isFolderKey) && draft.actionType !== "";
   // A key saved before its action's category left this kind (captions on a deck board) keeps showing its
   // action, alone, so editing the key never loses it; the rest of the list is what the kind offers.
   const offeredCategories = allowedActionCategories(boardKind);
@@ -129,7 +156,7 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
     <form ref={form} className={variant === "inspector" ? "key-editor key-editor-inspector" : "key-editor"} onSubmit={submit} noValidate aria-describedby={error ? ids.error : undefined}>
       {heading}
 
-      {fixedAction && draft.actionType ? (
+      {showsFixedAction && draft.actionType ? (
         <div className="key-editor-action">
           <KeyIcon id={ACTION_REGISTRY[draft.actionType].defaultIcon} size={24} />
           <div>
@@ -153,7 +180,9 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
             {keptType && <option value={keptType}>{t(ACTION_REGISTRY[keptType].labelKey as MessageKey)}</option>}
             {offeredCategories.map((category) => (
               <optgroup key={category} label={t(`category.${category}`)}>
-                {ACTION_TYPES.filter((type) => ACTION_REGISTRY[type].userSelectable && ACTION_REGISTRY[type].category === category).map((type) => (
+                {ACTION_TYPES.filter(
+                  (type) => ACTION_REGISTRY[type].userSelectable && ACTION_REGISTRY[type].category === category && (type !== "nav.openFolder" || offersFolder),
+                ).map((type) => (
                   <option key={type} value={type}>
                     {t(ACTION_REGISTRY[type].labelKey as MessageKey)}
                   </option>
@@ -170,6 +199,18 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
           actionType={draft.actionType}
           values={draft.params}
           onChange={(params) => update({ params })}
+          boards={targetBoards}
+          obs={obs}
+          listApplications={listApplications}
+          invalidField={error?.field}
+        />
+      )}
+
+      {draft.actionType === "system.multiAction" && (
+        <MultiActionSteps
+          steps={draft.steps ?? []}
+          onChange={(steps) => update({ steps })}
+          boardKind={boardKind}
           boards={targetBoards}
           obs={obs}
           listApplications={listApplications}

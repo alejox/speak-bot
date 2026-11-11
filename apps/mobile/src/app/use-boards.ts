@@ -81,9 +81,17 @@ export interface BoardNavigation {
   navigate: (action: NavigationAction) => void;
 }
 
-/** The board and page this client shows, remembered on this device and kept valid when boards change. */
+/** Folders opened one inside another; more than this is never kept. */
+const MAX_TRAIL_LENGTH = 10;
+
+/**
+ * The board and page this client shows, remembered on this device and kept valid when boards change.
+ * Opening a folder remembers where it was opened from, so its Back key returns to that page.
+ */
 export function useBoardNavigation(boards: readonly Board[], store: BoardPositionStore): BoardNavigation {
   const [saved, setSaved] = useState<BoardPosition | null>(() => store.load());
+  // Where each open folder was opened from, innermost last.
+  const trail = useRef<BoardPosition[]>([]);
   const position = resolveBoardPosition(boards, saved);
   const board = boards.find((candidate) => candidate.id === position?.boardId) ?? null;
   const go = (next: BoardPosition) => {
@@ -95,7 +103,17 @@ export function useBoardNavigation(boards: readonly Board[], store: BoardPositio
     board,
     go,
     navigate: (action) => {
-      if (position) go(navigateBoard(boards, position, action));
+      if (!position) return;
+      const next = navigateBoard(boards, position, action);
+      if (action.type === "nav.openFolder" && next.boardId !== position.boardId) {
+        trail.current = [...trail.current, position].slice(-MAX_TRAIL_LENGTH);
+      } else if (action.type === "nav.folderBack") {
+        const from = trail.current.at(-1);
+        trail.current = trail.current.slice(0, -1);
+        // Back to the page the folder was opened from, when that is still the board the folder is in.
+        if (from && from.boardId === next.boardId && next.boardId !== position.boardId) return go(resolveBoardPosition(boards, from) ?? next);
+      }
+      go(next);
     },
   };
 }

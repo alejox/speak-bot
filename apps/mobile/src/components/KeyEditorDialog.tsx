@@ -1,6 +1,6 @@
-import { ACTION_REGISTRY, type ActionType, type BoardKind } from "@speed-deck/core";
+import type { ActionType, BoardKind } from "@speed-deck/core";
 import { useEffect, useRef, useState } from "react";
-import { actionOnlyKey } from "../app/key-draft";
+import { actionOnlyKey, needsDetails } from "../app/key-draft";
 import { useT } from "../i18n/I18nProvider";
 import { ActionPicker } from "./ActionPicker";
 import { KeyEditorForm, type KeyEditorFormProps } from "./KeyEditorForm";
@@ -53,7 +53,7 @@ function AddKeySteps(form: AddKeyStepsProps) {
 
   const pick = (type: ActionType) => {
     setChosen(type);
-    if (ACTION_REGISTRY[type].params.length > 0) {
+    if (needsDetails(type)) {
       setIsDetailing(true);
       return;
     }
@@ -70,7 +70,7 @@ function AddKeySteps(form: AddKeyStepsProps) {
       {isDetailing && chosen ? (
         <KeyEditorForm {...form} assignedType={chosen} fixedAction onCancel={() => setIsDetailing(false)} cancelLabel={t("editor.back")} />
       ) : (
-        <ActionPicker boardKind={form.boardKind} query={query} onQueryChange={setQuery} focusType={chosen} onPick={pick} />
+        <ActionPicker boardKind={form.boardKind} query={query} onQueryChange={setQuery} focusType={chosen} onPick={pick} canAddFolder={form.canAddFolder} />
       )}
     </div>
   );
@@ -82,15 +82,17 @@ interface ActionPickerDialogProps {
   onPick: (type: ActionType) => void;
   onClose: () => void;
   statusText?: string;
+  /** False when the board is already as deep in folders as they go. */
+  canAddFolder?: boolean;
 }
 
 /** Wide screens: the + opens only the action picker; the key's details go to the inspector. */
-export function ActionPickerDialog({ slot, boardKind, onPick, onClose, statusText }: ActionPickerDialogProps) {
+export function ActionPickerDialog({ slot, boardKind, onPick, onClose, statusText, canAddFolder }: ActionPickerDialogProps) {
   const t = useT();
   const [query, setQuery] = useState("");
   return (
     <ModalDialog className="key-editor-dialog" title={t("editor.addTitle", { number: slot + 1 })} onClose={onClose} statusText={statusText}>
-      <ActionPicker boardKind={boardKind} query={query} onQueryChange={setQuery} onPick={onPick} />
+      <ActionPicker boardKind={boardKind} query={query} onQueryChange={setQuery} onPick={onPick} canAddFolder={canAddFolder} />
     </ModalDialog>
   );
 }

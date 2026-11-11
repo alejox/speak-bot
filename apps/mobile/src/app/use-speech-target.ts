@@ -5,6 +5,8 @@ import {
   type AudioDevice,
   type DesktopSettings,
   type DesktopSettingsPatch,
+  type KeyRef,
+  type MultiActionEvent,
   type ObsSettingsPatch,
   type ObsSettingsView,
   type SpeakErrorEvent,
@@ -40,7 +42,9 @@ export interface SpeechTarget {
   /** The boards of the desktop in Computer mode, otherwise of this device. */
   boards: BoardStore;
   /** Runs voice, captions and OBS actions on the desktop; null when speaking on this device. */
-  executeAction: ((action: Action) => Promise<ExecuteActionResult>) | null;
+  executeAction: ((action: Action, key?: KeyRef) => Promise<ExecuteActionResult>) | null;
+  /** A multi-action started or ended on the desktop (from any device); never fires on this device. */
+  onMultiActionEvent: (listener: (event: MultiActionEvent) => void) => () => void;
   /** Lists the applications of the computer for "open application" keys; null when speaking on this device. */
   listApplications: (() => Promise<Application[]>) | null;
   /** Tells the desktop whether someone is typing something to say; null when speaking on this device. */
@@ -210,6 +214,7 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
     listApplications: remote ? remote.listApplications : null,
     obs: remote ? remote.obs : null,
     onSpeechEvent: remote ? remote.onSpeechEvent : noSubscription,
+    onMultiActionEvent: remote ? remote.onMultiActionEvent : noSubscription,
     settings,
     updateSettings,
     voices,

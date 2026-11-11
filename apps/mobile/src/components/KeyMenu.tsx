@@ -7,6 +7,8 @@ interface KeyMenuProps {
   slot: number;
   /** The key's label as shown. */
   label: string;
+  /** A folder key: deleting it deletes the folder and every key in it, and the confirmation says so. */
+  isFolder?: boolean;
   onEdit: () => void;
   /** Resolves true when deleted. */
   onDelete: () => Promise<boolean>;
@@ -18,7 +20,7 @@ interface KeyMenuProps {
  * The menu of a key: Edit, and Delete behind an inline confirmation. Opened with a right click, a long press,
  * Shift+F10 or the context-menu key.
  */
-export function KeyMenu({ slot, label, onEdit, onDelete, onClose }: KeyMenuProps) {
+export function KeyMenu({ slot, label, isFolder = false, onEdit, onDelete, onClose }: KeyMenuProps) {
   const t = useT();
   const promptId = useId();
   const container = useRef<HTMLDivElement>(null);
@@ -52,7 +54,7 @@ export function KeyMenu({ slot, label, onEdit, onDelete, onClose }: KeyMenuProps
     <div ref={container} className="popover key-menu">
       {isConfirming ? (
         <div className="menu-confirm" role="group" aria-labelledby={promptId} onKeyDown={handleConfirmKeyDown}>
-          <p id={promptId}>{t("keyMenu.deleteConfirm", { label })}</p>
+          <p id={promptId}>{isFolder ? t("keyMenu.deleteFolderConfirm") : t("keyMenu.deleteConfirm", { label })}</p>
           <div className="menu-confirm-actions">
             <button ref={keepButton} type="button" className="menu-item" onClick={() => onClose(true)}>
               {t("keyMenu.deleteNo")}

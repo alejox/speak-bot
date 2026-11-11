@@ -1,4 +1,4 @@
-import { BOARD_KINDS, DEFAULT_BOARD_NAMES, DEFAULT_DECK_BOARD_ID, DEFAULT_DECK_BOARD_NAMES, MAX_BOARD_NAME_LENGTH, type Board, type UiLanguage } from "@speed-deck/core";
+import { BOARD_KINDS, DEFAULT_BOARD_NAMES, DEFAULT_DECK_BOARD_ID, DEFAULT_DECK_BOARD_NAMES, MAX_BOARD_NAME_LENGTH, visibleBoards, type Board, type UiLanguage } from "@speed-deck/core";
 import { ChevronDown, LayoutGrid, MessageSquare } from "lucide-react";
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { Boards } from "../app/use-boards";
@@ -27,9 +27,12 @@ type Task = "create" | "rename" | "delete" | "restore";
  * The board pill at the top of the deck: it names the board, and its menu switches boards and manages them
  * (new, rename, delete, restore the built-in board).
  */
-export function BoardMenu({ board, offered, groupByKind = false, boards: boardsState, language, onSelect, statusText }: BoardMenuProps) {
+export function BoardMenu({ board, offered: offeredBoards, groupByKind = false, boards: boardsState, language, onSelect, statusText }: BoardMenuProps) {
   const t = useT();
-  const { boards, change } = boardsState;
+  const { change } = boardsState;
+  // Folders are reached through their keys, never listed or counted as boards.
+  const boards = visibleBoards(boardsState.boards);
+  const offered = visibleBoards(offeredBoards);
   const button = useRef<HTMLButtonElement>(null);
   const popover = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);

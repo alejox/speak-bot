@@ -1,4 +1,4 @@
-import { ACTION_REGISTRY, type Action, type NavigationAction, type UiLanguage } from "@speed-deck/core";
+import { ACTION_REGISTRY, type Action, type KeyRef, type NavigationAction, type UiLanguage } from "@speed-deck/core";
 import { LANGUAGE_NAMES, type Message } from "../i18n/messages";
 import { describeRequestError } from "./describe-error";
 import type { Speech } from "./use-speech";
@@ -15,13 +15,16 @@ export interface KeyRunnerOptions {
   report: (message: Message | null) => void;
 }
 
+/** Runs a key's action; `key` is the key pressed, when there is one (a multi-action shows it running). */
+export type KeyRun = (action: Action, key?: KeyRef) => void;
+
 /**
  * Runs a key's action where it belongs: navigation in this client; voice on this device in phone-only
  * mode; everything else on the desktop. Local speech starts synchronously, inside the tap (iOS rule).
  */
-export function createKeyRunner({ target, speech, voiceLanguage, navigate, report }: KeyRunnerOptions): (action: Action) => void {
+export function createKeyRunner({ target, speech, voiceLanguage, navigate, report }: KeyRunnerOptions): KeyRun {
   const nextLanguage: UiLanguage = voiceLanguage === "es" ? "en" : "es";
-  return (action) => {
+  return (action, key) => {
     if (ACTION_REGISTRY[action.type].runsOn === "client") {
       navigate(action as NavigationAction);
       return;
@@ -32,7 +35,8 @@ export function createKeyRunner({ target, speech, voiceLanguage, navigate, repor
       return;
     }
     report(null);
-    executeAction(action).then(
+    // Only a multi-action needs to know its key: it runs once per key at a time and shows it running.
+    executeAction(action, action.type === "system.multiAction" ? key : undefined).then(
       (result) => {
         if (result.voiceLanguage) {
           target.noteDesktopSettings({ voiceLanguage: result.voiceLanguage, voiceId: "" });

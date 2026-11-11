@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { draftOf, draftToKey } from "../src/app/key-draft";
+import { draftOf, draftToKey, emptyStep } from "../src/app/key-draft";
 import { translate } from "../src/i18n/messages";
 
 const t = (key: Parameters<typeof translate>[1]) => translate("en", key);
@@ -12,7 +12,7 @@ describe("key drafts", () => {
 
   it("keeps the label but not the parameters when another action is chosen", () => {
     const key = { slot: 0, label: "Hi", action: { type: "voice.speak" as const, text: "Hello" } };
-    expect(draftOf(key, "obs.switchScene")).toEqual({ label: "Hi", icon: "", color: "", activeColor: "", actionType: "obs.switchScene", params: {}, spanRows: 1, spanColumns: 1 });
+    expect(draftOf(key, "obs.switchScene")).toEqual({ label: "Hi", icon: "", color: "", activeColor: "", actionType: "obs.switchScene", params: {}, spanRows: 1, spanColumns: 1, steps: [emptyStep(), emptyStep()] });
   });
 
   it("explains missing actions, parameters, bad numbers and bad colors", () => {

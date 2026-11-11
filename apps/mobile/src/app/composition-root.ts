@@ -1,4 +1,6 @@
 import type {
+  KeyRef,
+  MultiActionEvent,
   Action,
   AdCreative,
   LicenseResponse,
@@ -47,6 +49,8 @@ export interface ExecuteActionResult {
   ok: true;
   captionsVisible?: boolean;
   voiceLanguage?: UiLanguage;
+  /** A multi-action that was still running for the same key: nothing new started. */
+  ignored?: true;
 }
 
 /** OBS as the desktop sees it: status, lists for the key editor, and live changes. */
@@ -82,7 +86,9 @@ export interface DesktopServices {
   synthesizer: AppSpeechSynthesizer;
   boards: BoardStore;
   /** Runs a voice, captions or OBS action on the desktop. */
-  executeAction(action: Action): Promise<ExecuteActionResult>;
+  executeAction(action: Action, key?: KeyRef): Promise<ExecuteActionResult>;
+  /** A multi-action started or ended on the desktop (from any device). */
+  onMultiActionEvent(listener: (event: MultiActionEvent) => void): () => void;
   /** The applications of the computer that an "open application" key can open. */
   listApplications(): Promise<Application[]>;
   /** Tells the desktop whether someone is typing something to say (never what); failures are ignored. */
@@ -142,7 +148,11 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
     detect: () => api.detect(),
     synthesizer: new RemoteSpeechSynthesizer(api, events),
     boards: createRemoteBoardStore(api, events),
-    executeAction: (action) => api.executeAction(action),
+    executeAction: (action, key) => api.executeAction(action, key),
+    onMultiActionEvent: (listener) =>
+      events.subscribe((event) => {
+        if (event.type === "multi-action") listener(event);
+      }),
     listApplications: () => api.listApplications(),
     reportComposing: (composing) => void api.setComposing(composing).catch(() => {}),
     obs: {

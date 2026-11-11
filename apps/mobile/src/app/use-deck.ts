@@ -1,11 +1,12 @@
-import type { Action, Board, BoardKind, Key, UiLanguage } from "@speed-deck/core";
-import { useMemo } from "react";
+import { visibleBoards, type Board, type BoardKind, type Key, type UiLanguage } from "@speed-deck/core";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyInput } from "../adapters/board-stores";
 import type { BoardPositionStore } from "../adapters/local-storage-board-position-store";
 import type { Message } from "../i18n/messages";
 import type { KeyContext, ObsLive } from "./key-presentation";
 import { useBoardNavigation, useBoards, type BoardNavigation, type Boards } from "./use-boards";
-import { createKeyRunner } from "./use-key-runner";
+import { isNewFolderKey } from "./key-draft";
+import { createKeyRunner, type KeyRun } from "./use-key-runner";
 import { useObs } from "./use-obs";
 import type { Speech } from "./use-speech";
 import type { SpeechTarget } from "./use-speech-target";
@@ -15,9 +16,9 @@ export interface Deck {
   navigation: BoardNavigation;
   context: KeyContext;
   obs: ObsLive | null;
-  /** Runs an action; local speech starts synchronously, inside the tap. */
-  run: (action: Action) => void;
-  /** Saves `key` into a slot of the current board; resolves true when saved. */
+  /** Runs an action (of the key pressed, when given); local speech starts synchronously, inside the tap. */
+  run: KeyRun;
+  /** Saves `key` into a slot of the current board (a new folder key creates its folder); resolves true when saved. */
   saveKey: (key: KeyInput, existing: Key | undefined) => Promise<boolean>;
   /** Empties a slot of the current board; resolves true when deleted. */
   clearKey: (slot: number) => Promise<boolean>;
@@ -37,11 +38,36 @@ function useDeckState(target: SpeechTarget, language: UiLanguage, report: (messa
   const boards = useBoards(target.boards, language, report);
   const obs = useObs(target.obs, target.obsSettings?.enabled ?? null);
   const voiceLanguage = target.voiceLanguage ?? language;
+  const runningKeys = useRunningKeys(target, report);
   const context = useMemo<KeyContext>(
-    () => ({ isRemote: target.isRemote, obs, captionsVisible: target.captionsVisible, voiceLanguage, boards: boards.boards }),
-    [target.isRemote, obs, target.captionsVisible, voiceLanguage, boards.boards],
+    () => ({ isRemote: target.isRemote, obs, captionsVisible: target.captionsVisible, voiceLanguage, boards: boards.boards, runningKeys }),
+    [target.isRemote, obs, target.captionsVisible, voiceLanguage, boards.boards, runningKeys],
   );
   return { boards, obs, context, voiceLanguage };
+}
+
+/** The keys whose multi-action runs on the desktop now, by run id; says so when steps of one failed. */
+function useRunningKeys(target: SpeechTarget, report: (message: Message | null) => void): ReadonlySet<string> {
+  const [running, setRunning] = useState<ReadonlySet<string>>(() => new Set());
+  const reportRef = useRef(report);
+  reportRef.current = report;
+  const { onMultiActionEvent } = target;
+
+  useEffect(() => {
+    setRunning(new Set());
+    return onMultiActionEvent((event) => {
+      setRunning((current) => {
+        const next = new Set(current);
+        if (event.state === "start") next.add(event.runId);
+        else next.delete(event.runId);
+        return next;
+      });
+      const failed = event.state === "end" ? (event.failures ?? []) : [];
+      if (failed.length > 0) reportRef.current({ key: "multiAction.stepsFailed", params: { steps: failed.map((failure) => failure.index + 1).join(", ") } });
+    });
+  }, [onMultiActionEvent]);
+
+  return running;
 }
 
 /** Key execution and key editing on the board `navigation` shows. */
@@ -63,6 +89,11 @@ function deckOf(
     run,
     saveKey: async (key, existing) => {
       if (!boardId) return false;
+      if (isNewFolderKey(key)) {
+        const { slot, label = "", icon, color } = key;
+        const created = await boards.change((store) => store.createFolder(boardId, { slot, label, icon, color }), () => ({ key: "editor.saved" }));
+        return created !== undefined;
+      }
       const saved = await boards.change((store) => store.setKey(boardId, key, { replace: existing !== undefined }), () => ({ key: "editor.saved" }));
       return saved !== undefined;
     },
@@ -101,7 +132,7 @@ export function useDeck(
 /** One space of the app: the boards of one kind, with its own position. `boards` still holds every board. */
 export interface SpaceDeck extends Deck {
   kind: BoardKind;
-  /** The boards this space lists. */
+  /** The boards this space lists (never its folders). */
   spaceBoards: readonly Board[];
 }
 
@@ -120,13 +151,15 @@ export function useSpaceDecks(
 ): Record<BoardKind, SpaceDeck> {
   const state = useDeckState(target, language, report);
   const all = state.boards.boards;
-  const spaceBoards = useMemo<Record<BoardKind, Board[]>>(
+  // Each space moves through its boards and their folders, and lists only the boards.
+  const kindBoards = useMemo<Record<BoardKind, Board[]>>(
     () => ({ voice: all.filter((board) => board.kind === "voice"), deck: all.filter((board) => board.kind === "deck") }),
     [all],
   );
+  const spaceBoards = useMemo<Record<BoardKind, Board[]>>(() => ({ voice: visibleBoards(kindBoards.voice), deck: visibleBoards(kindBoards.deck) }), [kindBoards]);
   const navigations: Record<BoardKind, BoardNavigation> = {
-    voice: useBoardNavigation(spaceBoards.voice, positionStores.voice),
-    deck: useBoardNavigation(spaceBoards.deck, positionStores.deck),
+    voice: useBoardNavigation(kindBoards.voice, positionStores.voice),
+    deck: useBoardNavigation(kindBoards.deck, positionStores.deck),
   };
 
   const spaceOf = (kind: BoardKind): SpaceDeck => {

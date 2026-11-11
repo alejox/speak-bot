@@ -95,10 +95,13 @@ There is no separate edit mode: a tap always runs a key.
 | ------------------------ | ----------- | ----------------------------------------------------------------------------------------- |
 | Voz (Voice)              | Voice       | Decir texto, Detener voz, Repetir, Cambiar idioma de la voz                               |
 | Subtítulos (Captions)    | Voice       | Limpiar subtítulo, Ocultar o mostrar subtítulos                                           |
-| Navegación (Navigation)  | Voice, Deck | Página siguiente, Página anterior, Ir a la página, Abrir tablero                          |
+| Navegación (Navigation)  | Voice, Deck | Página siguiente, Página anterior, Ir a la página, Abrir tablero, Carpeta                 |
 | OBS                      | Deck        | Cambiar de escena, Silenciar o activar audio, Iniciar o detener transmisión, Iniciar o detener grabación, Mostrar u ocultar fuente |
+| Sistema (System)         | Deck        | Abrir aplicación, Multiacción                                                             |
 
 - **Navigation** keys move only the device you press them on, so the phone, the computer and the OBS dock can each show a different board or page.
+- A **Carpeta** (Folder) key groups keys without spending a whole board: adding one creates an empty folder of the same space and grid size. Inside it, the header shows where you are (for example **Deck › Escenas**) and the first cell is a fixed **Atrás** (Back) key that returns to the page the folder was opened from. Folders can hold folders, up to three levels. They never show in the side menu or the board menu. Deleting a folder key asks first and deletes the folder with every key in it.
+- A **Multiacción** (Multi-action) key runs 2–10 actions in order with one press, on the computer. Each step can wait up to 10 seconds before it runs (**Esperar antes**); add, reorder and remove steps in the key editor. A step that fails is reported and the rest still run. While it runs, the key shows **En curso** and pressing it again does nothing. If a step would start recording or streaming, Speed Deck asks once before the whole sequence. Navigation, folders, volume sliders and other multi-actions cannot be steps.
 - A key without its own label shows a short name that fits (**Transmitir**, **Grabar**, **Subtítulos**, **Idioma de voz**). Long labels get a smaller font, up to three lines, and never break inside a word.
 - Toggle keys show when they are on: a soft tint and a small dot in the corner (red while live or recording), plus the state for screen readers. A muted input shows a crossed microphone, the current scene a tick. The icon at the top of **Deck** shows whether the computer and OBS are connected.
 - OBS and caption keys only run through the computer app. When a key can't run right now (no computer, or OBS is not connected), it is shown as unavailable with the reason.

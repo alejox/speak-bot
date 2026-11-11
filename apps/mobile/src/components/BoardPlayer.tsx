@@ -1,7 +1,8 @@
-import { boardPageCount, coveredSlots, keySpanOf, keysOnPage, keysPerPage, MAX_BOARD_PAGES, type Action, type Key } from "@speed-deck/core";
+import { boardPageCount, coveredSlots, FOLDER_BACK_SLOT, isFolderBoard, keySpanOf, keysOnPage, keysPerPage, MAX_BOARD_PAGES, type Key } from "@speed-deck/core";
 import { MoreHorizontal } from "lucide-react";
 import { useEffect, useId, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import type { BoardNavigation } from "../app/use-boards";
+import type { KeyRun } from "../app/use-key-runner";
 import { KEY_STATE_LABELS, keyFillColor, keyLabel, keyLook, presentKey, type KeyContext } from "../app/key-presentation";
 import { displayedCellIndexes } from "../app/board-display";
 import type { InputVolumeServices } from "../app/use-input-volume";
@@ -44,8 +45,8 @@ function cellPlacement(index: number, key: Key, columns: number, transposed: boo
 interface BoardPlayerProps {
   navigation: BoardNavigation;
   context: KeyContext;
-  /** Runs a key's action; called synchronously inside the tap. */
-  onRun: (action: Action) => void;
+  /** Runs a key's action, with the key pressed; called synchronously inside the tap. */
+  onRun: KeyRun;
   /** Speech is playing; the phrase key that started it stays marked until it ends. */
   isSpeaking?: boolean;
   /** Opens the key dialog for a slot (add on an empty one, edit on a key); without it keys cannot be edited from the player. */
@@ -192,8 +193,11 @@ export function BoardPlayer({
     setDropSlot(null);
   };
 
+  // A folder's Back key stays where it is: no menu, no moving it, nothing dropped on it.
+  const isFixedSlot = (slot: number) => isFolderBoard(board) && slot === FOLDER_BACK_SLOT;
+
   const keyMenuHandlers = (slot: number) =>
-    canEdit
+    canEdit && !isFixedSlot(slot)
       ? {
           onContextMenu: (event: { preventDefault: () => void }) => {
             event.preventDefault();
@@ -246,7 +250,7 @@ export function BoardPlayer({
             const over = slotAtPoint(event.clientX, event.clientY);
             // Leaving the grid drops the move.
             if (over === null) cancelTouchMove();
-            else setDropSlot(over === held.slot ? null : over);
+            else setDropSlot(over === held.slot || isFixedSlot(over) ? null : over);
           },
           onPointerUp: (event: PointerEvent<HTMLElement>) => {
             cancelLongPress();
@@ -256,7 +260,7 @@ export function BoardPlayer({
             const to = slotAtPoint(event.clientX, event.clientY);
             setMovingSlot(null);
             setDropSlot(null);
-            if (to !== null && to !== held.slot) void onMoveKey?.(held.slot, to);
+            if (to !== null && to !== held.slot && !isFixedSlot(to)) void onMoveKey?.(held.slot, to);
           },
           onPointerCancel: () => {
             cancelLongPress();
@@ -271,7 +275,7 @@ export function BoardPlayer({
       : {};
 
   const dropHandlers = (slot: number) =>
-    canDrag
+    canDrag && !isFixedSlot(slot)
       ? {
           onDragOver: (event: DragEvent) => {
             event.preventDefault();
@@ -298,7 +302,7 @@ export function BoardPlayer({
     }
     if (disabled) return;
     setSpoken(key.action.type === "voice.speak" ? { boardId: board.id, slot } : null);
-    onRun(key.action);
+    onRun(key.action, { boardId: board.id, slot });
   };
 
   return (
@@ -344,7 +348,9 @@ export function BoardPlayer({
               );
             }
             const label = keyLabel(key, context.boards, t);
-            const presentation = presentKey(key.action, context);
+            const presentation = presentKey(key.action, context, { boardId: board.id, slot });
+            const isFixed = isFixedSlot(slot);
+            const isMovable = canDrag && !isFixed;
             const disabled = presentation.disabledReason !== undefined;
             const reason = presentation.disabledReason ? t(presentation.disabledReason) : undefined;
             const stateLabel = presentation.state && KEY_STATE_LABELS[presentation.state];
@@ -354,7 +360,7 @@ export function BoardPlayer({
             const descriptionId = `${descriptionPrefix}-${slot}`;
             const placement = cellPlacement(index, key, board.columns, isTransposed);
             const cellClass = [canEdit ? "deck-slot" : "", placement ? "deck-cell-span" : ""].filter(Boolean).join(" ") || undefined;
-            const menu = canEdit && (
+            const menu = canEdit && !isFixed && (
               <>
                 {/* A visible way into the menu for mouse users; keyboards use Shift+F10 on the key itself. */}
                 <button
@@ -372,6 +378,7 @@ export function BoardPlayer({
                   <KeyMenu
                     slot={slot}
                     label={label}
+                    isFolder={key.action.type === "nav.openFolder"}
                     onEdit={() => {
                       closeMenu(true);
                       onEditKey(slot);
@@ -442,11 +449,11 @@ export function BoardPlayer({
                   title={reason}
                   selected={selectedSlot === slot}
                   className={[dropClass, movingSlot === slot ? "deck-key-moving" : ""].filter(Boolean).join(" ") || undefined}
-                  aria-keyshortcuts={canEdit ? "Shift+F10" : undefined}
+                  aria-keyshortcuts={canEdit && !isFixed ? "Shift+F10" : undefined}
                   onClick={() => press(slot, key, disabled)}
-                  draggable={canDrag || undefined}
+                  draggable={isMovable || undefined}
                   onDragStart={
-                    canDrag
+                    isMovable
                       ? (event) => {
                           cancelLongPress();
                           setMenuSlot(null);

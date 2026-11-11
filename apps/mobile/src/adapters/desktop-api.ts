@@ -10,6 +10,9 @@ import {
   type Board,
   type BoardGrid,
   type BoardKind,
+  type CreateFolderRequest,
+  type CreateFolderResponse,
+  type KeyRef,
   type DesktopSettings,
   type DesktopSettingsPatch,
   type Key,
@@ -123,9 +126,17 @@ export class DesktopApiClient {
     return this.request("POST", "/api/boards/restore-default", boardId === undefined ? { language } : { language, boardId }) as Promise<Board>;
   }
 
-  /** Runs a voice, captions or OBS action on the desktop; navigation actions are refused ("client-action"). */
-  executeAction(action: Action): Promise<{ ok: true; captionsVisible?: boolean; voiceLanguage?: UiLanguage }> {
-    return this.request("POST", "/api/actions/execute", { action }) as Promise<{ ok: true }>;
+  /**
+   * Runs a voice, captions or OBS action on the desktop; navigation actions are refused ("client-action").
+   * `key` is the key pressed: a multi-action runs once per key at a time (`ignored` while it still runs).
+   */
+  executeAction(action: Action, key?: KeyRef): Promise<{ ok: true; captionsVisible?: boolean; voiceLanguage?: UiLanguage; ignored?: true }> {
+    return this.request("POST", "/api/actions/execute", key ? { action, key } : { action }) as Promise<{ ok: true }>;
+  }
+
+  /** Creates a folder in a board and the key that opens it on `input.slot`. */
+  createFolder(boardId: string, input: CreateFolderRequest): Promise<CreateFolderResponse> {
+    return this.request("POST", `/api/boards/${encodeURIComponent(boardId)}/folders`, input) as Promise<CreateFolderResponse>;
   }
 
   /** The applications an "open application" key can open, sorted by name by the desktop. */

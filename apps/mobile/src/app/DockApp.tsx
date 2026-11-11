@@ -1,8 +1,10 @@
+import { folderDepth, isFolderBoard, MAX_FOLDER_DEPTH } from "@speed-deck/core";
 import { useState } from "react";
 import { DOCK_BOARD_POSITION_STORAGE_KEY, LocalStorageBoardPositionStore } from "../adapters/local-storage-board-position-store";
 import { BoardMenu } from "../components/BoardMenu";
 import { QuickPhrases } from "../components/QuickPhrases";
 import { BoardPlayer } from "../components/BoardPlayer";
+import { FolderBreadcrumb } from "../components/FolderBreadcrumb";
 import { DockComposer } from "../components/DockComposer";
 import { KeyEditorDialog } from "../components/KeyEditorDialog";
 import { I18nProvider, useLanguage, useMessageText, useT } from "../i18n/I18nProvider";
@@ -79,7 +81,10 @@ function DockContent({ target }: { target: SpeechTarget }) {
         onMoveKey={deck.moveKey}
         strip={board?.kind === "voice" && <QuickPhrases language={target.voiceLanguage ?? language} onSpeak={(phrase) => confirmed.run({ type: "voice.speak", text: phrase })} />}
         toolbar={
-          board && (
+          board &&
+          (isFolderBoard(board) ? (
+            <FolderBreadcrumb board={board} boards={deck.boards.boards} />
+          ) : (
             <BoardMenu
               board={board}
               offered={deck.boards.boards}
@@ -89,7 +94,7 @@ function DockContent({ target }: { target: SpeechTarget }) {
               onSelect={(boardId) => deck.navigation.go({ boardId, page: 0 })}
               statusText={statusText}
             />
-          )
+          ))
         }
       />
       {dialogSlot !== null && board && (
@@ -99,6 +104,7 @@ function DockContent({ target }: { target: SpeechTarget }) {
           existing={board.keys.find((key) => key.slot === dialogSlot)}
           boardKind={board.kind}
           boards={deck.boards.boards}
+          canAddFolder={folderDepth(deck.boards.boards, board) < MAX_FOLDER_DEPTH}
           obs={target.obs}
           listApplications={target.listApplications}
           onTest={confirmed.run}

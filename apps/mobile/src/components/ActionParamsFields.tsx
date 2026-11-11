@@ -15,11 +15,14 @@ interface ActionParamsFieldsProps {
   listApplications?: (() => Promise<Application[]>) | null;
   /** Name of the parameter with an error, to mark it invalid and focus it. */
   invalidField?: string;
+  /** The field id of a parameter (`data-param`, `invalidField`); its name when absent. A step of a multi-action names its own. */
+  fieldOf?: (name: string) => string;
 }
 
 /** One field per action parameter, from the registry: text, number, or a pick list of OBS names, boards or applications. */
-export function ActionParamsFields({ actionType, values, onChange, boards, obs, listApplications, invalidField }: ActionParamsFieldsProps) {
-  const { params } = ACTION_REGISTRY[actionType];
+export function ActionParamsFields({ actionType, values, onChange, boards, obs, listApplications, invalidField, fieldOf = (name) => name }: ActionParamsFieldsProps) {
+  // A folder key's folder is created with it and never chosen by hand.
+  const params = ACTION_REGISTRY[actionType].params.filter((param) => param.kind !== "folder");
   const lists = useObsLists(params, obs, values.sceneName ?? "");
   const applications = useApplications(params, listApplications);
   return (
@@ -29,7 +32,8 @@ export function ActionParamsFields({ actionType, values, onChange, boards, obs, 
           key={param.name}
           param={param}
           value={values[param.name] ?? ""}
-          invalid={invalidField === param.name}
+          field={fieldOf(param.name)}
+          invalid={invalidField === fieldOf(param.name)}
           options={param.kind === "application" ? applicationOptions(applications) : optionsFor(param, lists, boards)}
           hint={param.kind === "application" ? applicationsHint(applications) : undefined}
           onChange={(value) => {
@@ -147,6 +151,8 @@ function optionsFor(param: ActionParamDefinition, lists: ObsLists, boards: reado
 
 interface ParamFieldProps {
   param: ActionParamDefinition;
+  /** Its `data-param`, to focus it when it has an error. */
+  field: string;
   value: string;
   invalid: boolean;
   /** Pick list; null for free input. */
@@ -156,14 +162,14 @@ interface ParamFieldProps {
   onChange: (value: string) => void;
 }
 
-function ParamField({ param, value, invalid, options, hint, onChange }: ParamFieldProps) {
+function ParamField({ param, field, value, invalid, options, hint, onChange }: ParamFieldProps) {
   const t = useT();
   const id = useId();
   const hintId = useId();
   const label = t(param.labelKey as MessageKey);
   const isObsName = param.kind === "scene" || param.kind === "input" || param.kind === "source";
   const describedBy = hint || isObsName ? hintId : undefined;
-  const common = { id, "aria-invalid": invalid || undefined, "data-param": param.name };
+  const common = { id, "aria-invalid": invalid || undefined, "data-param": field };
 
   let control;
   if (options) {

@@ -1,4 +1,4 @@
-import { ACTION_REGISTRY, applicationNameOf, type Action, type ActionType, type Board, type Key, type ObsConnectionStatus, type ObsState, type UiLanguage } from "@speed-deck/core";
+import { ACTION_REGISTRY, applicationNameOf, type Action, type ActionType, type Board, type Key, type KeyRef, type ObsConnectionStatus, type ObsState, type UiLanguage } from "@speed-deck/core";
 import type { Translate } from "../i18n/I18nProvider";
 import { LANGUAGE_NAMES, type Message, type MessageKey } from "../i18n/messages";
 
@@ -19,10 +19,17 @@ export interface KeyContext {
   captionsVisible: boolean | null;
   voiceLanguage: UiLanguage;
   boards: readonly Board[];
+  /** Keys whose multi-action runs on the desktop right now, as `runningKeyId` gives them. */
+  runningKeys?: ReadonlySet<string>;
+}
+
+/** How a running multi-action names its key: the desktop's run id for it. */
+export function runningKeyId(key: KeyRef): string {
+  return `${key.boardId}:${key.slot}`;
 }
 
 /** What a toggle that is on is doing; each one has its own cue on the key. */
-export type KeyLiveState = "live" | "recording" | "muted" | "on" | "scene";
+export type KeyLiveState = "live" | "recording" | "muted" | "on" | "scene" | "running";
 
 /** The three looks of a key: something to say, something to do, somewhere to go. */
 export type KeyRole = "phrase" | "command" | "navigation";
@@ -40,8 +47,8 @@ export interface KeyPresentation {
   detail?: Message;
 }
 
-/** The live state of a key: pressed, disabled (and why) and any extra detail. */
-export function presentKey(action: Action, context: KeyContext): KeyPresentation {
+/** The live state of a key: pressed, disabled (and why) and any extra detail. `key` is where it sits, for a running multi-action. */
+export function presentKey(action: Action, context: KeyContext, key?: KeyRef): KeyPresentation {
   const definition = ACTION_REGISTRY[action.type];
   if (definition.requiresDesktop && !context.isRemote) return { disabledReason: "key.needsComputer" };
   if (definition.requiresObs) {
@@ -58,6 +65,10 @@ export function presentKey(action: Action, context: KeyContext): KeyPresentation
       return context.captionsVisible ? { pressed: true, state: "on" } : { pressed: false, iconId: "captions-off" };
     case "nav.goToBoard":
       return context.boards.some((board) => board.id === action.boardId) ? {} : { disabledReason: "key.boardMissing" };
+    case "nav.openFolder":
+      return context.boards.some((board) => board.id === action.folderId) ? {} : { disabledReason: "key.folderMissing" };
+    case "system.multiAction":
+      return key && context.runningKeys?.has(runningKeyId(key)) ? { state: "running" } : {};
     case "obs.toggleMute":
       return state?.mutedInputs.includes(action.inputName) ? { pressed: true, state: "muted", iconId: "mic-off" } : { pressed: false };
     case "obs.toggleStream":
@@ -119,6 +130,8 @@ export function keyLabel(key: Key, boards: readonly Board[], t: Translate): stri
       return t("key.pageLabel", { page: action.page });
     case "nav.goToBoard":
       return boards.find((board) => board.id === action.boardId)?.name ?? t(ACTION_REGISTRY[action.type].keyLabelKey as MessageKey);
+    case "nav.openFolder":
+      return boards.find((board) => board.id === action.folderId)?.name ?? t(ACTION_REGISTRY[action.type].keyLabelKey as MessageKey);
     default:
       // The short key name, not the action's full name from the picker ("Stream", not "Start or stop stream").
       return t(ACTION_REGISTRY[action.type].keyLabelKey as MessageKey);
@@ -160,7 +173,7 @@ export interface KeyLook {
 
 export function keyLook(key: Key, stateIconId?: string): KeyLook {
   const { type } = key.action;
-  return { role: keyRole(key.action), iconId: keyShownIconId(key, stateIconId), danger: type === "voice.stop", backwards: type === "nav.prevPage" };
+  return { role: keyRole(key.action), iconId: keyShownIconId(key, stateIconId), danger: type === "voice.stop", backwards: type === "nav.prevPage" || type === "nav.folderBack" };
 }
 
 /** The words shown on a toggle that is on; the current scene is marked without words. */
@@ -169,4 +182,5 @@ export const KEY_STATE_LABELS: Readonly<Partial<Record<KeyLiveState, MessageKey>
   recording: "key.state.recording",
   muted: "key.state.muted",
   on: "key.state.on",
+  running: "key.state.running",
 };

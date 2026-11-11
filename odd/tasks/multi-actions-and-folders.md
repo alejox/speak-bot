@@ -22,8 +22,8 @@ User request 2026-11-11 after the competitor research (Elgato Multi Action and F
 
 ## Tasks
 - [x] F1 — Core: folder boards (kind, parent link, hidden), `nav.openFolder`, Back key rules, cascade delete, depth limit, reflow and grid rules; multi-action action shape and validation; tests. Route: delegated. Commit `bb61e70`. RED: new `folders.test.ts` + `multi-action.test.ts` 22/23 failed with the source changes stashed; GREEN: core 18 files / 221 tests; `npm run typecheck` clean, `npm test` all workspaces green (desktop 250, electron 24, mobile 384).
-- [x] F2 — Desktop: sequential multi-action runner with delays, failure reporting, one-run-per-key, running-state events; API for folder create/delete if needed; tests. Route: delegated. Commit `F2_HASH`. RED: `multi-action-runner.test.ts` (fake timers) + `folders-api.test.ts` 8/8 failed before the runner and route existed; GREEN: desktop 33 files / 258 tests; `npm run typecheck` clean, `npm test` all workspaces green (core 221, electron 24, mobile 384).
-- [ ] F3 — Mobile: folder navigation + Back + breadcrumb, folder key creation/deletion; multi-action editor and running state; start confirmation for sequences; en/es; tests. Route: delegated.
+- [x] F2 — Desktop: sequential multi-action runner with delays, failure reporting, one-run-per-key, running-state events; API for folder create/delete if needed; tests. Route: delegated. Commit `8cb270b`. RED: `multi-action-runner.test.ts` (fake timers) + `folders-api.test.ts` 8/8 failed before the runner and route existed; GREEN: desktop 33 files / 258 tests; `npm run typecheck` clean, `npm test` all workspaces green (core 221, electron 24, mobile 384).
+- [x] F3 — Mobile: folder navigation + Back + breadcrumb, folder key creation/deletion; multi-action editor and running state; start confirmation for sequences; en/es; tests. Route: delegated. Commit `F3_HASH`. RED: `folders-and-multi-actions.test.tsx` 8/8 failed with the mobile source changes stashed (tests written alongside the implementation, RED observed retroactively); GREEN: mobile 48 files / 392 tests; `npm run typecheck` clean, `npm test` all workspaces green (core 221, desktop 258, electron 24). Pending manual checks: folder Back/breadcrumb on a real phone held upright (transposed grid), multi-action against a live OBS (Intro: scene, wait 1 s, unmute, record after one confirmation).
 
 ## Acceptance
 - A multi-action "Intro" switches scene, waits 1 s, unmutes the mic and starts recording (after one confirmation).
@@ -43,7 +43,16 @@ User request 2026-11-11 after the competitor research (Elgato Multi Action and F
 - Events: `multi-action` with `runId`, `key`, `state: "start" | "end"`, and on end `failures: [{ index, type, message }]`. Failed steps are logged; the rest still run.
 - `POST /api/boards/:id/folders { slot, label, icon?, color? }` → 201 `{ folder, key }`; deleting the key (`DELETE /api/boards/:id/keys/:slot`) deletes the folder through the core cascade.
 
+## Implementation notes (F3)
+- Navigation remembers where each folder was opened from (in memory), so Back returns to that page; after a reload inside a folder, Back opens the parent on its first page.
+- Inside a folder the header shows a breadcrumb (`Deck › Scenes`) instead of the board pill; folders are excluded from the side menu, the board menu and the "Open board" picker; the side menu keeps the outer board active.
+- The Back key has no menu, cannot be dragged and nothing can be dropped on it. A folder key's action cannot be changed in the editor (that would delete the folder); Delete asks "Delete this folder and all its keys?".
+- Picking Folder creates the folder at once (named "Folder"/"Carpeta", renamed with the key label); Folder is not offered at depth 3.
+- Multi-action editor: ordered steps with action, its details, "Wait before (seconds)" (decimals, 0–10), Move up/down, Remove step, Add step (max 10). Only a multi-action press sends its key ref; the key shows "Running"/"En curso" from `multi-action` events and failed steps are reported in the status line.
+- README documents folders and multi-actions.
+
 ## Progress
 - Created 2026-11-11.
 - F1 done (core).
 - F2 done (desktop).
+- F3 done (mobile).

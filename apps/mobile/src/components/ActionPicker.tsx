@@ -12,10 +12,12 @@ interface ActionPickerProps {
   /** The action to focus first (the one chosen before going back), else the first one. */
   focusType?: ActionType;
   onPick: (type: ActionType) => void;
+  /** False when the board is already as deep in folders as they go: Folder is not offered. */
+  canAddFolder?: boolean;
 }
 
 /** Every action the board's kind allows as a grid of tiles, grouped by category, with search. */
-export function ActionPicker({ boardKind, query, onQueryChange, focusType, onPick }: ActionPickerProps) {
+export function ActionPicker({ boardKind, query, onQueryChange, focusType, onPick, canAddFolder = true }: ActionPickerProps) {
   const t = useT();
   const searchId = useId();
   const needle = query.trim().toLocaleLowerCase();
@@ -24,7 +26,9 @@ export function ActionPicker({ boardKind, query, onQueryChange, focusType, onPic
   const matches = (type: ActionType) =>
     needle === "" || `${name(type)} ${description(type)} ${t(`category.${ACTION_REGISTRY[type].category}`)}`.toLocaleLowerCase().includes(needle);
   const groups = allowedActionCategories(boardKind)
-    .map((category) => ({ category, types: ACTION_TYPES.filter((type) => ACTION_REGISTRY[type].userSelectable && ACTION_REGISTRY[type].category === category && matches(type)) }))
+    .map((category) => ({ category, types: ACTION_TYPES.filter(
+        (type) => ACTION_REGISTRY[type].userSelectable && (type !== "nav.openFolder" || canAddFolder) && ACTION_REGISTRY[type].category === category && matches(type),
+      ) }))
     .filter((group) => group.types.length > 0);
   const offered = groups.flatMap((group) => group.types);
   const focused = focusType && offered.includes(focusType) ? focusType : offered[0];

@@ -1,6 +1,7 @@
 import {
   clearKey,
   createBoard,
+  createFolder,
   deleteBoard,
   listBoards,
   moveKey,
@@ -12,6 +13,8 @@ import {
   type Board,
   type BoardGrid,
   type BoardKind,
+  type CreateFolderRequest,
+  type CreateFolderResponse,
   type Key,
   type KeySpan,
   type UiLanguage,
@@ -45,7 +48,10 @@ export interface BoardStore {
   remove(boardId: string): Promise<void>;
   /** An occupied slot rejects ("slot-occupied") unless `replace` is set. */
   setKey(boardId: string, key: KeyInput, options?: { replace?: boolean }): Promise<Key>;
+  /** Empties a slot; a folder key takes its folder and everything in it along. */
   clearKey(boardId: string, slot: number): Promise<void>;
+  /** Creates a folder in `boardId` and the key that opens it on `input.slot`. */
+  createFolder(boardId: string, input: CreateFolderRequest): Promise<CreateFolderResponse>;
   /** Moves the key at `from` to `to`, swapping with a key already there. */
   moveKey(boardId: string, from: number, to: number): Promise<Board>;
   /** Puts back a built-in board: the communication board unless `boardId` names the built-in deck board. */
@@ -71,6 +77,7 @@ export function createLocalBoardStore(repository: LocalStorageBoardRepository, g
     remove: (boardId) => deleteBoard(repository, boardId),
     setKey: (boardId, key, options) => setKey(repository, boardId, key, options),
     clearKey: (boardId, slot) => clearKey(repository, boardId, slot),
+    createFolder: (boardId, input) => createFolder({ repository, generateId }, boardId, input),
     moveKey: (boardId, from, to) => moveKey(repository, boardId, from, to),
     restoreDefault: (language, boardId) => restoreDefaultBoard(repository, language, boardId),
     setGrid: (kind, grid) => setBoardGrid(repository, { kind, ...grid }),
@@ -88,6 +95,7 @@ export function createRemoteBoardStore(api: DesktopApiClient, events: DesktopEve
     remove: (boardId) => api.deleteBoard(boardId),
     setKey: (boardId, { slot, ...key }, options) => api.setKey(boardId, slot, key, options),
     clearKey: (boardId, slot) => api.clearKey(boardId, slot),
+    createFolder: (boardId, input) => api.createFolder(boardId, input),
     moveKey: (boardId, from, to) => api.moveKey(boardId, from, to),
     restoreDefault: (language, boardId) => api.restoreDefaultBoard(language, boardId),
     setGrid: (kind, grid) => api.setBoardGrid(kind, grid),
