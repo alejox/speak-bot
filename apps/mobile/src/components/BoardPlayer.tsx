@@ -15,7 +15,9 @@ const SLOT_DRAG_TYPE = "application/x-speed-deck-slot";
 export const LONG_PRESS_MS = 500;
 /** A touch that moves farther than this (px) is a scroll, not a long press. */
 const LONG_PRESS_SLOP = 10;
-/** Dragging keys needs a mouse or trackpad; a long touch opens the key menu instead. */
+/** After a long press, a finger that travels farther than this (px) is moving the key, not trembling on it. */
+const TOUCH_MOVE_THRESHOLD = 8;
+/** Dragging keys (HTML drag and drop) needs a mouse or trackpad; a touch moves them with a long press, then a drag. */
 const FINE_POINTER_QUERY = "(pointer: fine)";
 
 /** Where a page offers its one +: right after the last key, or in the first gap when the last space is taken; -1 when full. */
@@ -71,6 +73,12 @@ export function BoardPlayer({
   const [focusSlot, setFocusSlot] = useState<number | null>(null);
   const slotButtons = useRef(new Map<number, HTMLButtonElement>());
   const longPress = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
+  // The touch resting on a key: `held` once its long press fired, `moving` once it then dragged the key.
+  const touch = useRef<{ slot: number; x: number; y: number; held: boolean; moving: boolean } | null>(null);
+  const [movingSlot, setMovingSlot] = useState<number | null>(null);
+  const gridElement = useRef<HTMLOListElement>(null);
+  // Only where the page of keys never scrolls: a movable key takes over its touch gestures (touch-action).
+  const canTouchMove = onMoveKey !== undefined && variant === "full";
   // The click that ends a long press must not run the key.
   const swallowClick = useRef(false);
   const canDrag = useMediaQuery(FINE_POINTER_QUERY) && onMoveKey !== undefined;
@@ -146,6 +154,21 @@ export function BoardPlayer({
     if (restoreFocus && slot !== null) slotButtons.current.get(slot)?.focus();
   };
 
+  /** The slot of the cell under a point of the screen, or null outside the grid. */
+  const slotAtPoint = (x: number, y: number): number | null => {
+    const cell = typeof document.elementFromPoint === "function" ? document.elementFromPoint(x, y)?.closest("[data-slot]") : null;
+    if (!cell || !gridElement.current?.contains(cell)) return null;
+    const slot = Number(cell.getAttribute("data-slot"));
+    return Number.isInteger(slot) ? slot : null;
+  };
+
+  /** Ends a touch move without moving anything; the touch itself may still be down. */
+  const cancelTouchMove = () => {
+    touch.current = null;
+    setMovingSlot(null);
+    setDropSlot(null);
+  };
+
   const keyMenuHandlers = (slot: number) =>
     canEdit
       ? {
@@ -153,6 +176,8 @@ export function BoardPlayer({
             event.preventDefault();
             // A touch still resting on the key (Android's long press) ends in a click that must not run it.
             if (longPress.current) swallowClick.current = true;
+            // That long press holds the key like ours does, so dragging on from it moves the key too.
+            if (touch.current) touch.current.held = true;
             openMenu(slot);
           },
           onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -165,19 +190,60 @@ export function BoardPlayer({
             swallowClick.current = false;
             cancelLongPress();
             if (event.pointerType === "mouse") return;
+            const held = { slot, x: event.clientX, y: event.clientY, held: false, moving: false };
+            touch.current = held;
             const timer = setTimeout(() => {
               swallowClick.current = true;
+              held.held = true;
               openMenu(slot);
             }, LONG_PRESS_MS);
             longPress.current = { timer, x: event.clientX, y: event.clientY };
           },
           onPointerMove: (event: PointerEvent<HTMLButtonElement>) => {
             const start = longPress.current;
-            if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > LONG_PRESS_SLOP) cancelLongPress();
+            if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > LONG_PRESS_SLOP) {
+              cancelLongPress();
+              touch.current = null;
+            }
+            const held = touch.current;
+            if (!canTouchMove || !held?.held) return;
+            if (!held.moving) {
+              if (Math.hypot(event.clientX - held.x, event.clientY - held.y) <= TOUCH_MOVE_THRESHOLD) return;
+              // The key is lifted: its menu gives way, and the touch stays with the key wherever it goes.
+              held.moving = true;
+              setMenuSlot(null);
+              setMovingSlot(held.slot);
+              try {
+                event.currentTarget.setPointerCapture?.(event.pointerId);
+                navigator.vibrate?.(10);
+              } catch {
+                // Neither is needed to move the key.
+              }
+            }
+            const over = slotAtPoint(event.clientX, event.clientY);
+            // Leaving the grid drops the move.
+            if (over === null) cancelTouchMove();
+            else setDropSlot(over === held.slot ? null : over);
           },
-          onPointerUp: cancelLongPress,
-          onPointerCancel: cancelLongPress,
-          onPointerLeave: cancelLongPress,
+          onPointerUp: (event: PointerEvent<HTMLButtonElement>) => {
+            cancelLongPress();
+            const held = touch.current;
+            touch.current = null;
+            if (!held?.moving) return;
+            const to = slotAtPoint(event.clientX, event.clientY);
+            setMovingSlot(null);
+            setDropSlot(null);
+            if (to !== null && to !== held.slot) void onMoveKey?.(held.slot, to);
+          },
+          onPointerCancel: () => {
+            cancelLongPress();
+            cancelTouchMove();
+          },
+          // A finger that slides off before the long press fires is not pressing the key any more.
+          onPointerLeave: () => {
+            cancelLongPress();
+            if (!touch.current?.held) touch.current = null;
+          },
         }
       : {};
 
@@ -219,7 +285,8 @@ export function BoardPlayer({
       {/* The grid's own box, so wide layouts can size the keys to the room it gets. */}
       <div className="deck-grid-area">
         <ol
-          className="deck-grid"
+          ref={gridElement}
+          className={canTouchMove ? "deck-grid deck-grid-movable" : "deck-grid"}
           aria-label={t("board.keys", { board: board.name })}
           style={{ "--grid-columns": isTransposed ? board.rows : board.columns, "--grid-rows": isTransposed ? board.columns : board.rows } as CSSProperties}
         >
@@ -246,7 +313,7 @@ export function BoardPlayer({
                     </button>
                   ) : (
                     // A blank space: still a place to drop a dragged key.
-                    <div className="deck-key-blank" aria-hidden="true" {...dropHandlers(slot)} />
+                    <div className={["deck-key-blank", dropClass].filter(Boolean).join(" ")} aria-hidden="true" {...dropHandlers(slot)} />
                   )}
                 </li>
               );
@@ -277,7 +344,7 @@ export function BoardPlayer({
                   aria-describedby={description ? descriptionId : undefined}
                   title={reason}
                   selected={selectedSlot === slot}
-                  className={dropClass || undefined}
+                  className={[dropClass, movingSlot === slot ? "deck-key-moving" : ""].filter(Boolean).join(" ") || undefined}
                   aria-keyshortcuts={canEdit ? "Shift+F10" : undefined}
                   onClick={() => press(slot, key, disabled)}
                   draggable={canDrag || undefined}

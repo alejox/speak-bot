@@ -79,7 +79,7 @@ There is no separate edit mode: a tap always runs a key.
 | --------------------------- | --------------------------------------------------------------------------------------------- |
 | Add a key                   | Tap **+** after the last key, pick an action. Actions with details ask for them before saving. |
 | Edit or delete a key        | Right-click it, long-press it on a touch screen, or press Shift+F10. Then **Editar** or **Eliminar**. |
-| Move a key                  | Drag it onto another place (mouse), or **Editar → Mover a la posición**.                       |
+| Move a key                  | Drag it onto another place (mouse), hold it and then drag it (touch), or **Editar → Mover a la posición**.                       |
 | Add a page                  | Go past the last page with the arrow: it becomes **Página nueva**.                            |
 | Create, rename, delete or restore boards | Open the board selector at the top of the space.                                 |
 
