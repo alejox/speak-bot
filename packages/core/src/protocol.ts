@@ -4,6 +4,7 @@
  */
 import type { Action } from "./domain/actions";
 import type { Board, BoardKind, Key } from "./domain/board";
+import type { Application } from "./ports/application-launcher";
 import type { ObsConnectionStatus, ObsErrorCode, ObsInput, ObsSceneItem, ObsState } from "./ports/obs-controller";
 import type { SpeakMode, Voice } from "./ports/speech-synthesizer";
 
@@ -262,6 +263,12 @@ export interface ComposingRequest {
   composing: boolean;
 }
 
+/**
+ * GET /api/applications → the applications a `system.openApp` key can open, sorted by name; empty where the
+ * desktop cannot open applications. Running the key with any other id → 404 "app-not-found".
+ */
+export type ApplicationsResponse = Application[];
+
 /** GET /api/voices */
 export type VoicesResponse = Voice[];
 
@@ -345,7 +352,10 @@ export type ApiErrorCode =
   | "loopback-only"
   | "board-limit"
   | "grid-full"
-  | "queue-full";
+  | "queue-full"
+  | "app-not-found"
+  | "apps-unsupported"
+  | "app-open-failed";
 
 export interface ErrorResponse {
   /** Technical detail in English. */

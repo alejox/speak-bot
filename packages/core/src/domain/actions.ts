@@ -12,6 +12,9 @@ export const MAX_BOARD_ID_LENGTH = 100;
 /** Highest page number (1-based) a `nav.goToPage` action may target. */
 export const MAX_PAGE_NUMBER = 100;
 
+/** Longest application id accepted in a `system.openApp` action (a path on the computer). */
+export const MAX_APPLICATION_ID_LENGTH = 1024;
+
 export type Action =
   | { readonly type: "voice.speak"; readonly text: string }
   | { readonly type: "voice.stop" }
@@ -28,16 +31,21 @@ export type Action =
   | { readonly type: "obs.toggleMute"; readonly inputName: string }
   | { readonly type: "obs.toggleStream" }
   | { readonly type: "obs.toggleRecord" }
-  | { readonly type: "obs.toggleSourceVisibility"; readonly sceneName: string; readonly sourceName: string };
+  | { readonly type: "obs.toggleSourceVisibility"; readonly sceneName: string; readonly sourceName: string }
+  /** `appId` is one of the ids the desktop lists (GET /api/applications); the desktop opens nothing else. */
+  | { readonly type: "system.openApp"; readonly appId: string };
 
 export type ActionType = Action["type"];
 export type ActionOf<T extends ActionType> = Extract<Action, { type: T }>;
 
-export type ActionCategory = "voice" | "captions" | "navigation" | "obs";
-export const ACTION_CATEGORIES: readonly ActionCategory[] = ["voice", "captions", "navigation", "obs"];
+export type ActionCategory = "voice" | "captions" | "navigation" | "obs" | "system";
+export const ACTION_CATEGORIES: readonly ActionCategory[] = ["voice", "captions", "navigation", "obs", "system"];
 
-/** How an editor should ask for a parameter: free text, a number, or a pick list of OBS scenes, inputs, sources or boards. */
-export type ActionParamKind = "text" | "number" | "scene" | "input" | "source" | "board";
+/**
+ * How an editor should ask for a parameter: free text, a number, or a pick list of OBS scenes, inputs,
+ * sources, boards or the computer's applications.
+ */
+export type ActionParamKind = "text" | "number" | "scene" | "input" | "source" | "board" | "application";
 
 export interface ActionParamDefinition {
   readonly name: string;
@@ -129,6 +137,10 @@ export const ACTION_REGISTRY: { readonly [T in ActionType]: ActionDefinition } =
   "obs.toggleSourceVisibility": define("obs.toggleSourceVisibility", "obs", "eye", {
     requiresObs: true,
     params: [sceneParam, textParam("sourceName", "source", MAX_OBS_NAME_LENGTH)],
+  }),
+  "system.openApp": define("system.openApp", "system", "star", {
+    requiresDesktop: true,
+    params: [textParam("appId", "application", MAX_APPLICATION_ID_LENGTH)],
   }),
 };
 

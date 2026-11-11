@@ -26,3 +26,6 @@ User-approved tasks (2026-11-11). While the person types, the audience sees sile
 - The four quick phrases are fixed in this version (not editable).
 
 ## Progress
+- V1 b2fe428, V2 649b049, V3 7ef9a1d.
+- Final checks after V3 and A1 (2026-11-11): `npm run typecheck` exit 0; `npm test` core 168, desktop 200, electron 19, mobile 351, all passing.
+- Pending manual checks: the typing sign in a real OBS Browser Source; the strip's size and the no-scroll fit on real screens; queue order and interruption with real voices on the phone and through the computer.

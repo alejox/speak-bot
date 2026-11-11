@@ -13,6 +13,7 @@ import {
   type Board,
   type BoardKind,
   type Key,
+  type Application,
 } from "@speed-deck/core";
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { KeyInput } from "../adapters/board-stores";
@@ -36,6 +37,8 @@ export interface KeyEditorFormProps {
   /** Every board; a key that opens a board is offered the ones of `boardKind`. */
   boards: readonly Board[];
   obs: ObsServices | null;
+  /** Lists the computer's applications for "open application" keys; null or absent in phone-only mode. */
+  listApplications?: (() => Promise<Application[]>) | null;
   /** Resolves true when saved. */
   onSave: (key: KeyInput) => Promise<boolean>;
   /** Runs the draft action right away; called synchronously inside the tap. */
@@ -57,7 +60,7 @@ export interface KeyEditorFormProps {
 }
 
 /** Edits one key: action and its parameters, label, icon and color (and its color when on, for keys with an on state); tests, saves and moves it. Deleting lives in the key menu. */
-export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards, obs, onSave, onTest, onMove, onCancel, cancelLabel, fixedAction = false, variant = "dialog", onDraftChange, heading }: KeyEditorFormProps) {
+export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards, obs, listApplications, onSave, onTest, onMove, onCancel, cancelLabel, fixedAction = false, variant = "dialog", onDraftChange, heading }: KeyEditorFormProps) {
   const t = useT();
   const ids = { action: useId(), label: useId(), labelHint: useId(), hex: useId(), activeHex: useId(), move: useId(), error: useId() };
   const form = useRef<HTMLFormElement>(null);
@@ -167,6 +170,7 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
           onChange={(params) => update({ params })}
           boards={targetBoards}
           obs={obs}
+          listApplications={listApplications}
           invalidField={error?.field}
         />
       )}

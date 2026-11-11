@@ -42,7 +42,7 @@ const board = (id: string, keys: Board["keys"] = [], name = id, kind: Board["kin
 
 describe("action registry", () => {
   it("describes every action type with a category, executor side and i18n keys", () => {
-    expect(ACTION_TYPES).toHaveLength(15);
+    expect(ACTION_TYPES).toHaveLength(16);
     for (const type of ACTION_TYPES) {
       const definition = ACTION_REGISTRY[type];
       expect(definition.type).toBe(type);

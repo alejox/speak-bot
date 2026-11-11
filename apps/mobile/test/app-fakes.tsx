@@ -128,6 +128,8 @@ export interface DesktopState {
   supportsDeviceSelection: boolean;
   /** Answers for POST /api/actions/execute by action type (default 200 `{ ok: true }`). */
   execute: Record<string, { status?: number; body?: unknown }>;
+  /** The applications of the computer; null makes GET /api/applications fail. None unless a test sets them. */
+  applications?: Array<{ id: string; name: string }> | null;
   /** The answer to POST /api/speak when it is not the usual 202. */
   speak?: { status?: number; body?: unknown };
   /** When set, PUT /api/boards/grid answers 409 "grid-full". */
@@ -213,6 +215,8 @@ export function desktopRoute(state: DesktopState) {
         const type = (body.action as { type: string }).type;
         return state.execute[type] ?? { status: type.startsWith("voice.speak") ? 202 : 200, body: { ok: true } };
       }
+      case "GET /api/applications":
+        return state.applications === null ? { status: 500, body: { error: "Internal server error." } } : { body: state.applications ?? [] };
       case "GET /api/obs/status":
         return { body: state.obs };
       case "GET /api/obs/scenes":

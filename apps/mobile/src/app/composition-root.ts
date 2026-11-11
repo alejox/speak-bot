@@ -13,6 +13,7 @@ import type {
   SpeakingEvent,
   SpeechCapabilities,
   UiLanguage,
+  Application,
 } from "@speed-deck/core";
 import { createLocalBoardStore, createRemoteBoardStore, type BoardStore } from "../adapters/board-stores";
 import { getLocalStorage, migrateLegacyStorageKeys } from "../adapters/browser-storage";
@@ -65,6 +66,8 @@ export interface DesktopServices {
   boards: BoardStore;
   /** Runs a voice, captions or OBS action on the desktop. */
   executeAction(action: Action): Promise<ExecuteActionResult>;
+  /** The applications of the computer that an "open application" key can open. */
+  listApplications(): Promise<Application[]>;
   /** Tells the desktop whether someone is typing something to say (never what); failures are ignored. */
   reportComposing(composing: boolean): void;
   obs: ObsServices;
@@ -120,6 +123,7 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
     synthesizer: new RemoteSpeechSynthesizer(api, events),
     boards: createRemoteBoardStore(api, events),
     executeAction: (action) => api.executeAction(action),
+    listApplications: () => api.listApplications(),
     reportComposing: (composing) => void api.setComposing(composing).catch(() => {}),
     obs: {
       loadStatus: () => api.loadObsStatus(),

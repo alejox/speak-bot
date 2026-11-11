@@ -126,6 +126,8 @@ export const en = {
   "editor.saved": "Key saved.",
   "editor.deleted": "Key deleted.",
   "editor.obsListUnavailable": "OBS is not connected: type the exact name.",
+  "editor.appsEmpty": "No applications were found on the computer.",
+  "editor.appsUnavailable": "The computer's applications could not be listed.",
   "editor.choose": "Choose…",
 
   "library.search": "Search actions",
@@ -135,6 +137,7 @@ export const en = {
   "category.captions": "Captions",
   "category.navigation": "Navigation",
   "category.obs": "OBS",
+  "category.system": "Computer",
 
   "action.voice.speak": "Speak text",
   "action.voice.speak.description": "Says a text aloud.",
@@ -181,6 +184,9 @@ export const en = {
   "action.obs.toggleSourceVisibility": "Show or hide source",
   "action.obs.toggleSourceVisibility.description": "Shows or hides a source in an OBS scene.",
   "action.obs.toggleSourceVisibility.key": "Source",
+  "action.system.openApp": "Open application",
+  "action.system.openApp.description": "Opens an application on the computer, or brings it to the front.",
+  "action.system.openApp.key": "Open app",
 
   "actionParam.text": "Text to say",
   "actionParam.page": "Page",
@@ -188,6 +194,7 @@ export const en = {
   "actionParam.sceneName": "Scene",
   "actionParam.inputName": "Audio input",
   "actionParam.sourceName": "Source",
+  "actionParam.appId": "Application",
 
   "icon.message": "Speech bubble",
   "icon.stop": "Stop",
@@ -264,6 +271,9 @@ export const en = {
   "errorCode.obsDisabled": "The OBS connection is turned off.",
   "errorCode.obsRequestFailed": "OBS could not do that. Check that the name exists.",
   "errorCode.loopbackOnly": "This can only be changed on the computer running Speed Deck.",
+  "errorCode.appNotFound": "That application is not on the computer any more.",
+  "errorCode.appsUnsupported": "This computer cannot open applications from a key yet.",
+  "errorCode.appOpenFailed": "The computer could not open that application.",
   "errorCode.failed": "That did not work. Please try again.",
 
   "error.nothingToRepeat": "Nothing has been said yet to repeat.",

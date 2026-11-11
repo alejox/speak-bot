@@ -21,6 +21,7 @@ export {
   InvalidBoardError,
   isActionType,
   MAX_ACTION_TEXT_LENGTH,
+  MAX_APPLICATION_ID_LENGTH,
   MAX_BOARD_ID_LENGTH,
   MAX_OBS_NAME_LENGTH,
   MAX_PAGE_NUMBER,
@@ -109,6 +110,14 @@ export {
 } from "./domain/caption-migration";
 export type { BoardChange, BoardRepository } from "./ports/board-repository";
 export {
+  ApplicationNotListedError,
+  ApplicationOpenFailedError,
+  ApplicationsUnsupportedError,
+  applicationNameOf,
+  type Application,
+  type ApplicationLauncher,
+} from "./ports/application-launcher";
+export {
   ObsRequestError,
   ObsUnavailableError,
   type ObsConnectionConfig,
@@ -170,6 +179,7 @@ export {
   MAX_SPEAK_TEXT_LENGTH,
   voiceLanguageOf,
   type ApiErrorCode,
+  type ApplicationsResponse,
   type AudioDevice,
   type CaptionClearEvent,
   type CaptionEvent,

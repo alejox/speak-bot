@@ -35,7 +35,7 @@ export type BoardKind = (typeof BOARD_KINDS)[number];
 /** The categories each kind offers for new keys, in library order. */
 const ALLOWED_CATEGORIES: Readonly<Record<BoardKind, readonly ActionCategory[]>> = {
   voice: ["voice", "captions", "navigation"],
-  deck: ["navigation", "obs"],
+  deck: ["navigation", "obs", "system"],
 };
 
 /**

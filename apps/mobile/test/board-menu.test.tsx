@@ -28,7 +28,7 @@ describe("editing in the player, without a board editor", () => {
     await goTo(user, "Deck");
     await user.click(await screen.findByRole("button", { name: "Add a key at position 1" }));
     const dialog = screen.getByRole("dialog", { name: "Add key 1" });
-    expect(within(dialog).getAllByRole("region").map((group) => group.getAttribute("aria-label"))).toEqual(["Navigation", "OBS"]);
+    expect(within(dialog).getAllByRole("region").map((group) => group.getAttribute("aria-label"))).toEqual(["Navigation", "OBS", "Computer"]);
     expect(within(dialog).queryByRole("button", { name: "Speak text" })).not.toBeInTheDocument();
     // Captions belong to Voice.
     expect(within(dialog).queryByRole("button", { name: "Clear caption" })).not.toBeInTheDocument();
@@ -52,7 +52,7 @@ describe("editing in the player, without a board editor", () => {
     // The select shows the key's own action, but offers no caption category.
     expect(action).toHaveDisplayValue("Clear caption");
     expect(within(action).queryByRole("option", { name: "Hide or show captions" })).not.toBeInTheDocument();
-    expect(within(action).getAllByRole("group").map((group) => group.getAttribute("label"))).toEqual(["Navigation", "OBS"]);
+    expect(within(action).getAllByRole("group").map((group) => group.getAttribute("label"))).toEqual(["Navigation", "OBS", "Computer"]);
   });
 
   it("adds an OBS key with its scene, or a typed one when OBS is not connected", async () => {

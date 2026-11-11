@@ -1,4 +1,4 @@
-import type { BoardRepository, DesktopSettings, ObsController, ServerEvent } from "@speed-deck/core";
+import type { ApplicationLauncher, BoardRepository, DesktopSettings, ObsController, ServerEvent } from "@speed-deck/core";
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { hostname as osHostname } from "node:os";
@@ -31,6 +31,8 @@ export interface DesktopServerDependencies {
   onSettingsChanged?: (settings: DesktopSettings) => void;
   /** Controls OBS; its status and state changes are broadcast to every client. */
   obs?: ObsController;
+  /** Lists and opens the applications of this computer for "open application" keys. */
+  apps?: ApplicationLauncher;
 }
 
 export interface DesktopServer {

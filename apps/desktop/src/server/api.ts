@@ -1,4 +1,7 @@
 import {
+  ApplicationNotListedError,
+  ApplicationOpenFailedError,
+  ApplicationsUnsupportedError,
   assertKeySlot,
   BoardGridFullError,
   BoardLimitError,
@@ -27,6 +30,7 @@ import {
   SlotOccupiedError,
   SpeechQueueFullError,
   type ApiErrorCode,
+  type ApplicationLauncher,
   type BoardRepository,
   type DesktopSettings,
   type HealthResponse,
@@ -59,6 +63,8 @@ export interface ApiDependencies {
   onSettingsChanged?: (settings: DesktopSettings) => void;
   /** Controls OBS; absent means OBS control is not available. */
   obs?: ObsController;
+  /** Lists and opens the applications of this computer; absent means it cannot. */
+  apps?: ApplicationLauncher;
 }
 
 type Params = Record<string, string>;
@@ -89,6 +95,7 @@ export function createApiHandler(deps: ApiDependencies) {
     log,
     onSettingsChanged: settingsChanged,
     obs: deps.obs,
+    apps: deps.apps,
   });
   const requireObs = (): ObsController => {
     if (!deps.obs) throw new ObsUnavailableError();
@@ -333,6 +340,12 @@ export function createApiHandler(deps: ApiDependencies) {
       },
     },
     {
+      /** The applications an "open application" key can open; none where the computer cannot open them. */
+      method: "GET",
+      path: "/api/applications",
+      handler: async (_request, response) => sendJson(response, 200, (await deps.apps?.list()) ?? []),
+    },
+    {
       method: "GET",
       path: "/api/obs/scenes",
       handler: async (_request, response) => sendJson(response, 200, await requireObs().listScenes()),
@@ -420,6 +433,9 @@ function describeFailure(error: unknown): { status: number; message: string; cod
   if (error instanceof LastBoardError) return { status: 409, message: error.message, code: "last-board" };
   if (error instanceof ObsUnavailableError) return { status: 409, message: error.message, code: "obs-unavailable" };
   if (error instanceof ObsDisabledError) return { status: 409, message: error.message, code: "obs-disabled" };
+  if (error instanceof ApplicationNotListedError) return { status: 404, message: error.message, code: "app-not-found" };
+  if (error instanceof ApplicationsUnsupportedError) return { status: 409, message: error.message, code: "apps-unsupported" };
+  if (error instanceof ApplicationOpenFailedError) return { status: 502, message: error.message, code: "app-open-failed" };
   if (error instanceof ObsRequestError) return { status: 502, message: error.message, code: "obs-request-failed" };
   return null;
 }

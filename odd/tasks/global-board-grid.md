@@ -44,3 +44,8 @@ Strategy: ask-on-risk. Forecast ≈ 600–800 authored lines across three work-u
 - T6 commit: 4855f9b. Final checks from the parent: `npm run typecheck` exit 0; `npm test` core 156, desktop 161, electron 19, mobile 298, all passing. Packaged app rebuilt and launched.
 - Pending manual checks by the user: T4 (shell never shifts with the inspector focused) and T3 (keys fit without scrolling on a real phone).
 - Next feature (user request, not started): OBS input volume slider key spanning 2–3 rows and 1–2 columns, size adjustable by the user, aligned to the grid cells.
+
+## Follow-up 2 (2026-11-11)
+- T7 859abdf, T8 04804c9, T9 184ff4b. Final checks: `npm run typecheck` exit 0; `npm test` core 168, desktop 200, electron 19, mobile 351, all passing (run after the later Voice and open-application work on the same branch).
+- Pending manual checks: T7 fit without scroll on 390×844, 844×390, 768×1024, 1280×800; T8 touch move on a real phone (no scroll or text selection, Android long press); T9 none beyond a look at the button's place.
+- Known limits: Voice on a phone on its side keeps the composer above the keys, so the keys there stay small; windows narrower than 720px on their side keep the bottom tab bar.

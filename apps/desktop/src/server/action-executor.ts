@@ -1,4 +1,6 @@
 import {
+  ApplicationNotListedError,
+  ApplicationsUnsupportedError,
   COMPOSING_TIMEOUT_MS,
   MAX_SPEECH_QUEUE,
   ObsUnavailableError,
@@ -6,6 +8,7 @@ import {
   SpeechQueueFullError,
   voiceLanguageOf,
   type Action,
+  type ApplicationLauncher,
   type DesktopSettings,
   type ObsController,
   type ServerEvent,
@@ -46,6 +49,8 @@ export interface ActionExecutorDependencies {
   onSettingsChanged?: (settings: DesktopSettings) => void;
   /** Runs `obs.*` actions; absent means OBS control is not available. */
   obs?: ObsController;
+  /** Opens applications for `system.openApp`; absent means this computer cannot. */
+  apps?: ApplicationLauncher;
 }
 
 /** Per-request speech overrides; anything left out comes from the saved settings. */
@@ -185,6 +190,17 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
     return deps.obs;
   }
 
+  /**
+   * Opens an application of this computer. The id comes from a stored key, which a phone on the network may
+   * have written, so it is only opened when it is exactly one of the applications listed right now.
+   */
+  async function openApplication(appId: string): Promise<void> {
+    if (!deps.apps) throw new ApplicationsUnsupportedError();
+    const listed = (await deps.apps.list()).find((application) => application.id === appId);
+    if (!listed) throw new ApplicationNotListedError();
+    await deps.apps.open(listed.id);
+  }
+
   async function execute(action: Action): Promise<ExecuteResult> {
     switch (action.type) {
       case "voice.speak":
@@ -228,6 +244,9 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
         return { status: 200, body: { ok: true } };
       case "obs.toggleSourceVisibility":
         await requireObs().toggleSourceVisibility(action.sceneName, action.sourceName);
+        return { status: 200, body: { ok: true } };
+      case "system.openApp":
+        await openApplication(action.appId);
         return { status: 200, body: { ok: true } };
     }
   }

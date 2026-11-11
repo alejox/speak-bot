@@ -24,6 +24,10 @@ const CODE_MESSAGES: Partial<Record<ApiErrorCode, MessageKey>> = {
   "obs-request-failed": "errorCode.obsRequestFailed",
   "loopback-only": "errorCode.loopbackOnly",
   "nothing-to-repeat": "error.nothingToRepeat",
+  "queue-full": "error.queueFull",
+  "app-not-found": "errorCode.appNotFound",
+  "apps-unsupported": "errorCode.appsUnsupported",
+  "app-open-failed": "errorCode.appOpenFailed",
 };
 
 /** Explains a failed board, key, action or OBS request in the interface language, wherever it ran. */

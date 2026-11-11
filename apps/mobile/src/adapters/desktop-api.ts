@@ -19,6 +19,7 @@ import {
   type SpeechCapabilities,
   type UiLanguage,
   type Voice,
+  type Application,
 } from "@speed-deck/core";
 
 export class DesktopRequestError extends Error {
@@ -119,6 +120,13 @@ export class DesktopApiClient {
   /** Runs a voice, captions or OBS action on the desktop; navigation actions are refused ("client-action"). */
   executeAction(action: Action): Promise<{ ok: true; captionsVisible?: boolean; voiceLanguage?: UiLanguage }> {
     return this.request("POST", "/api/actions/execute", { action }) as Promise<{ ok: true }>;
+  }
+
+  /** The applications an "open application" key can open, sorted by name by the desktop. */
+  async listApplications(): Promise<Application[]> {
+    const body = await this.request("GET", "/api/applications");
+    if (!Array.isArray(body)) throw new DesktopRequestError(500, "Unexpected applications list.");
+    return body.filter((item): item is Application => typeof item === "object" && item !== null && typeof (item as Application).id === "string" && typeof (item as Application).name === "string");
   }
 
   async speak(request: SpeakRequest): Promise<void> {

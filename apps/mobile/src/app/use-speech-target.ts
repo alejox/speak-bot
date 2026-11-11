@@ -12,6 +12,7 @@ import {
   type SpeechCapabilities,
   type UiLanguage,
   type Voice,
+  type Application,
 } from "@speed-deck/core";
 import type { BoardStore } from "../adapters/board-stores";
 import { useCallback, useEffect, useState } from "react";
@@ -40,6 +41,8 @@ export interface SpeechTarget {
   boards: BoardStore;
   /** Runs voice, captions and OBS actions on the desktop; null when speaking on this device. */
   executeAction: ((action: Action) => Promise<ExecuteActionResult>) | null;
+  /** Lists the applications of the computer for "open application" keys; null when speaking on this device. */
+  listApplications: (() => Promise<Application[]>) | null;
   /** Tells the desktop whether someone is typing something to say; null when speaking on this device. */
   reportComposing: ((composing: boolean) => void) | null;
   /** OBS through the desktop; null when speaking on this device. */
@@ -204,6 +207,7 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
     boards: remote?.boards ?? services.boards,
     executeAction: remote ? remote.executeAction : null,
     reportComposing: remote ? remote.reportComposing : null,
+    listApplications: remote ? remote.listApplications : null,
     obs: remote ? remote.obs : null,
     onSpeechEvent: remote ? remote.onSpeechEvent : noSubscription,
     settings,

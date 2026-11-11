@@ -129,6 +129,8 @@ export const es: Messages = {
   "editor.saved": "Tecla guardada.",
   "editor.deleted": "Tecla borrada.",
   "editor.obsListUnavailable": "OBS no está conectado: escribe el nombre exacto.",
+  "editor.appsEmpty": "No se encontraron aplicaciones en la computadora.",
+  "editor.appsUnavailable": "No se pudieron listar las aplicaciones de la computadora.",
   "editor.choose": "Elige…",
 
   "library.search": "Buscar acciones",
@@ -138,6 +140,7 @@ export const es: Messages = {
   "category.captions": "Subtítulos",
   "category.navigation": "Navegación",
   "category.obs": "OBS",
+  "category.system": "Computadora",
 
   "action.voice.speak": "Decir texto",
   "action.voice.speak.description": "Dice un texto en voz alta.",
@@ -184,6 +187,9 @@ export const es: Messages = {
   "action.obs.toggleSourceVisibility": "Mostrar u ocultar fuente",
   "action.obs.toggleSourceVisibility.description": "Muestra u oculta una fuente en una escena de OBS.",
   "action.obs.toggleSourceVisibility.key": "Fuente",
+  "action.system.openApp": "Abrir aplicación",
+  "action.system.openApp.description": "Abre una aplicación en la computadora o la trae al frente.",
+  "action.system.openApp.key": "Abrir app",
 
   "actionParam.text": "Texto para decir",
   "actionParam.page": "Página",
@@ -191,6 +197,7 @@ export const es: Messages = {
   "actionParam.sceneName": "Escena",
   "actionParam.inputName": "Entrada de audio",
   "actionParam.sourceName": "Fuente",
+  "actionParam.appId": "Aplicación",
 
   "icon.message": "Globo de diálogo",
   "icon.stop": "Detener",
@@ -267,6 +274,9 @@ export const es: Messages = {
   "errorCode.obsDisabled": "La conexión con OBS está desactivada.",
   "errorCode.obsRequestFailed": "OBS no pudo hacerlo. Revisa que el nombre exista.",
   "errorCode.loopbackOnly": "Solo se puede cambiar en la computadora donde corre Speed Deck.",
+  "errorCode.appNotFound": "Esa aplicación ya no está en la computadora.",
+  "errorCode.appsUnsupported": "Esta computadora todavía no puede abrir aplicaciones desde una tecla.",
+  "errorCode.appOpenFailed": "La computadora no pudo abrir esa aplicación.",
   "errorCode.failed": "No funcionó. Inténtalo de nuevo.",
 
   "error.nothingToRepeat": "Aún no se ha dicho nada para repetir.",

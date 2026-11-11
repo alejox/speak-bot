@@ -1,4 +1,4 @@
-import { ACTION_REGISTRY, type Action, type ActionType, type Board, type Key, type ObsConnectionStatus, type ObsState, type UiLanguage } from "@speed-deck/core";
+import { ACTION_REGISTRY, applicationNameOf, type Action, type ActionType, type Board, type Key, type ObsConnectionStatus, type ObsState, type UiLanguage } from "@speed-deck/core";
 import type { Translate } from "../i18n/I18nProvider";
 import { LANGUAGE_NAMES, type Message, type MessageKey } from "../i18n/messages";
 
@@ -112,6 +112,8 @@ export function keyLabel(key: Key, boards: readonly Board[], t: Translate): stri
       return action.inputName;
     case "obs.toggleSourceVisibility":
       return action.sourceName;
+    case "system.openApp":
+      return applicationNameOf(action.appId);
     case "nav.goToPage":
       return t("key.pageLabel", { page: action.page });
     case "nav.goToBoard":

@@ -8,6 +8,7 @@ import { JsonFileBoardRepository } from "./adapters/json-file-board-repository";
 import { JsonFileSettingsStore } from "./adapters/json-file-settings-store";
 import { createObsWebSocketClient, type ObsClient } from "./adapters/obs/obs-client";
 import { ObsConnectionManager } from "./adapters/obs/obs-connection-manager";
+import { createApplicationLauncher } from "./adapters/apps/create-application-launcher";
 import { createSystemSynthesizer } from "./adapters/tts/create-system-synthesizer";
 import { loadConfig, type ConfigSources } from "./config";
 import { createDesktopServer } from "./server/create-server";
@@ -90,6 +91,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     pageHandler,
     allowedHosts: config.allowedHosts,
     obs,
+    apps: createApplicationLauncher(),
     onSettingsChanged: (next) => {
       for (const listener of [...settingsListeners]) listener(next);
     },

@@ -37,15 +37,15 @@ describe("board kinds", () => {
   it("lists the two kinds and the action categories each one allows", () => {
     expect(BOARD_KINDS).toEqual(["voice", "deck"]);
     expect(allowedActionCategories("voice")).toEqual(["voice", "captions", "navigation"]);
-    expect(allowedActionCategories("deck")).toEqual(["navigation", "obs"]);
+    expect(allowedActionCategories("deck")).toEqual(["navigation", "obs", "system"]);
   });
 
   it("allows every action only on the kinds that list its category", () => {
     for (const type of ACTION_TYPES) {
       const { category } = ACTION_REGISTRY[type];
-      expect(isActionAllowedOnBoard("voice", type)).toBe(category !== "obs");
+      expect(isActionAllowedOnBoard("voice", type)).toBe(category !== "obs" && category !== "system");
       // Captions belong to Voice; caption keys stored on deck boards are moved by moveCaptionKeysToVoice.
-      expect(isActionAllowedOnBoard("deck", type)).toBe(category === "navigation" || category === "obs");
+      expect(isActionAllowedOnBoard("deck", type)).toBe(category === "navigation" || category === "obs" || category === "system");
     }
   });
 

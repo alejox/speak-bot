@@ -99,6 +99,7 @@ function DockContent({ target }: { target: SpeechTarget }) {
           boardKind={board.kind}
           boards={deck.boards.boards}
           obs={target.obs}
+          listApplications={target.listApplications}
           onTest={confirmed.run}
           onSave={async (key) => {
             const saved = await deck.saveKey(key, board.keys.find((candidate) => candidate.slot === dialogSlot));
