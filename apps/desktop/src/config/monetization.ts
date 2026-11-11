@@ -1,7 +1,7 @@
 /**
- * Where the "remove ads" license is sold and where sponsor banners come from. Placeholders until the
- * Lemon Squeezy store and a public feed exist: every value is empty by default and each one can be
- * set with an env var. A missing value turns its feature off gracefully:
+ * Where the "remove ads" license is sold and where sponsor banners come from. The built-in values point to
+ * the published Lemon Squeezy store and feed; each one can be replaced with an env var, and an empty env var
+ * turns its feature off. A missing value turns its feature off gracefully:
  * - no store or product id → keys cannot be activated (ads stay on);
  * - no checkout URL → no "Buy" button;
  * - no feed URL → only the house banner is shown.
@@ -13,12 +13,15 @@ export interface MonetizationConfig {
   adFeedUrl?: string;
 }
 
-/** Built-in values; fill them in once the store and the feed exist. */
+/**
+ * Built-in values. The store and product ids are public (every License API answer carries them) and the
+ * checkout and feed URLs are public pages; no license key is ever built in.
+ */
 const BUILT_IN: Readonly<Record<keyof MonetizationConfig, string>> = {
-  storeId: "",
-  productId: "",
-  checkoutUrl: "",
-  adFeedUrl: "",
+  storeId: "520786",
+  productId: "1517249",
+  checkoutUrl: "https://speeddeck.lemonsqueezy.com/checkout/buy/a38c9fa0-39f6-43c4-97a5-dc82c8635b90",
+  adFeedUrl: "https://www.alejoxcode.com/speeddeck/banner.json",
 };
 
 export const MONETIZATION_ENV = {

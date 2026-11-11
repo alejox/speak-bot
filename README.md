@@ -278,11 +278,11 @@ Boards and settings are stored in:
 
 ### Ads and the remove-ads license
 
-Every feature is free; the **Deck** shows a small banner above the keys (never in **Voz**). A one-time purchase removes it on the computer and on every paired phone. Both need your own [Lemon Squeezy](https://www.lemonsqueezy.com) store (a product with license keys enabled) and, for sponsors, a public https feed. Until they are set, the banner only shows the "Quita los anuncios" house message and keys cannot be activated.
+Every feature is free; the **Deck** shows a small banner above the keys (never in **Voz**). A one-time purchase removes it on the computer and on every paired phone. Speed Deck comes set up for the published [Lemon Squeezy](https://www.lemonsqueezy.com) store (store `520786`, product `1517249`), its checkout page and the published feed (`https://www.alejoxcode.com/speeddeck/banner.json`), so **Comprar** and activating a key work out of the box on the computer. These ids and URLs are public; no license key is built in.
 
-Set them in `apps/desktop/src/config/monetization.ts` (built in) or with environment variables:
+To use your own store or feed, change `apps/desktop/src/config/monetization.ts` or set environment variables. An empty variable turns its feature off (no store: keys cannot be activated; no feed: only the "Quita los anuncios" house banner):
 
-| Env var                               | What it is                                                        | When missing                 |
+| Env var                               | What it is                                                        | When empty                   |
 | ------------------------------------- | ----------------------------------------------------------------- | ---------------------------- |
 | `SPEED_DECK_LEMON_SQUEEZY_STORE_ID`   | Your Lemon Squeezy store id                                       | Keys cannot be activated     |
 | `SPEED_DECK_LEMON_SQUEEZY_PRODUCT_ID` | The "remove ads" product id; keys of other products are refused   | Keys cannot be activated     |
@@ -290,7 +290,13 @@ Set them in `apps/desktop/src/config/monetization.ts` (built in) or with environ
 | `SPEED_DECK_AD_FEED_URL`              | https URL of the sponsor feed                                     | House banner only            |
 
 - **License**: the key is activated from the computer's **Ajustes → Quitar anuncios** with the [License API](https://docs.lemonsqueezy.com/api/license-api) (only the key and the computer name are sent). It is saved in `license.json` in the data folder and checked at start and every 24 hours. If Lemon Squeezy cannot be reached, the saved status is kept; if it says the key is expired or disabled, the banner comes back. **Quitar licencia** frees the activation.
-- **Sponsor feed**: fetched at start and every 6 hours, over https without following redirects. The last good creative is cached in the `ad` folder of the data folder; a failed or invalid fetch keeps it, and `"ad": null` removes it.
+- **Sponsor feed**: fetched at start and every 6 hours, over https without following redirects. The last good creative is cached in the `ad` folder of the data folder; a failed or invalid fetch keeps it, and `"ad": null` removes it. The feed has one of two shapes. The simple one:
+
+```json
+{ "text": "Tutoriales de Speed Deck en YouTube", "url": "https://youtube.com/@alejoxcode", "image": null }
+```
+
+`text` (up to 160 characters; it is also the title, shortened to 80) and `url` (https) are required; `image` is an https image URL or `null`. Its id comes from a hash of the three fields, so the banner only counts as new when one of them changes. The full shape:
 
 ```json
 {

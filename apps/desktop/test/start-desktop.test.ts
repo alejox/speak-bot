@@ -8,6 +8,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { startDesktop, type RunningDesktop } from "../src/start-desktop";
 import { FakeObsClient, obsResponses } from "./fake-obs-client";
 
+/** No sponsor feed and no license store, so starting the desktop in a test never reaches the network. */
+const OFFLINE_ENV = { SPEED_DECK_AD_FEED_URL: "", SPEED_DECK_LEMON_SQUEEZY_STORE_ID: "", SPEED_DECK_LEMON_SQUEEZY_PRODUCT_ID: "", SPEED_DECK_CHECKOUT_URL: "" };
+
 describe("startDesktop", () => {
   let dir: string | undefined;
   let blocker: Server | undefined;
@@ -28,7 +31,7 @@ describe("startDesktop", () => {
 
     desktop = await startDesktop({
       argv: ["--port", String(busyPort), "--host", "127.0.0.1", "--data-dir", dir],
-      env: {},
+      env: OFFLINE_ENV,
       log: (message) => messages.push(message),
     });
 
@@ -53,7 +56,7 @@ describe("startDesktop", () => {
 
     desktop = await startDesktop({
       argv: ["--port", String(busyPort), "--host", "0.0.0.0", "--data-dir", dir],
-      env: {},
+      env: OFFLINE_ENV,
     });
 
     expect(desktop.port).not.toBe(busyPort);
@@ -63,7 +66,7 @@ describe("startDesktop", () => {
 
   it("creates the Spanish communication board on first run by default", async () => {
     dir = await mkdtemp(join(tmpdir(), "speed-deck-start-"));
-    desktop = await startDesktop({ argv: ["--port", "0", "--host", "127.0.0.1", "--data-dir", dir], env: {} });
+    desktop = await startDesktop({ argv: ["--port", "0", "--host", "127.0.0.1", "--data-dir", dir], env: OFFLINE_ENV });
 
     expect(await phraseTexts(desktop.port)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
     expect((await desktop.loadSettings()).language).toBe("es");
@@ -72,7 +75,7 @@ describe("startDesktop", () => {
   it("creates the board in the language saved in the settings and reports settings changes", async () => {
     dir = await mkdtemp(join(tmpdir(), "speed-deck-start-"));
     await writeFile(join(dir, "settings.json"), JSON.stringify({ language: "en" }));
-    desktop = await startDesktop({ argv: ["--port", "0", "--host", "127.0.0.1", "--data-dir", dir], env: {} });
+    desktop = await startDesktop({ argv: ["--port", "0", "--host", "127.0.0.1", "--data-dir", dir], env: OFFLINE_ENV });
     const changes: string[] = [];
     desktop.onSettingsChanged((settings) => changes.push(settings.language));
 
@@ -92,7 +95,7 @@ describe("startDesktop", () => {
     FakeObsClient.created = [];
     desktop = await startDesktop({
       argv: ["--port", "0", "--host", "127.0.0.1", "--data-dir", dir],
-      env: {},
+      env: OFFLINE_ENV,
       createObsClient: () => new FakeObsClient(null, obsResponses()),
     });
 

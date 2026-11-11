@@ -114,6 +114,51 @@ describe("AdFeed", () => {
     }
   });
 
+  describe("the flat feed", () => {
+    const FLAT = { text: "Tutoriales de Speed Deck en YouTube", url: "https://youtube.com/@alejoxcode", image: null };
+
+    it("maps text to the title and text and url to the link, with a stable id from its fields", async () => {
+      const { fetch } = fakeFetch({ [FEED]: [json(FLAT), json(FLAT)] });
+      const ads = feed(fetch);
+      await ads.refresh();
+      const first = await ads.current();
+      expect(first).toEqual({ id: expect.stringMatching(/^[A-Za-z0-9._-]+$/), title: FLAT.text, text: FLAT.text, linkUrl: "https://youtube.com/@alejoxcode" });
+      expect(await ads.image()).toBeNull();
+      await ads.refresh();
+      expect((await ads.current())?.id).toBe(first?.id);
+    });
+
+    it("downloads its https image, and gives another id when a field changes", async () => {
+      const { fetch } = fakeFetch({ [FEED]: [json(FLAT), json({ ...FLAT, image: IMAGE })], [IMAGE]: [png()] });
+      const ads = feed(fetch);
+      await ads.refresh();
+      const plain = await ads.current();
+      await ads.refresh();
+      const withImage = await ads.current();
+      expect(withImage).toMatchObject({ title: FLAT.text, imagePath: expect.stringContaining("/api/ad/image?v=") });
+      expect(withImage?.id).not.toBe(plain?.id);
+      expect(await ads.image()).toEqual({ contentType: "image/png", bytes: PNG });
+    });
+
+    it("refuses an http link or image, missing text and a text too long, keeping the cache", async () => {
+      const bad: Answer[] = [
+        json({ ...FLAT, url: "http://youtube.com/@alejoxcode" }),
+        json({ ...FLAT, image: "http://cdn.example/banner.png" }),
+        json({ ...FLAT, text: "" }),
+        json({ ...FLAT, text: "x".repeat(200) }),
+        json({ url: FLAT.url }),
+      ];
+      const { fetch } = fakeFetch({ [FEED]: [json(FLAT), ...bad] });
+      const ads = feed(fetch);
+      await ads.refresh();
+      const cached = await ads.current();
+      for (let index = 0; index < bad.length; index += 1) {
+        await ads.refresh();
+        expect({ index, ad: await ads.current() }).toEqual({ index, ad: cached });
+      }
+    });
+  });
+
   it("keeps the cached creative when the new image is too large, of another type or a disguised file", async () => {
     const other = { ...CREATIVE, id: "summer-2", imageUrl: "https://cdn.example/other.png" };
     const { fetch } = fakeFetch({

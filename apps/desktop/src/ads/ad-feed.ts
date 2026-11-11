@@ -1,5 +1,5 @@
 import type { AdCreative } from "@speed-deck/core";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { SerialQueue, readJsonFile, writeJsonFileAtomic } from "../adapters/json-file";
@@ -43,7 +43,8 @@ export interface AdFeedOptions {
 }
 
 /**
- * The sponsor banner. Fetches the feed `{ "ad": Creative | null }` at start and every 6 h, downloads
+ * The sponsor banner. Fetches the feed at start and every 6 h: either `{ "ad": Creative | null }` or the flat
+ * `{ "text", "url", "image": https URL | null }` (see `parseFlatCreative`). It downloads
  * the creative's image (png, jpeg or webp, at most 500 KB) and keeps the last good creative on disk.
  * Any failure keeps the cache; `{ "ad": null }` removes the sponsor. Everything is fetched over https
  * without following redirects, and clients only ever receive `linkUrl` and local paths.
@@ -130,14 +131,15 @@ export class AdFeed {
     } catch {
       throw new Error("the feed is not valid JSON.");
     }
-    if (typeof body !== "object" || body === null || Array.isArray(body) || !("ad" in body)) throw new Error('the feed must be an object with an "ad" field.');
-    const ad = (body as { ad: unknown }).ad;
-    if (ad === null) {
+    if (typeof body !== "object" || body === null || Array.isArray(body) || !("ad" in body || "text" in body)) {
+      throw new Error('the feed must be an object with an "ad" field, or with "text" and "url".');
+    }
+    if ("ad" in body && (body as { ad: unknown }).ad === null) {
       await rm(this.metaFile, { force: true });
       await rm(this.imageFile, { force: true });
       return;
     }
-    const creative = parseCreative(ad);
+    const creative = "ad" in body ? parseCreative((body as { ad: unknown }).ad) : parseFlatCreative(body);
     const previous = await this.readCache();
     const next: CachedAd = { ...creative };
     if (creative.imageUrl) {
@@ -207,6 +209,21 @@ function parseCreative(value: unknown): FeedCreative {
   if (alt !== undefined) creative.alt = requiredText(alt, "alt", MAX_ALT_LENGTH);
   if (imageUrl !== undefined) creative.imageUrl = requiredHttps(imageUrl, "imageUrl");
   return creative;
+}
+
+/**
+ * A creative from the flat feed `{ "text", "url", "image" }`: `text` is the banner's text and, shortened to fit,
+ * its title; `url` its link; `image` an https image URL or null. Its id is a hash of the three, so it stays the
+ * same until one of them changes.
+ */
+function parseFlatCreative(value: object): FeedCreative {
+  const { text, url, image } = value as Record<string, unknown>;
+  const fullText = requiredText(text, "text", MAX_TEXT_LENGTH);
+  const title = fullText.length <= MAX_TITLE_LENGTH ? fullText : `${fullText.slice(0, MAX_TITLE_LENGTH - 1).trimEnd()}…`;
+  const creative: FeedCreative = { id: "", title, text: fullText, linkUrl: requiredHttps(url, "url") };
+  if (image !== null && image !== undefined) creative.imageUrl = requiredHttps(image, "image");
+  const hash = createHash("sha256").update(JSON.stringify([fullText, creative.linkUrl, creative.imageUrl ?? null])).digest("hex");
+  return { ...creative, id: `feed-${hash.slice(0, 16)}` };
 }
 
 function requiredText(value: unknown, name: string, max: number): string {
