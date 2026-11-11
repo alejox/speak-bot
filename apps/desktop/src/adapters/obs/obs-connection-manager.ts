@@ -46,6 +46,8 @@ export class ObsConnectionManager implements ObsController {
   private retryDelay = FIRST_RETRY_MS;
   private currentStatus: ObsStatus = { status: "disconnected" };
   private currentState: ObsState = EMPTY_STATE;
+  /** Each scene's items by id, so visibility events (which name only the id) map to sources; null while unknown. */
+  private sceneItems: Map<string, Map<number, ObsSceneItem>> | null = null;
 
   constructor(private readonly options: ObsConnectionManagerOptions) {
     this.log = options.log ?? (() => {});
@@ -104,11 +106,7 @@ export class ObsConnectionManager implements ObsController {
 
   async listSceneItems(sceneName: string): Promise<ObsSceneItem[]> {
     const { sceneItems } = await this.request("GetSceneItemList", { sceneName });
-    return asArray(sceneItems).flatMap((item) =>
-      typeof item.sceneItemId === "number" && typeof item.sourceName === "string"
-        ? [{ id: item.sceneItemId, sourceName: item.sourceName, enabled: item.sceneItemEnabled === true }]
-        : [],
-    );
+    return asSceneItems(sceneItems);
   }
 
   async switchScene(sceneName: string): Promise<void> {
@@ -233,6 +231,54 @@ export class ObsConnectionManager implements ObsController {
         this.emit({ type: "input-volume", inputName, volumeMul: inputVolumeMul });
       }),
     );
+    // Scene and scene item events are part of obs-websocket's default subscriptions.
+    client.on(
+      "SceneItemEnableStateChanged",
+      guard(({ sceneName, sceneItemId, sceneItemEnabled }) => {
+        if (typeof sceneName !== "string" || typeof sceneItemId !== "number" || typeof sceneItemEnabled !== "boolean") return;
+        const item = this.sceneItems?.get(sceneName)?.get(sceneItemId);
+        if (!item) return void this.refreshSceneItems(generation, sceneName);
+        this.sceneItems!.get(sceneName)!.set(sceneItemId, { ...item, enabled: sceneItemEnabled });
+        this.publishHiddenSources();
+      }),
+    );
+    // A new item may start hidden (e.g. a pasted one), so the scene is read again.
+    client.on(
+      "SceneItemCreated",
+      guard(({ sceneName }) => {
+        if (typeof sceneName === "string") void this.refreshSceneItems(generation, sceneName);
+      }),
+    );
+    client.on(
+      "SceneItemRemoved",
+      guard(({ sceneName, sceneItemId }) => {
+        if (typeof sceneName !== "string" || typeof sceneItemId !== "number") return;
+        if (this.sceneItems?.get(sceneName)?.delete(sceneItemId)) this.publishHiddenSources();
+      }),
+    );
+    // A duplicated scene arrives with its items.
+    client.on(
+      "SceneCreated",
+      guard(({ sceneName, isGroup }) => {
+        if (typeof sceneName === "string" && isGroup !== true) void this.refreshSceneItems(generation, sceneName);
+      }),
+    );
+    client.on(
+      "SceneRemoved",
+      guard(({ sceneName }) => {
+        if (typeof sceneName === "string" && this.sceneItems?.delete(sceneName)) this.publishHiddenSources();
+      }),
+    );
+    client.on(
+      "SceneNameChanged",
+      guard(({ oldSceneName, sceneName }) => {
+        const items = typeof oldSceneName === "string" ? this.sceneItems?.get(oldSceneName) : undefined;
+        if (!items || typeof sceneName !== "string") return;
+        this.sceneItems!.delete(oldSceneName as string);
+        this.sceneItems!.set(sceneName, items);
+        this.publishHiddenSources();
+      }),
+    );
     client.on(
       "StreamStateChanged",
       guard(({ outputActive }) => {
@@ -253,15 +299,42 @@ export class ObsConnectionManager implements ObsController {
     const [scenes, stream, record, inputs] = await Promise.all([read("GetSceneList"), read("GetStreamStatus"), read("GetRecordStatus"), read("GetInputList")]);
     const names = asArray(inputs.inputs).flatMap((input) => (typeof input.inputName === "string" ? [input.inputName] : []));
     // Inputs without audio reject GetInputMute; they are simply never muted.
-    const mutes = await Promise.all(names.map(async (name) => ((await read("GetInputMute", { inputName: name })).inputMuted === true ? [name] : [])));
+    // Without a scene list the hidden sources stay unknown; a scene OBS cannot list has nothing hidden.
+    const sceneNames = Array.isArray(scenes.scenes) ? asArray(scenes.scenes).flatMap((scene) => (typeof scene.sceneName === "string" ? [scene.sceneName] : [])) : null;
+    const [mutes, itemLists] = await Promise.all([
+      Promise.all(names.map(async (name) => ((await read("GetInputMute", { inputName: name })).inputMuted === true ? [name] : []))),
+      Promise.all((sceneNames ?? []).map(async (sceneName) => sceneItemsById((await read("GetSceneItemList", { sceneName })).sceneItems))),
+    ]);
     if (generation !== this.generation) return;
+    this.sceneItems = sceneNames ? new Map(sceneNames.map((sceneName, index) => [sceneName, itemLists[index]!])) : null;
     this.currentState = EMPTY_STATE;
     this.setState({
       currentScene: typeof scenes.currentProgramSceneName === "string" ? scenes.currentProgramSceneName : null,
       streaming: stream.outputActive === true,
       recording: record.outputActive === true,
       mutedInputs: mutes.flat(),
+      ...(this.sceneItems ? { hiddenSources: this.hiddenSources(this.sceneItems) } : {}),
     });
+  }
+
+  /** Reads one scene's items again after OBS added a scene or an item to it. */
+  private async refreshSceneItems(generation: number, sceneName: string): Promise<void> {
+    try {
+      const { sceneItems } = await this.request("GetSceneItemList", { sceneName });
+      if (generation !== this.generation || !this.sceneItems) return;
+      this.sceneItems.set(sceneName, sceneItemsById(sceneItems));
+      this.publishHiddenSources();
+    } catch (error) {
+      this.log(`Could not read the items of an OBS scene: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private publishHiddenSources(): void {
+    if (this.sceneItems) this.setState({ hiddenSources: this.hiddenSources(this.sceneItems) });
+  }
+
+  private hiddenSources(sceneItems: Map<string, Map<number, ObsSceneItem>>): ObsState["hiddenSources"] {
+    return [...sceneItems].flatMap(([sceneName, items]) => [...items.values()].flatMap((item) => (item.enabled ? [] : [{ sceneName, sourceName: item.sourceName }])));
   }
 
   private scheduleRetry(): void {
@@ -282,6 +355,7 @@ export class ObsConnectionManager implements ObsController {
     const client = this.client;
     this.client = null;
     this.currentState = EMPTY_STATE;
+    this.sceneItems = null;
     await client?.disconnect().catch(() => {});
   }
 
@@ -317,6 +391,18 @@ function asClientError(value: unknown): ObsClientError {
     return { code: typeof code === "number" ? code : undefined, message: typeof message === "string" ? message : "unknown error" };
   }
   return { message: String(value) };
+}
+
+function asSceneItems(value: unknown): ObsSceneItem[] {
+  return asArray(value).flatMap((item) =>
+    typeof item.sceneItemId === "number" && typeof item.sourceName === "string"
+      ? [{ id: item.sceneItemId, sourceName: item.sourceName, enabled: item.sceneItemEnabled === true }]
+      : [],
+  );
+}
+
+function sceneItemsById(value: unknown): Map<number, ObsSceneItem> {
+  return new Map(asSceneItems(value).map((item) => [item.id, item]));
 }
 
 function asArray(value: unknown): Record<string, unknown>[] {

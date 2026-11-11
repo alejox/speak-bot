@@ -90,7 +90,7 @@ describe("OBS API", () => {
     expect(await getJson("/api/obs/status")).toEqual({
       enabled: true,
       status: "connected",
-      state: { currentScene: "Main", mutedInputs: ["Mic"], streaming: false, recording: true },
+      state: { currentScene: "Main", mutedInputs: ["Mic"], streaming: false, recording: true, hiddenSources: [] },
     });
 
     await send("/api/settings", "PUT", { obs: { enabled: false } });

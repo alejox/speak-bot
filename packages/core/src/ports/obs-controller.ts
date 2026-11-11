@@ -17,12 +17,20 @@ export interface ObsStatus {
   readonly code?: ObsErrorCode;
 }
 
-/** What deck keys reflect: the program scene, muted inputs and whether OBS streams or records. */
+/** A source placed in a scene (a scene item), named the way OBS names it. */
+export interface ObsSceneSource {
+  readonly sceneName: string;
+  readonly sourceName: string;
+}
+
+/** What deck keys reflect: the program scene, muted inputs, whether OBS streams or records and which sources are hidden. */
 export interface ObsState {
   readonly currentScene: string | null;
   readonly mutedInputs: readonly string[];
   readonly streaming: boolean;
   readonly recording: boolean;
+  /** Scene items hidden in OBS; missing when unknown (OBS could not list them, or an older desktop). */
+  readonly hiddenSources?: readonly ObsSceneSource[];
 }
 
 export interface ObsInput {

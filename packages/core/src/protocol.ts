@@ -223,8 +223,15 @@ function isObsState(value: unknown): value is ObsState {
     Array.isArray(state.mutedInputs) &&
     state.mutedInputs.every((name) => typeof name === "string") &&
     typeof state.streaming === "boolean" &&
-    typeof state.recording === "boolean"
+    typeof state.recording === "boolean" &&
+    (state.hiddenSources === undefined || (Array.isArray(state.hiddenSources) && state.hiddenSources.every(isObsSceneSource)))
   );
+}
+
+function isObsSceneSource(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const source = value as Record<string, unknown>;
+  return typeof source.sceneName === "string" && typeof source.sourceName === "string";
 }
 
 // ---- HTTP JSON API (prefix `/api`) ----

@@ -77,6 +77,12 @@ export function presentKey(action: Action, context: KeyContext, key?: KeyRef): K
       return toggle(state?.recording, "recording");
     case "obs.switchScene":
       return toggle(state?.currentScene === action.sceneName, "scene");
+    case "obs.toggleSourceVisibility": {
+      // An older desktop does not report hidden sources: keep the plain key.
+      if (!state?.hiddenSources) return {};
+      const hidden = state.hiddenSources.some((source) => source.sceneName === action.sceneName && source.sourceName === action.sourceName);
+      return hidden ? { pressed: false, iconId: "eye-off" } : { pressed: true, state: "on" };
+    }
     default:
       return {};
   }
@@ -89,6 +95,7 @@ const ON_STATE_ACTION_TYPES: ReadonlySet<ActionType> = new Set<ActionType>([
   "obs.toggleStream",
   "obs.toggleRecord",
   "obs.switchScene",
+  "obs.toggleSourceVisibility",
 ]);
 
 export function hasOnState(actionType: ActionType): boolean {

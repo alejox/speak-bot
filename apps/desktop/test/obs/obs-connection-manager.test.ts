@@ -37,7 +37,7 @@ describe("ObsConnectionManager", () => {
 
     expect(FakeObsClient.created[0]!.connects).toEqual([{ url: "ws://127.0.0.1:4455", password: "s3cret-pass" }]);
     expect(statuses()).toEqual([{ status: "connecting" }, { status: "connected" }]);
-    expect(manager.state()).toEqual({ currentScene: "Main", mutedInputs: ["Mic"], streaming: false, recording: true });
+    expect(manager.state()).toEqual({ currentScene: "Main", mutedInputs: ["Mic"], streaming: false, recording: true, hiddenSources: [] });
     expect(events.at(-1)).toEqual({ type: "state", state: manager.state() });
   });
 
@@ -133,7 +133,100 @@ describe("ObsConnectionManager", () => {
     client.emit("CurrentProgramSceneChanged", { sceneName: 42 });
 
     expect(events.map((event) => event.type)).toEqual(["state", "state", "state", "state", "state"]);
-    expect(manager.state()).toEqual({ currentScene: "BRB", mutedInputs: ["Desktop Audio"], streaming: true, recording: false });
+    expect(manager.state()).toEqual({ currentScene: "BRB", mutedInputs: ["Desktop Audio"], streaming: true, recording: false, hiddenSources: [] });
+  });
+
+  describe("source visibility", () => {
+    /** Scene items per scene, as GetSceneItemList answers them; tests change it to script OBS. */
+    let items: Record<string, Array<{ sceneItemId: number; sourceName: string; sceneItemEnabled: boolean }>>;
+
+    beforeEach(() => {
+      items = {
+        BRB: [{ sceneItemId: 1, sourceName: "Logo", sceneItemEnabled: false }],
+        Main: [
+          { sceneItemId: 3, sourceName: "Cam", sceneItemEnabled: true },
+          { sceneItemId: 4, sourceName: "Overlay", sceneItemEnabled: false },
+        ],
+      };
+      manager = new ObsConnectionManager({
+        createClient: () =>
+          new FakeObsClient(null, {
+            ...obsResponses(),
+            GetSceneItemList: (data) => {
+              const sceneItems = items[String(data?.sceneName)];
+              if (!sceneItems) throw new Error("No source was found.");
+              return { sceneItems: sceneItems.map((item) => ({ ...item })) };
+            },
+          }),
+        log: () => {},
+      });
+    });
+
+    const hidden = () => manager.state().hiddenSources;
+    /** Lets requests started by an OBS event settle. */
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    it("reads which scene items are hidden on connect", async () => {
+      await manager.connect(config);
+      expect(hidden()).toEqual([
+        { sceneName: "BRB", sourceName: "Logo" },
+        { sceneName: "Main", sourceName: "Overlay" },
+      ]);
+    });
+
+    it("follows items shown and hidden in OBS", async () => {
+      await manager.connect(config);
+      const client = FakeObsClient.created[0]!;
+
+      client.emit("SceneItemEnableStateChanged", { sceneName: "Main", sceneItemId: 3, sceneItemEnabled: false });
+      client.emit("SceneItemEnableStateChanged", { sceneName: "Main", sceneItemId: 4, sceneItemEnabled: true });
+      client.emit("SceneItemEnableStateChanged", { sceneName: "Main", sceneItemId: "bad", sceneItemEnabled: true });
+
+      expect(hidden()).toEqual([
+        { sceneName: "BRB", sourceName: "Logo" },
+        { sceneName: "Main", sourceName: "Cam" },
+      ]);
+    });
+
+    it("rereads a scene when items are added and forgets removed items and scenes", async () => {
+      await manager.connect(config);
+      const client = FakeObsClient.created[0]!;
+
+      items.Main = [...items.Main!, { sceneItemId: 5, sourceName: "Banner", sceneItemEnabled: false }];
+      client.emit("SceneItemCreated", { sceneName: "Main", sourceName: "Banner", sceneItemId: 5 });
+      await settle();
+      expect(hidden()).toContainEqual({ sceneName: "Main", sourceName: "Banner" });
+
+      client.emit("SceneItemRemoved", { sceneName: "Main", sourceName: "Overlay", sceneItemId: 4 });
+      client.emit("SceneNameChanged", { oldSceneName: "BRB", sceneName: "Pause" });
+      expect(hidden()).toEqual([
+        { sceneName: "Main", sourceName: "Banner" },
+        { sceneName: "Pause", sourceName: "Logo" },
+      ]);
+
+      client.emit("SceneRemoved", { sceneName: "Pause" });
+      expect(hidden()).toEqual([{ sceneName: "Main", sourceName: "Banner" }]);
+
+      items.Copy = [{ sceneItemId: 1, sourceName: "Logo", sceneItemEnabled: false }];
+      client.emit("SceneCreated", { sceneName: "Copy", isGroup: false });
+      await settle();
+      expect(hidden()).toContainEqual({ sceneName: "Copy", sourceName: "Logo" });
+    });
+
+    it("leaves visibility unknown when OBS cannot list its scenes", async () => {
+      manager = new ObsConnectionManager({
+        createClient: () =>
+          new FakeObsClient(null, {
+            ...obsResponses(),
+            GetSceneList: () => {
+              throw new Error("OBS is busy.");
+            },
+          }),
+        log: () => {},
+      });
+      await manager.connect(config);
+      expect(hidden()).toBeUndefined();
+    });
   });
 
   it("maps actions to obs-websocket requests", async () => {

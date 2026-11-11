@@ -1,6 +1,6 @@
 import { makeBoard, type Action, type Key } from "@speed-deck/core";
 import { describe, expect, it } from "vitest";
-import { keyLabel, keyLabelLength, keyRole, keyShownIconId, presentKey, type KeyContext } from "../src/app/key-presentation";
+import { hasOnState, keyLabel, keyLabelLength, keyRole, keyShownIconId, presentKey, type KeyContext } from "../src/app/key-presentation";
 import { translate } from "../src/i18n/messages";
 
 const t = (key: Parameters<typeof translate>[1], params?: Parameters<typeof translate>[2]) => translate("en", key, params);
@@ -40,6 +40,22 @@ describe("presentKey", () => {
     expect(presentKey({ type: "obs.toggleMute", inputName: "Mic" }, remote)).toEqual({ pressed: true, state: "muted", iconId: "mic-off" });
     expect(presentKey({ type: "obs.toggleMute", inputName: "Desktop" }, remote)).toEqual({ pressed: false });
     expect(presentKey({ type: "obs.switchScene", sceneName: "Main" }, remote).state).toBe("scene");
+  });
+
+  it("shows whether a source is visible on its show/hide key, and nothing while that is unknown", () => {
+    const action: Action = { type: "obs.toggleSourceVisibility", sceneName: "Main", sourceName: "Cam" };
+    const withHidden = (hiddenSources: Array<{ sceneName: string; sourceName: string }>): KeyContext => ({
+      ...remote,
+      obs: { ...remote.obs!, state: { ...LIVE, hiddenSources } },
+    });
+    expect(presentKey(action, withHidden([]))).toEqual({ pressed: true, state: "on" });
+    expect(presentKey(action, withHidden([{ sceneName: "BRB", sourceName: "Cam" }]))).toEqual({ pressed: true, state: "on" });
+    expect(presentKey(action, withHidden([{ sceneName: "Main", sourceName: "Cam" }]))).toEqual({ pressed: false, iconId: "eye-off" });
+    expect(presentKey(action, remote)).toEqual({});
+  });
+
+  it("offers an on colour for the show/hide source key", () => {
+    expect(hasOnState("obs.toggleSourceVisibility")).toBe(true);
   });
 
   it("shows the current voice language on the language key", () => {
