@@ -65,10 +65,10 @@ describe("Voice options", () => {
 });
 
 describe("Settings groups", () => {
-  it("is organised as Voice, Appearance and Language", async () => {
+  it("is organised as Voice, Appearance, Language and Remove ads", async () => {
     await openSettings();
     await screen.findByRole("option", { name: SPANISH_OPTIONS[0] });
-    expect(screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Voice", "Appearance", "Language"]);
+    expect(screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Voice", "Appearance", "Language", "Remove ads"]);
     expect(within(screen.getByRole("group", { name: "Voice" })).getByRole("combobox", { name: "Voice" })).toBeInTheDocument();
     expect(within(screen.getByRole("group", { name: "Voice" })).getByRole("slider", { name: /Speed/ })).toBeInTheDocument();
     expect(within(screen.getByRole("group", { name: "Appearance" })).getByRole("combobox", { name: "Theme" })).toBeInTheDocument();
@@ -86,7 +86,7 @@ describe("Settings groups", () => {
   it("names the groups in Spanish", async () => {
     await openSettings({ language: "es" });
     await waitFor(() =>
-      expect(screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Voz", "Apariencia", "Idioma"]),
+      expect(screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Voz", "Apariencia", "Idioma", "Quitar anuncios"]),
     );
     expect(await screen.findByRole("option", { name: "Mónica · Español (España)" })).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Mostrar voces en todos los idiomas" })).not.toBeChecked();

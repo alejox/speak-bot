@@ -110,6 +110,7 @@ There is no separate edit mode: a tap always runs a key.
 - **Voz**: where to speak and the output device (when the computer app is available), the voice and the speed. The voice list shows the voices of the language Speed Deck speaks; check **Mostrar voces en todos los idiomas** to see every voice, grouped by language. **Probar voz** says a short sentence with the selected voice and speed.
 - **Apariencia**: **Tema** (system, light or dark) and **Tamaño del texto** (normal, large or extra large). Both are saved per device.
 - **Idioma**: the interface language.
+- **Quitar anuncios**: the **Deck** shows a small banner above the keys (never **Voz**). On the computer, buy a key with **Comprar** and paste it in **Clave de licencia**; ads go away there and on every paired phone at once. A paired phone only shows the status. A phone without the computer app always shows the banner.
 
 ### Phone as a remote
 

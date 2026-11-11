@@ -2,7 +2,10 @@ import {
   DESKTOP_SERVER_NAME,
   readStoredBoards,
   type Action,
+  type AdCreative,
+  type AdResponse,
   type ApiErrorCode,
+  type LicenseResponse,
   type AudioDevice,
   type Board,
   type BoardGrid,
@@ -205,6 +208,32 @@ export class DesktopApiClient {
     return this.request("PUT", "/api/settings", patch) as Promise<DesktopSettings>;
   }
 
+  /** Whether ads are removed on the computer (and so on every paired phone). */
+  async loadLicense(): Promise<LicenseResponse> {
+    const body = await this.request("GET", "/api/license");
+    if (!isLicenseResponse(body)) throw new DesktopRequestError(500, "Unexpected license status.");
+    return body;
+  }
+
+  /** Activates a license key (only from the computer itself); rejects with a "license-*" code when refused. */
+  async activateLicense(key: string): Promise<LicenseResponse> {
+    const body = await this.request("PUT", "/api/license", { key });
+    if (!isLicenseResponse(body)) throw new DesktopRequestError(500, "Unexpected license status.");
+    return body;
+  }
+
+  async removeLicense(): Promise<LicenseResponse> {
+    const body = await this.request("DELETE", "/api/license");
+    if (!isLicenseResponse(body)) throw new DesktopRequestError(500, "Unexpected license status.");
+    return body;
+  }
+
+  /** The sponsor the computer cached, or null (the house banner). Anything malformed counts as none. */
+  async loadAd(): Promise<AdCreative | null> {
+    const body = (await this.request("GET", "/api/ad")) as Partial<AdResponse> | undefined;
+    return isAdCreative(body?.ad) ? body.ad : null;
+  }
+
   private async request(method: string, url: string, body?: unknown): Promise<unknown> {
     const init: RequestInit = { method };
     if (body !== undefined) {
@@ -236,6 +265,26 @@ function isConnectionInfo(value: unknown): value is ConnectionInfo {
     candidate.lanUrls.every((url) => typeof url === "string") &&
     typeof candidate.overlayUrl === "string" &&
     typeof candidate.dockUrl === "string"
+  );
+}
+
+export function isLicenseResponse(value: unknown): value is LicenseResponse {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.adsFree === "boolean" && typeof candidate.canActivate === "boolean";
+}
+
+function isAdCreative(value: unknown): value is AdCreative {
+  if (typeof value !== "object" || value === null) return false;
+  const { id, title, linkUrl, text, imagePath, alt } = value as Record<string, unknown>;
+  return (
+    typeof id === "string" &&
+    typeof title === "string" &&
+    typeof linkUrl === "string" &&
+    linkUrl.startsWith("https://") &&
+    (text === undefined || typeof text === "string") &&
+    (alt === undefined || typeof alt === "string") &&
+    (imagePath === undefined || (typeof imagePath === "string" && imagePath.startsWith("/api/ad/image")))
   );
 }
 

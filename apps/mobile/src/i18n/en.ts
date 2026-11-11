@@ -363,6 +363,28 @@ export const en = {
   "dock.checking": "Connecting to the computer…",
   "dock.noDesktop":
     "The Speed Deck computer app was not found. Open this dock with the URL shown in the app (Connect section) while the app is running.",
+
+  "ads.label": "Advertisement",
+  "ads.tag": "Ad",
+  "ads.house": "Remove ads for USD 12",
+  "ads.settings.title": "Remove ads",
+  "ads.settings.shown": "Ads are shown.",
+  "ads.settings.removed": "Ads are removed (key {key}).",
+  "ads.settings.buy": "Buy for USD 12",
+  "ads.settings.key": "License key",
+  "ads.settings.activate": "Activate",
+  "ads.settings.remove": "Remove license",
+  "ads.settings.typeKey": "Type the license key from your purchase email.",
+  "ads.settings.activated": "Ads removed. Thank you!",
+  "ads.settings.removedLicense": "License removed from this computer.",
+  "ads.settings.onComputer": "Ads are removed or activated on the computer, in the Speed Deck app.",
+  "ads.settings.needsComputer": "Removing ads needs the Speed Deck computer app. On this phone alone, ads stay.",
+  "ads.settings.unavailable": "This version of Speed Deck cannot remove ads yet.",
+  "errorCode.licenseInvalid": "That license key is not valid.",
+  "errorCode.licenseWrongProduct": "That license key is for another product.",
+  "errorCode.licenseLimit": "That license key is already active on as many computers as it allows.",
+  "errorCode.licenseOffline": "Could not reach the license server. Check the internet connection and try again.",
+  "errorCode.licenseDisabled": "This version of Speed Deck cannot remove ads yet.",
 } as const;
 
 export type MessageKey = keyof typeof en;

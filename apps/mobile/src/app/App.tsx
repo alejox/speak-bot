@@ -13,10 +13,12 @@ import { GridSizeButton } from "../components/GridSizeButton";
 import { Composer, type ComposerHandle } from "../components/Composer";
 import { ConnectPanel } from "../components/ConnectPanel";
 import { DeckStatusIndicator } from "../components/DeckStatus";
+import { AdBanner } from "../components/AdBanner";
 import { ActionPickerDialog, KeyEditorDialog } from "../components/KeyEditorDialog";
 import { KeyInspector } from "../components/KeyInspector";
 import { ObsSettings } from "../components/ObsSettings";
 import { QuickPhrases } from "../components/QuickPhrases";
+import { RemoveAdsSettings } from "../components/RemoveAdsSettings";
 import { RecentPhrases } from "../components/RecentPhrases";
 import { SectionView } from "../components/SectionView";
 import { SettingsPanel } from "../components/SettingsPanel";
@@ -34,6 +36,7 @@ import { useConnection } from "./use-connection";
 import { useSpaceDecks } from "./use-deck";
 import { actionOnlyKey } from "./key-draft";
 import { useLanguagePreference, type LanguagePreference } from "./use-language-preference";
+import { useMonetization } from "./use-monetization";
 import { INSPECTOR_QUERY, SHORT_SIDEBAR_QUERY, TAB_BAR_QUERY, useMediaQuery } from "./use-media-query";
 import { SECTIONS, spaceOfSection, useNavCollapsed, useSection, type Section } from "./use-section";
 import { useSpeech } from "./use-speech";
@@ -130,10 +133,42 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const [text, setText] = useState("");
   const [recentPhrases, setRecentPhrases] = useState(() => services.recentPhrases.load());
   const composer = useRef<ComposerHandle>(null);
+  const monetization = useMonetization(services.desktop, target);
+  // Set when the house banner leads to Settings, so focus lands on the Remove ads group.
+  const [focusRemoveAds, setFocusRemoveAds] = useState(false);
 
   const select = (next: Section) => {
     setSection(next);
     setNavigated(true);
+    setFocusRemoveAds(false);
+  };
+  const openRemoveAds = () => {
+    select("settings");
+    setFocusRemoveAds(true);
+  };
+  const activateLicense = async (key: string) => {
+    if (key.trim() === "") {
+      setStatus({ key: "ads.settings.typeKey" });
+      return false;
+    }
+    try {
+      await monetization.activate(key.trim());
+      setStatus({ key: "ads.settings.activated" });
+      return true;
+    } catch (error) {
+      setStatus(describeRequestError(error));
+      return false;
+    }
+  };
+  const removeLicense = async () => {
+    try {
+      await monetization.remove();
+      setStatus({ key: "ads.settings.removedLicense" });
+      return true;
+    } catch (error) {
+      setStatus(describeRequestError(error));
+      return false;
+    }
   };
   const spaces = useSpaceDecks(target, speech, language, positionStores, select, setStatus);
 
@@ -338,7 +373,14 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   onDeleteKey={deck.clearKey}
                   onMoveKey={deck.moveKey}
                   // The same speak path as a phrase key: on the computer when it speaks, else on this device.
-                  strip={space === "voice" && <QuickPhrases language={target.voiceLanguage ?? language} onSpeak={(phrase) => confirmed.run({ type: "voice.speak", text: phrase })} />}
+                  // Deck boards carry the ad banner in the same row instead; Voice never shows ads.
+                  strip={
+                    space === "voice" ? (
+                      <QuickPhrases language={target.voiceLanguage ?? language} onSpeak={(phrase) => confirmed.run({ type: "voice.speak", text: phrase })} />
+                    ) : (
+                      monetization.showsBanner && <AdBanner ad={monetization.ad} onRemoveAds={openRemoveAds} />
+                    )
+                  }
                   toolbar={
                     board && (
                       <>
@@ -408,7 +450,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
         )}
 
         {section === "settings" && (
-          <SectionView key="settings" title={t("nav.settings")} focusHeading={navigated}>
+          // Arriving from the ad banner, focus goes to the Remove ads group instead of the section heading.
+          <SectionView key="settings" title={t("nav.settings")} focusHeading={navigated && !focusRemoveAds}>
             <SettingsPanel
               voices={target.voices}
               voicesLoaded={target.voicesLoaded}
@@ -422,7 +465,15 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
               onAppearanceChange={appearance.setAppearance}
               speakOn={target.speakOn}
               outputDevice={target.outputDevice}
-            />
+            >
+              <RemoveAdsSettings
+                mode={monetization.mode}
+                license={monetization.license}
+                onActivate={activateLicense}
+                onRemove={removeLicense}
+                focusHeading={focusRemoveAds}
+              />
+            </SettingsPanel>
           </SectionView>
         )}
       </main>

@@ -38,6 +38,8 @@ interface SettingsPanelProps {
   speakOn?: { value: SpeakTarget; onChange: (target: SpeakTarget) => void } | null;
   /** Shown only when speaking on a computer that can choose its output device. */
   outputDevice?: { devices: AudioDevice[]; selectedId: string; onChange: (deviceId: string) => void } | null;
+  /** More groups after the built-in ones (Remove ads). */
+  children?: ReactNode;
 }
 
 /** A titled group of settings. */
@@ -64,6 +66,7 @@ export function SettingsPanel({
   onAppearanceChange,
   speakOn,
   outputDevice,
+  children,
 }: SettingsPanelProps) {
   const t = useT();
   const language = useLanguage();
@@ -207,6 +210,7 @@ export function SettingsPanel({
           </select>
         </label>
       </SettingsGroup>
+      {children}
     </div>
   );
 }

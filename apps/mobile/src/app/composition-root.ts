@@ -1,5 +1,7 @@
 import type {
   Action,
+  AdCreative,
+  LicenseResponse,
   AudioDevice,
   DesktopSettings,
   DesktopSettingsPatch,
@@ -63,6 +65,16 @@ export interface ObsServices {
   onInputVolume(listener: (inputName: string, volumeMul: number) => void): () => void;
 }
 
+/** The remove-ads license of the computer; it covers every phone paired with it. */
+export interface LicenseServices {
+  load(): Promise<LicenseResponse>;
+  /** Only from the computer itself. */
+  activate(key: string): Promise<LicenseResponse>;
+  remove(): Promise<LicenseResponse>;
+  /** The license changed on the computer. Returns an unsubscribe function. */
+  onChanged(listener: (license: LicenseResponse) => void): () => void;
+}
+
 /** Speaking and running keys through the desktop computer that serves this app. */
 export interface DesktopServices {
   /** Resolves with the desktop capabilities, or null when no desktop serves this page. */
@@ -86,6 +98,9 @@ export interface DesktopServices {
   /** Notifies when OBS captions are turned on or off from any device. */
   onCaptionsVisibilityChanged(listener: (visible: boolean) => void): () => void;
   target: SpeakTargetStore;
+  license: LicenseServices;
+  /** The sponsor banner the computer cached, or null for the house banner. */
+  loadAd(): Promise<AdCreative | null>;
   /** Present only when this page is open on the desktop computer itself (localhost). */
   connection?: ConnectionServices;
 }
@@ -163,6 +178,16 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
         if (event.type === "captions-visibility") listener(event.visible);
       }),
     target: options.targetStore ?? new LocalStorageSpeakTargetStore(),
+    license: {
+      load: () => api.loadLicense(),
+      activate: (key) => api.activateLicense(key),
+      remove: () => api.removeLicense(),
+      onChanged: (listener) =>
+        events.subscribe((event) => {
+          if (event.type === "license-changed") listener(event.license);
+        }),
+    },
+    loadAd: () => api.loadAd(),
     connection: isLocalHostname(location.hostname ?? "")
       ? {
           load: () => api.loadConnection(),

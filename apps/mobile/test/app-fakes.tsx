@@ -136,6 +136,12 @@ export interface DesktopState {
   gridFull?: boolean;
   /** OBS input volumes (multipliers) by input name; any other input answers 502 "obs-request-failed". */
   volumes?: Record<string, number>;
+  /** GET /api/license; ads show and keys can be activated unless a test sets it. */
+  license?: Record<string, unknown>;
+  /** When set, PUT /api/license answers with it instead of activating. */
+  licenseError?: { status: number; body: unknown };
+  /** The sponsor GET /api/ad answers; none (the house banner) unless a test sets it. */
+  ad?: Record<string, unknown> | null;
 }
 
 export function desktopState(overrides: Partial<DesktopState> = {}): DesktopState {
@@ -231,6 +237,19 @@ export function desktopRoute(state: DesktopState) {
           : { status: 409, body: { error: "OBS is not connected.", code: "obs-unavailable" } };
       case "POST /api/obs/connect":
         return { body: { status: "connected" } };
+      case "GET /api/license":
+        return { body: state.license ?? { adsFree: false, canActivate: true } };
+      case "PUT /api/license": {
+        if (state.licenseError) return state.licenseError;
+        const key = String(body.key);
+        state.license = { ...(state.license ?? {}), adsFree: true, canActivate: true, maskedKey: `••••${key.slice(-4)}`, lastValidatedAt: 1 };
+        return { body: state.license };
+      }
+      case "DELETE /api/license":
+        state.license = { adsFree: false, canActivate: true, ...(state.license?.checkoutUrl ? { checkoutUrl: state.license.checkoutUrl } : {}) };
+        return { body: state.license };
+      case "GET /api/ad":
+        return { body: { ad: state.ad ?? null } };
     }
     const volumeMatch = /^\/api\/obs\/inputs\/([^/]+)\/volume$/.exec(request.url);
     if (volumeMatch) {

@@ -42,4 +42,19 @@ describe("the app shell never scrolls the document", () => {
     expect(scrolling).toEqual(expect.arrayContaining([".app-main", ".inspector"]));
     for (const selector of scrolling) expect({ selector, positioned: /position:\s*(relative|absolute|fixed|sticky)/.test(declarationsOf(selector)) }).toEqual({ selector, positioned: true });
   });
+
+  it("keeps visually hidden text 1px wide whatever the component's own min-width, so no panel scrolls sideways", () => {
+    // The Deck page number (.deck-page, min-width 8em) once stuck out of the main area and scrolled it sideways.
+    const hidden = declarationsOf(".visually-hidden");
+    for (const declaration of [/width:\s*1px\s*!important/, /height:\s*1px\s*!important/, /min-width:\s*0\s*!important/, /min-height:\s*0\s*!important/]) {
+      expect(hidden).toMatch(declaration);
+    }
+  });
+
+  it("gives the Deck ad banner a fixed height, so the keys keep the rest of the room", () => {
+    const banner = declarationsOf(".ad-banner");
+    expect(banner).toMatch(/(^|;)\s*height:\s*var\(--ad-height\)/);
+    expect(banner).toMatch(/overflow:\s*hidden/);
+    expect(declarationsOf(".app-space .deck-full.deck-with-strip")).toMatch(/grid-template-rows:\s*auto auto minmax\(0, 1fr\)/);
+  });
 });

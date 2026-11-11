@@ -149,3 +149,48 @@
 .connect-status {
   color: var(--color-text-muted);
 }
+
+/* Remove ads: the status, the Buy link, the key with its Activate button, Remove license. */
+.remove-ads > h3:focus {
+  outline: none;
+}
+
+.remove-ads > h3:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+}
+
+.remove-ads-status {
+  margin: var(--space-2) 0;
+}
+
+.remove-ads-buy {
+  display: inline-flex;
+  margin-bottom: var(--space-3);
+  text-decoration: none;
+}
+
+.remove-ads-form {
+  margin-bottom: var(--space-3);
+}
+
+.remove-ads-label {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-weight: var(--weight-medium);
+}
+
+.remove-ads-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.remove-ads-key input {
+  flex: 1 1 14rem;
+  width: auto;
+  min-width: 0;
+}
+
+.remove-ads-key .button {
+  flex: none;
+}

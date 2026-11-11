@@ -61,10 +61,20 @@ h4 {
   outline-offset: var(--focus-ring-offset);
 }
 
+/*
+ * Read by screen readers, never seen and never taking room. The size is forced: a component's own
+ * min-width (the Deck page number has 8em) would otherwise win over the 1px and push the box past the
+ * edge of a scrolling panel, which then scrolls sideways.
+ */
 .visually-hidden {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
