@@ -36,3 +36,8 @@ Strategy: ask-on-risk. Forecast ≈ 600–800 authored lines across three work-u
 ## Progress
 - Prior unrelated UI fixes committed as ec2d106.
 - T1 5041fcb, T2 1cea157, T3 05d1f00, T4 404efb0, T5 315f9db.
+
+## Follow-up (2026-11-11)
+- T6 commit: 4855f9b. Final checks from the parent: `npm run typecheck` exit 0; `npm test` core 156, desktop 161, electron 19, mobile 298, all passing. Packaged app rebuilt and launched.
+- Pending manual checks by the user: T4 (shell never shifts with the inspector focused) and T3 (keys fit without scrolling on a real phone).
+- Next feature (user request, not started): OBS input volume slider key spanning 2–3 rows and 1–2 columns, size adjustable by the user, aligned to the grid cells.
