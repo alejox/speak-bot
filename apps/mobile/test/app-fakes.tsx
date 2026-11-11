@@ -142,6 +142,8 @@ export interface DesktopState {
   licenseError?: { status: number; body: unknown };
   /** How many GET /api/health answer 503 before the desktop answers (a phone whose Wi-Fi is still waking up). */
   healthFailures?: number;
+  /** GET /api/voice/status: whether an OBS overlay can play the voice (false unless a test sets it). */
+  overlayConnected?: boolean;
   /** When set, GET /api/health answers this status: e.g. 404 for a server that is not a Speed Deck desktop. */
   healthStatus?: number;
   /** The sponsor GET /api/ad answers; none (the house banner) unless a test sets it. */
@@ -216,6 +218,8 @@ export function desktopRoute(state: DesktopState) {
         return { body: [{ id: "BlackHole 2ch", name: "BlackHole 2ch" }] };
       case "GET /api/settings":
         return { body: state.settings };
+      case "GET /api/voice/status":
+        return { body: { overlayConnected: state.overlayConnected ?? false } };
       case "PUT /api/settings": {
         const { obs, ...rest } = body as { obs?: Record<string, unknown> };
         const currentObs = state.settings.obs as Record<string, unknown>;

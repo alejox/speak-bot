@@ -1,4 +1,4 @@
-import { isUiLanguage, UI_LANGUAGES, type AudioDevice, type UiLanguage, type Voice } from "@speed-deck/core";
+import { isUiLanguage, isVoiceOutput, UI_LANGUAGES, VOICE_OUTPUTS, type AudioDevice, type UiLanguage, type Voice, type VoiceOutput } from "@speed-deck/core";
 import { Volume2 } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { TEXT_SIZES, THEME_PREFERENCES, type Appearance, type TextSize, type ThemePreference } from "../adapters/local-storage-appearance-store";
@@ -13,6 +13,12 @@ const TEXT_SIZE_LABELS: Record<TextSize, MessageKey> = {
   normal: "settings.textSizeNormal",
   large: "settings.textSizeLarge",
   "extra-large": "settings.textSizeExtraLarge",
+};
+
+const VOICE_OUTPUT_LABELS: Record<VoiceOutput, MessageKey> = {
+  speakers: "settings.voiceOutputSpeakers",
+  obs: "settings.voiceOutputObs",
+  both: "settings.voiceOutputBoth",
 };
 
 const PREVIEW_ICON_SIZE = 20;
@@ -38,6 +44,8 @@ interface SettingsPanelProps {
   speakOn?: { value: SpeakTarget; onChange: (target: SpeakTarget) => void } | null;
   /** Shown only when speaking on a computer that can choose its output device. */
   outputDevice?: { devices: AudioDevice[]; selectedId: string; onChange: (deviceId: string) => void } | null;
+  /** Shown only when speaking on a computer that can send the voice to OBS as its own audio channel. */
+  voiceOutput?: { value: VoiceOutput; overlayConnected: boolean | null; onChange: (output: VoiceOutput) => void } | null;
   /** More groups after the built-in ones (Remove ads). */
   children?: ReactNode;
 }
@@ -66,12 +74,14 @@ export function SettingsPanel({
   onAppearanceChange,
   speakOn,
   outputDevice,
+  voiceOutput,
   children,
 }: SettingsPanelProps) {
   const t = useT();
   const language = useLanguage();
   const voiceSelectId = useId();
   const rateId = useId();
+  const voiceOutputId = useId();
   const [showAllVoices, setShowAllVoices] = useState(false);
 
   const selectedVoice = voices.find((voice) => voice.id === settings.voiceId);
@@ -109,6 +119,29 @@ export function SettingsPanel({
               ))}
             </select>
           </label>
+        )}
+
+        {voiceOutput && (
+          <div className="field">
+            <label htmlFor={voiceOutputId}>{t("settings.voiceOutput")}</label>
+            <select
+              id={voiceOutputId}
+              value={voiceOutput.value}
+              onChange={(event) => isVoiceOutput(event.target.value) && voiceOutput.onChange(event.target.value)}
+            >
+              {VOICE_OUTPUTS.map((output) => (
+                <option key={output} value={output}>
+                  {t(VOICE_OUTPUT_LABELS[output])}
+                </option>
+              ))}
+            </select>
+            <p className="field-hint">{t("settings.voiceOutputHint")}</p>
+            {voiceOutput.value !== "speakers" && voiceOutput.overlayConnected === false && (
+              <p className="field-hint field-warning" role="status">
+                {t("settings.voiceOutputNoOverlay")}
+              </p>
+            )}
+          </div>
         )}
 
         {hasNoVoices ? (

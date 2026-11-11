@@ -14,6 +14,7 @@ import {
   type SpeechCapabilities,
   type UiLanguage,
   type Voice,
+  type VoiceOutput,
   type Application,
 } from "@speed-deck/core";
 import { pendingBoardStore, type BoardStore } from "../adapters/board-stores";
@@ -73,6 +74,11 @@ export interface SpeechTarget {
   speakOn: { value: SpeakTarget; onChange: (target: SpeakTarget) => void } | null;
   /** Null unless speaking on a desktop that can route audio to a chosen device. */
   outputDevice: { devices: AudioDevice[]; selectedId: string; onChange: (deviceId: string) => void } | null;
+  /**
+   * Where the computer's voice is heard, and whether an OBS overlay can play it (null until known). Null unless
+   * speaking on a desktop that can send the voice to OBS.
+   */
+  voiceOutput: { value: VoiceOutput; overlayConnected: boolean | null; onChange: (output: VoiceOutput) => void } | null;
   /** Interface language saved on the desktop; null unless connected and loaded. */
   desktopLanguage: UiLanguage | null;
   /** Saves the interface language on the desktop (no-op unless connected). */
@@ -108,6 +114,7 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
   const [localSettings, setLocalSettings] = useState<SpeechSettings>(() => services.settings.load());
   const [desktopSettings, setDesktopSettings] = useState<DesktopSettings | null>(null);
   const [devices, setDevices] = useState<AudioDevice[]>([]);
+  const [overlayConnected, setOverlayConnected] = useState<boolean | null>(null);
   const [voices, setVoices] = useState<Voice[]>([]);
   const [voicesLoaded, setVoicesLoaded] = useState(false);
   const [error, setError] = useState<MessageKey | null>(null);
@@ -194,6 +201,20 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
       stopSettings();
     };
   }, [remote]);
+
+  useEffect(() => {
+    if (!speechRemote) return;
+    let active = true;
+    const stop = speechRemote.onOverlayConnectedChanged((connected) => active && setOverlayConnected(connected));
+    speechRemote.loadOverlayConnected().then(
+      (connected) => active && setOverlayConnected(connected),
+      () => active && setOverlayConnected(null),
+    );
+    return () => {
+      active = false;
+      stop();
+    };
+  }, [speechRemote]);
 
   useEffect(() => {
     if (!speechRemote || !supportsDevices) return;
@@ -292,6 +313,11 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
           onChange: (deviceId) => saveDesktopSettings({ deviceId }),
         }
       : null,
+    // Desktops older than the OBS voice channel leave voiceOutput out, so the choice stays hidden there.
+    voiceOutput:
+      speaksOnComputer && desktopSettings?.voiceOutput !== undefined
+        ? { value: desktopSettings.voiceOutput, overlayConnected, onChange: (voiceOutput) => saveDesktopSettings({ voiceOutput }) }
+        : null,
     desktopLanguage: isConnected && isUiLanguage(desktopSettings?.language) ? desktopSettings.language : null,
     saveDesktopLanguage: (language) => saveDesktopSettings({ language }),
     noteDesktopSettings: (patch) => setDesktopSettings((current) => (current ? { ...current, ...patch } : current)),

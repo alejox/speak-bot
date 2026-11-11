@@ -476,6 +476,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
               onAppearanceChange={appearance.setAppearance}
               speakOn={target.speakOn}
               outputDevice={target.outputDevice}
+              voiceOutput={target.voiceOutput}
             >
               <RemoveAdsSettings
                 mode={monetization.mode}

@@ -27,6 +27,7 @@ import {
   type SpeechCapabilities,
   type UiLanguage,
   type Voice,
+  type VoiceOutputStatusResponse,
   type Application,
 } from "@speed-deck/core";
 
@@ -197,6 +198,11 @@ export class DesktopApiClient {
 
   loadSettings(): Promise<DesktopSettings> {
     return this.request("GET", "/api/settings") as Promise<DesktopSettings>;
+  }
+
+  /** Whether an OBS overlay can play the voice (output "obs" or "both"). */
+  loadVoiceStatus(): Promise<VoiceOutputStatusResponse> {
+    return this.request("GET", "/api/voice/status") as Promise<VoiceOutputStatusResponse>;
   }
 
   /** OBS connection status and state (scene, muted inputs, streaming, recording). */

@@ -104,6 +104,10 @@ export interface DesktopServices {
   onSpeechEvent(listener: (event: SpeakingEvent | SpeakErrorEvent) => void): () => void;
   /** Notifies when OBS captions are turned on or off from any device. */
   onCaptionsVisibilityChanged(listener: (visible: boolean) => void): () => void;
+  /** Whether an OBS overlay can play the voice right now. */
+  loadOverlayConnected(): Promise<boolean>;
+  /** Notifies when the first OBS overlay connects or the last one leaves. */
+  onOverlayConnectedChanged(listener: (connected: boolean) => void): () => void;
   target: SpeakTargetStore;
   license: LicenseServices;
   /** The sponsor banner the computer cached, or null for the house banner. */
@@ -187,6 +191,11 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
     onCaptionsVisibilityChanged: (listener) =>
       events.subscribe((event) => {
         if (event.type === "captions-visibility") listener(event.visible);
+      }),
+    loadOverlayConnected: async () => (await api.loadVoiceStatus()).overlayConnected === true,
+    onOverlayConnectedChanged: (listener) =>
+      events.subscribe((event) => {
+        if (event.type === "overlay-audio") listener(event.connected);
       }),
     target: options.targetStore ?? new LocalStorageSpeakTargetStore(),
     license: {
