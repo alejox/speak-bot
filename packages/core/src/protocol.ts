@@ -253,6 +253,8 @@ export interface HealthResponse {
   readonly capabilities: SpeechCapabilities;
   /** Random per launch; lets the desktop confirm that a port really reaches itself. */
   readonly instanceId: string;
+  /** Stable across restarts and IP changes; matches the `id` TXT field of the `_speeddeck._tcp` announcement. */
+  readonly desktopId?: string;
 }
 
 /** GET /api/boards → Board[] in display order. */

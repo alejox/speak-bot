@@ -10,9 +10,14 @@ import { createObsWebSocketClient, type ObsClient } from "./adapters/obs/obs-cli
 import { ObsConnectionManager } from "./adapters/obs/obs-connection-manager";
 import { createApplicationLauncher } from "./adapters/apps/create-application-launcher";
 import { createSystemSynthesizer } from "./adapters/tts/create-system-synthesizer";
+import { createBonjourAdvertiser } from "./adapters/discovery/bonjour-advertiser";
+import { readComputerName } from "./adapters/discovery/computer-name";
 import { AdFeed } from "./ads/ad-feed";
 import { loadConfig, type ConfigSources } from "./config";
 import { loadMonetizationConfig } from "./config/monetization";
+import { desktopAnnouncement } from "./discovery/desktop-announcement";
+import { loadOrCreateDesktopId } from "./discovery/desktop-id";
+import type { Advertisement, ServiceAdvertiser } from "./discovery/service-advertiser";
 import { JsonFileLicenseStore } from "./license/json-file-license-store";
 import { LemonSqueezyLicenseService } from "./license/lemon-squeezy-license-service";
 import { LicenseManager } from "./license/license-manager";
@@ -35,6 +40,10 @@ export interface StartDesktopOptions extends Partial<ConfigSources> {
   createObsClient?: () => ObsClient;
   /** Used for the license server and the ad feed; defaults to the global fetch. */
   fetch?: typeof globalThis.fetch;
+  /** Announces the server on the LAN as `_speeddeck._tcp`; defaults to multicast DNS. */
+  advertiser?: ServiceAdvertiser;
+  /** The name phones show for this computer; defaults to the computer name set in the system. */
+  computerName?: string;
 }
 
 export interface RunningDesktop {
@@ -43,6 +52,8 @@ export interface RunningDesktop {
   host: string;
   /** Random per launch; GET /api/health on `port` reports it. */
   instanceId: string;
+  /** Stable across restarts; announced on the LAN and reported by GET /api/health. */
+  desktopId: string;
   dataDir: string;
   /** Every URL the app can be opened at, localhost first. */
   urls: string[];
@@ -98,6 +109,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     log,
   });
   const ads = new AdFeed({ feedUrl: monetization.adFeedUrl, dir: join(config.dataDir, "ad"), fetch: options.fetch, log });
+  const desktopId = await loadOrCreateDesktopId(join(config.dataDir, "desktop.json"), randomUUID);
   const settingsListeners = new Set<(next: DesktopSettings) => void>();
 
   const pageHandler = createPageHandler({
@@ -111,6 +123,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     log,
     pageHandler,
     allowedHosts: config.allowedHosts,
+    desktopId,
     obs,
     apps: createApplicationLauncher(),
     license,
@@ -140,12 +153,21 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
   // Refreshes the sponsor banner now and every 6 h; failures keep the last good one.
   void ads.start();
   log(`Speech engine: ${engine}${supportsDeviceSelection ? " (output device selectable)" : ""}`);
+  // Phones find this computer (and its new address after an IP change) without scanning the QR again.
+  // Only a server reachable from the LAN is announced.
+  let advertisement: Advertisement | undefined;
+  if (isWildcardHost(config.host)) {
+    const advertiser = options.advertiser ?? createBonjourAdvertiser(log);
+    const displayName = options.computerName ?? (await readComputerName());
+    advertisement = advertiser.advertise(desktopAnnouncement({ desktopId, displayName, port: actualPort }));
+  }
 
   let closing: Promise<void> | undefined;
   return {
     port: actualPort,
     host: config.host,
     instanceId: server.instanceId,
+    desktopId,
     dataDir: config.dataDir,
     urls: serverUrls(config.host, actualPort),
     overlayUrl: connectionInfo(actualPort, {}).overlayUrl,
@@ -158,6 +180,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     close: () => {
       closing ??= (async () => {
         synthesizer.cancel();
+        await advertisement?.stop();
         license.stop();
         ads.stop();
         await obs.close();
@@ -168,8 +191,12 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
   };
 }
 
+function isWildcardHost(host: string): boolean {
+  return host === "0.0.0.0" || host === "::";
+}
+
 function serverUrls(host: string, port: number): string[] {
-  if (host !== "0.0.0.0" && host !== "::") return [`http://${host}:${port}`];
+  if (!isWildcardHost(host)) return [`http://${host}:${port}`];
   const lan = connectionInfo(port, networkInterfaces()).lanUrls.map((url) => url.replace(/\/$/, ""));
   return [`http://localhost:${port}`, ...lan];
 }

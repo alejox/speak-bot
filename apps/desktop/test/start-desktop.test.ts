@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { startDesktop, type RunningDesktop } from "../src/start-desktop";
+import { FakeAdvertiser } from "./discovery/fake-advertiser";
 import { FakeObsClient, obsResponses } from "./fake-obs-client";
 
 /** No sponsor feed and no license store, so starting the desktop in a test never reaches the network. */
@@ -57,6 +58,7 @@ describe("startDesktop", () => {
     desktop = await startDesktop({
       argv: ["--port", String(busyPort), "--host", "0.0.0.0", "--data-dir", dir],
       env: OFFLINE_ENV,
+      advertiser: new FakeAdvertiser(),
     });
 
     expect(desktop.port).not.toBe(busyPort);
@@ -87,6 +89,39 @@ describe("startDesktop", () => {
       body: JSON.stringify({ language: "es" }),
     });
     expect(changes).toEqual(["es"]);
+  });
+
+  it("announces itself on the LAN with a stable id while it runs", async () => {
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-start-"));
+    const advertiser = new FakeAdvertiser();
+    desktop = await startDesktop({
+      argv: ["--port", "0", "--host", "0.0.0.0", "--data-dir", dir],
+      env: OFFLINE_ENV,
+      advertiser,
+      computerName: "Studio Mac",
+    });
+
+    expect(advertiser.advertised).toHaveLength(1);
+    const announcement = advertiser.advertised[0]!;
+    expect(announcement).toMatchObject({ type: "speeddeck", port: desktop.port, txt: { id: desktop.desktopId, name: "Studio Mac", v: "1" } });
+    const health = (await (await fetch(`http://127.0.0.1:${desktop.port}/api/health`)).json()) as { desktopId?: string };
+    expect(health.desktopId).toBe(desktop.desktopId);
+
+    await desktop.close();
+    expect(advertiser.stopped).toEqual([announcement]);
+
+    // The id survives a restart, so the phone recognises the same computer at a new address.
+    const restarted = new FakeAdvertiser();
+    desktop = await startDesktop({ argv: ["--port", "0", "--host", "0.0.0.0", "--data-dir", dir], env: OFFLINE_ENV, advertiser: restarted });
+    expect(restarted.advertised[0]!.txt.id).toBe(announcement.txt.id);
+  });
+
+  it("does not announce itself when it only listens on one address", async () => {
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-start-"));
+    const advertiser = new FakeAdvertiser();
+    desktop = await startDesktop({ argv: ["--port", "0", "--host", "127.0.0.1", "--data-dir", dir], env: OFFLINE_ENV, advertiser });
+
+    expect(advertiser.advertised).toEqual([]);
   });
 
   it("connects to OBS on start when enabled, without ever sending the password to clients", async () => {

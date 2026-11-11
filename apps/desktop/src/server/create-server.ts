@@ -29,6 +29,8 @@ export interface DesktopServerDependencies {
   pageHandler?: (request: IncomingMessage, response: ServerResponse, pathname: string) => Promise<boolean>;
   /** Reported by GET /api/health; defaults to a random id per server. */
   instanceId?: string;
+  /** Stable id of this computer, reported by GET /api/health when set. */
+  desktopId?: string;
   /** Called after settings are saved through the API. */
   onSettingsChanged?: (settings: DesktopSettings) => void;
   /** Controls OBS; its status and state changes are broadcast to every client. */

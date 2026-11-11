@@ -76,6 +76,8 @@ export interface ApiDependencies {
   networkInterfaces?: () => NetworkInterfaces;
   /** Reported by GET /api/health so the desktop can recognise its own server. */
   instanceId: string;
+  /** Stable id of this computer, reported by GET /api/health when set. */
+  desktopId?: string;
   /** Called after settings are saved through the API (e.g. to translate the tray menu). */
   onSettingsChanged?: (settings: DesktopSettings) => void;
   /** Controls OBS; absent means OBS control is not available. */
@@ -138,7 +140,13 @@ export function createApiHandler(deps: ApiDependencies) {
       method: "GET",
       path: "/api/health",
       handler: async (_request, response) => {
-        const body: HealthResponse = { ok: true, name: DESKTOP_SERVER_NAME, capabilities: synthesizer.capabilities, instanceId: deps.instanceId };
+        const body: HealthResponse = {
+          ok: true,
+          name: DESKTOP_SERVER_NAME,
+          capabilities: synthesizer.capabilities,
+          instanceId: deps.instanceId,
+          ...(deps.desktopId === undefined ? {} : { desktopId: deps.desktopId }),
+        };
         sendJson(response, 200, body);
       },
     },
