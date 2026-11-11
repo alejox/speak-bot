@@ -75,7 +75,8 @@ describe("Deck keys live state", () => {
     const stream = screen.getByRole("button", { name: "Stream" });
     await waitFor(() => expect(stream).toHaveAttribute("aria-pressed", "false"));
     expect(screen.getByRole("button", { name: "Record" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: "Mic" })).toHaveAttribute("aria-pressed", "false");
+    // A mic that is heard is on, not muted.
+    expect(screen.getByRole("button", { name: "Mic On" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Main" })).toHaveAttribute("aria-pressed", "false");
   });
 
@@ -84,7 +85,7 @@ describe("Deck keys live state", () => {
     const stream = await screen.findByRole("button", { name: "Stream LIVE" });
     expect(stream).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Record REC" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Mic Muted" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Mic Muted" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("button", { name: "Main" })).toHaveAttribute("aria-pressed", "true");
   });
 

@@ -20,8 +20,9 @@ const key = (action: Action, label?: string): Key => ({ slot: 0, ...(label ? { l
 
 describe("presentKey", () => {
   it("shows OBS state on toggle keys while connected", () => {
-    expect(presentKey({ type: "obs.toggleMute", inputName: "Mic" }, remote).pressed).toBe(true);
-    expect(presentKey({ type: "obs.toggleMute", inputName: "Desktop" }, remote).pressed).toBe(false);
+    // Mic is muted, so its key is off; Desktop is heard, so its key is on.
+    expect(presentKey({ type: "obs.toggleMute", inputName: "Mic" }, remote).pressed).toBe(false);
+    expect(presentKey({ type: "obs.toggleMute", inputName: "Desktop" }, remote).pressed).toBe(true);
     expect(presentKey({ type: "obs.toggleStream" }, remote).pressed).toBe(true);
     expect(presentKey({ type: "obs.toggleRecord" }, remote).pressed).toBe(false);
     expect(presentKey({ type: "obs.switchScene", sceneName: "Main" }, remote).pressed).toBe(true);
@@ -37,8 +38,9 @@ describe("presentKey", () => {
     expect(presentKey({ type: "obs.toggleStream" }, remote).state).toBe("live");
     expect(presentKey({ type: "obs.toggleRecord" }, { ...remote, obs: { ...remote.obs!, state: { ...LIVE, recording: true } } }).state).toBe("recording");
     expect(presentKey({ type: "obs.toggleRecord" }, remote).state).toBeUndefined();
-    expect(presentKey({ type: "obs.toggleMute", inputName: "Mic" }, remote)).toEqual({ pressed: true, state: "muted", iconId: "mic-off" });
-    expect(presentKey({ type: "obs.toggleMute", inputName: "Desktop" }, remote)).toEqual({ pressed: false });
+    // A mute key is "on" while its input is heard: muted is off (the off colour, a crossed-out mic).
+    expect(presentKey({ type: "obs.toggleMute", inputName: "Mic" }, remote)).toEqual({ pressed: false, state: "muted", iconId: "mic-off" });
+    expect(presentKey({ type: "obs.toggleMute", inputName: "Desktop" }, remote)).toEqual({ pressed: true, state: "on" });
     expect(presentKey({ type: "obs.switchScene", sceneName: "Main" }, remote).state).toBe("scene");
   });
 

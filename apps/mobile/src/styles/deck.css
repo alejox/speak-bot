@@ -292,9 +292,14 @@
   background: var(--key-live);
 }
 
-/* Muted is dimmed but stays readable: quieter text on the same tile. */
+/* Muted is off: no "on" tint, dimmed but still readable, quieter text on the same tile. */
 .deck-key[data-state="muted"]:not(.deck-key-colored) {
+  background-image: none;
   color: var(--color-text-muted);
+}
+
+.deck-key-colored[data-state="muted"] {
+  background-image: none;
 }
 
 /* Offline on purpose, not broken: flat, quieter text, a dotted edge and the unplugged sign. */

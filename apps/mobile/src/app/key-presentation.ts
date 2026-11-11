@@ -70,7 +70,9 @@ export function presentKey(action: Action, context: KeyContext, key?: KeyRef): K
     case "system.multiAction":
       return key && context.runningKeys?.has(runningKeyId(key)) ? { state: "running" } : {};
     case "obs.toggleMute":
-      return state?.mutedInputs.includes(action.inputName) ? { pressed: true, state: "muted", iconId: "mic-off" } : { pressed: false };
+      // On while the input is heard (its on colour); muted is off: the off colour and a crossed-out mic.
+      if (!state) return {};
+      return state.mutedInputs.includes(action.inputName) ? { pressed: false, state: "muted", iconId: "mic-off" } : { pressed: true, state: "on" };
     case "obs.toggleStream":
       return toggle(state?.streaming, "live");
     case "obs.toggleRecord":

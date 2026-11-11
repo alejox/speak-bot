@@ -87,13 +87,14 @@ describe("App in Computer mode", () => {
     await goTo(user, "Deck");
 
     const mic = await screen.findByRole("button", { name: /^Mic/ });
-    await waitFor(() => expect(mic).toHaveAttribute("aria-pressed", "true"));
+    // Muted: the mute key is off.
+    await waitFor(() => expect(mic).toHaveAttribute("aria-pressed", "false"));
     expect(screen.getByRole("button", { name: "Main" })).toHaveAttribute("aria-pressed", "true");
     const stream = screen.getByRole("button", { name: "Stream" });
     expect(stream).toHaveAttribute("aria-pressed", "false");
 
     act(() => emit({ type: "obs-state", state: { currentScene: "BRB", mutedInputs: [], streaming: true, recording: false } }));
-    expect(mic).toHaveAttribute("aria-pressed", "false");
+    expect(mic).toHaveAttribute("aria-pressed", "true");
     expect(stream).toHaveAttribute("aria-pressed", "true");
 
     act(() => emit({ type: "obs-status", status: "error", code: "connection-lost" }));
