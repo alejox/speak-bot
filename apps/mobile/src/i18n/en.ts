@@ -16,6 +16,7 @@ export const en = {
   "nav.expand": "Expand menu",
 
   "space.empty": "There are no boards here yet.",
+  "space.deckOnComputer": "Deck boards are created on the computer.",
   "deck.needsComputer": "Deck keys control OBS through the Speed Deck computer app. Open Speed Deck from that app to use them.",
 
   "deck.openSettings": "Open Settings",

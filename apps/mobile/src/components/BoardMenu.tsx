@@ -19,6 +19,8 @@ interface BoardMenuProps {
   onSelect: (boardId: string) => void;
   /** The current status message, repeated in the dialogs' live region. */
   statusText: string;
+  /** Offers creating, renaming, deleting and restoring boards; without it the menu only switches boards. */
+  canManage?: boolean;
 }
 
 type Task = "create" | "rename" | "delete" | "restore";
@@ -27,7 +29,7 @@ type Task = "create" | "rename" | "delete" | "restore";
  * The board pill at the top of the deck: it names the board, and its menu switches boards and manages them
  * (new, rename, delete, restore the built-in board).
  */
-export function BoardMenu({ board, offered: offeredBoards, groupByKind = false, boards: boardsState, language, onSelect, statusText }: BoardMenuProps) {
+export function BoardMenu({ board, offered: offeredBoards, groupByKind = false, boards: boardsState, language, onSelect, statusText, canManage = true }: BoardMenuProps) {
   const t = useT();
   const { change } = boardsState;
   // Folders are reached through their keys, never listed or counted as boards.
@@ -171,10 +173,10 @@ export function BoardMenu({ board, offered: offeredBoards, groupByKind = false, 
       </button>
       {isOpen && (
         <div className="popover board-menu-popover">
-          <Menu label={t("boards.menu")} groups={[...boardGroups, manage]} onClose={close} />
+          <Menu label={t("boards.menu")} groups={canManage ? [...boardGroups, manage] : boardGroups} onClose={close} />
         </div>
       )}
-      {task && dialogs[task]}
+      {task && canManage && dialogs[task]}
     </div>
   );
 }

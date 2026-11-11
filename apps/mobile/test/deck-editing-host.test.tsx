@@ -38,6 +38,15 @@ const expectNoDeckEditing = () => {
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
 };
 
+/** The board menu's items, by name. */
+async function boardMenuItems(user: { click: (element: Element) => Promise<void> }, boardName: string) {
+  await user.click(screen.getByRole("button", { name: `Board: ${boardName}` }));
+  const menu = within(screen.getByRole("menu", { name: "Boards" }));
+  return [...menu.queryAllByRole("menuitemradio"), ...menu.queryAllByRole("menuitem")].map((item) => item.textContent ?? "");
+}
+const MANAGE_ITEMS = [/^New board/, /^Rename/, /^Delete/, /^Restore/];
+const hasItem = (items: string[], pattern: RegExp) => items.some((item) => pattern.test(item));
+
 afterEach(() => {
   delete (window as { matchMedia?: unknown }).matchMedia;
 });
@@ -65,10 +74,43 @@ describe("who may edit the Deck", () => {
     expect(within(screen.getByRole("dialog", { name: "Write" })).getByRole("button", { name: "Save as key" })).toBeInTheDocument();
   });
 
+  it.each([PHONE_SIDEWAYS, TABLET])("a phone only switches Deck boards from the board menu at $width x $height", async (size) => {
+    setScreen(size);
+    const { user } = await openDeck("192.168.1.20");
+    const items = await boardMenuItems(user, "Stream");
+    for (const pattern of MANAGE_ITEMS) expect(hasItem(items, pattern)).toBe(false);
+    expect(hasItem(items, /^Stream/)).toBe(true);
+  });
+
+  it("a phone shows an empty Deck without offering to create a board", async () => {
+    setScreen(TABLET);
+    const state = desktopState({ boards: [boardOf("talk", "Talk", [speakKey(0, "Hi")])] });
+    const { user } = renderRemoteApp({ state, servedFrom: "192.168.1.20" });
+    await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
+    await goTo(user, "Deck");
+    expect(await screen.findByText("There are no boards here yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New board" })).not.toBeInTheDocument();
+  });
+
+  it("a phone still manages its Voice boards", async () => {
+    setScreen(TABLET);
+    const { user } = await open("192.168.1.20");
+    const items = await boardMenuItems(user, "Talk");
+    expect(hasItem(items, /^New board/)).toBe(true);
+    expect(hasItem(items, /^Rename/)).toBe(true);
+  });
+
   it("the computer keeps every Deck editing tool", async () => {
     setScreen(TABLET);
     await openDeck("localhost");
     expect(screen.getByRole("button", { name: "Grid size" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Add a key/ })).toBeInTheDocument();
+  });
+
+  it("the computer keeps managing Deck boards", async () => {
+    setScreen(TABLET);
+    const { user } = await openDeck("localhost");
+    const items = await boardMenuItems(user, "Stream");
+    for (const pattern of MANAGE_ITEMS) expect(hasItem(items, pattern)).toBe(true);
   });
 });

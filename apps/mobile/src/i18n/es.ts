@@ -18,6 +18,7 @@ export const es: Messages = {
   "nav.expand": "Expandir menú",
 
   "space.empty": "Aún no hay tableros aquí.",
+  "space.deckOnComputer": "Los tableros del Deck se crean en la computadora.",
   "deck.needsComputer":
     "Las teclas del Deck controlan OBS mediante la app de Speed Deck para computadora. Abre Speed Deck desde esa app para usarlas.",
 

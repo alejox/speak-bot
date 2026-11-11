@@ -377,18 +377,22 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
               {deck.boards.isLoaded && !board && (
                 <div className="space-empty">
                   <p className="empty">{t("space.empty")}</p>
-                  <button
-                    type="button"
-                    className="button button-small button-primary"
-                    onClick={() =>
-                      void deck.boards.change(
-                        (store) => store.create(t("boards.defaultName", { number: deck.boards.boards.length + 1 }), space),
-                        (created) => ({ key: "boards.created", params: { name: created.name } }),
-                      )
-                    }
-                  >
-                    {t("boards.create")}
-                  </button>
+                  {maySpaceBeEdited ? (
+                    <button
+                      type="button"
+                      className="button button-small button-primary"
+                      onClick={() =>
+                        void deck.boards.change(
+                          (store) => store.create(t("boards.defaultName", { number: deck.boards.boards.length + 1 }), space),
+                          (created) => ({ key: "boards.created", params: { name: created.name } }),
+                        )
+                      }
+                    >
+                      {t("boards.create")}
+                    </button>
+                  ) : (
+                    <p className="field-hint">{t("space.deckOnComputer")}</p>
+                  )}
                 </div>
               )}
               <div className={usesComposerSheet ? "deck-layout deck-layout-actions" : "deck-layout"}>
@@ -425,6 +429,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                             language={language}
                             onSelect={(boardId) => deck.navigation.go({ boardId, page: 0 })}
                             statusText={statusText}
+                            canManage={maySpaceBeEdited}
                           />
                         )}
                         {canEditBoard && <GridSizeButton board={board} boards={deck.boards} statusText={statusText} />}
