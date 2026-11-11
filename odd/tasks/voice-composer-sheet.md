@@ -18,7 +18,7 @@ Device capture (Samsung landscape, 2026-11-11): the text box, Hablar, Detener an
 - [x] W1 Compact Voice layout: slim bar, edit toggle, fitted phrase grid. Route: delegated. Commit 582cb40.
 - [x] W2 Composer sheet + floating Write and Stop buttons; long phrases shortened with an ellipsis (visual only). Route: delegated. Commit 6c0a962.
 - [x] W3 Deck editing only on the computer: one exported `canEditDeck` flag (localhost hostname), applied in the Deck space; Voice stays editable everywhere. Route: delegated. Commit e2daaad.
-- [x] W4 Deck boards are created and managed on the computer only: the board menu's New board / Rename / Delete / Restore and the empty-space "New board" button follow `canEditDeck` in the Deck space; Voice boards stay manageable everywhere. Route: delegated. Commit: see Progress.
+- [x] W4 Deck boards are created and managed on the computer only: the board menu's New board / Rename / Delete / Restore and the empty-space "New board" button follow `canEditDeck` in the Deck space; Voice boards stay manageable everywhere. Route: delegated. Commit 6204a9c.
 
 ## Accepted changes
 - User (2026-11-11): a long phrase is shortened on its key with "…" (CSS clamp, two lines on phrase keys; quick-phrase and recent chips already one line), never by cutting the stored text: the key's name, tooltip (`title`), speech and edit form keep the whole phrase.
