@@ -16,6 +16,7 @@ import { DeckStatusIndicator } from "../components/DeckStatus";
 import { ActionPickerDialog, KeyEditorDialog } from "../components/KeyEditorDialog";
 import { KeyInspector } from "../components/KeyInspector";
 import { ObsSettings } from "../components/ObsSettings";
+import { QuickPhrases } from "../components/QuickPhrases";
 import { RecentPhrases } from "../components/RecentPhrases";
 import { SectionView } from "../components/SectionView";
 import { SettingsPanel } from "../components/SettingsPanel";
@@ -329,6 +330,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   selectedSlot={inspection?.slot ?? null}
                   onDeleteKey={deck.clearKey}
                   onMoveKey={deck.moveKey}
+                  // The same speak path as a phrase key: on the computer when it speaks, else on this device.
+                  strip={space === "voice" && <QuickPhrases language={target.voiceLanguage ?? language} onSpeak={(phrase) => confirmed.run({ type: "voice.speak", text: phrase })} />}
                   toolbar={
                     board && (
                       <>

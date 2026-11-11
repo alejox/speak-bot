@@ -142,6 +142,7 @@ export {
   DEFAULT_PHRASES_BY_LANGUAGE,
   deletePhrase,
   listPhrases,
+  QUICK_PHRASES_BY_LANGUAGE,
   restoreDefaultPhrases,
   savePhrase,
   seedDefaultPhrases,

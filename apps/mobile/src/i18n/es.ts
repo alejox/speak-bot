@@ -40,6 +40,7 @@ export const es: Messages = {
   "composer.save": "Guardar como tecla",
   "composer.saveShort": "Guardar",
 
+  "quick.label": "Frases rápidas",
   "recent.region": "Frases recientes",
   "recent.clear": "Borrar",
   "recent.clearLabel": "Borrar frases recientes",

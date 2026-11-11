@@ -37,6 +37,15 @@ export const DEFAULT_PHRASES_BY_LANGUAGE: Readonly<Record<UiLanguage, readonly s
 };
 
 /**
+ * The quick phrases of the Voice space: four short answers that always sit in the same place, in the voice
+ * language. Fixed in this version (not editable).
+ */
+export const QUICK_PHRASES_BY_LANGUAGE: Readonly<Record<UiLanguage, readonly string[]>> = {
+  es: ["Sí", "No", "Espera", "Gracias"],
+  en: ["Yes", "No", "Wait", "Thanks"],
+};
+
+/**
  * Creates a phrase in `slot`, or in the lowest free slot when none is given.
  * Rejects with `SlotOccupiedError` when another phrase already uses that slot.
  */

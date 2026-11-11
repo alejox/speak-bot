@@ -37,6 +37,7 @@ export const en = {
   "composer.save": "Save as key",
   "composer.saveShort": "Save",
 
+  "quick.label": "Quick phrases",
   "recent.region": "Recent phrases",
   "recent.clear": "Clear",
   "recent.clearLabel": "Clear recent phrases",

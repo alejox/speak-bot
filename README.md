@@ -63,6 +63,7 @@ Closing the window keeps the app running in the tray or menu bar, so OBS keeps w
 
 ### Boards and keys
 
+- Voice boards show four **quick phrases** above the keys (Sí, No, Espera, Gracias; in English Yes, No, Wait, Thanks), in the same place on every page and board. They follow the voice language and are fixed for now.
 - A **board** is a grid of keys, 5 × 3 until you change it, with as many pages as you need. The grid button next to the board name sets the size for **all boards** (3–8 columns, 2–5 rows). Keys keep their place when they fit; when you shrink the grid, keys that no longer fit move to the next free positions from their own page on, and a size that cannot hold every key is refused. On a phone held upright the board is drawn turned (each row becomes a column, so 6 × 4 shows as 4 columns of 6); positions and pages do not change.
 - The keys of a page always fit the screen, on a phone too: they stay square and shrink to fit, so the page never scrolls.
 - Every board has a **kind**: a **voice** board holds voice, caption and navigation keys and lives in **Voz**; a **deck** board holds OBS and navigation keys and lives in **Deck**. When you add a key, Speed Deck only offers the actions that fit the board.

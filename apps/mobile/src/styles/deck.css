@@ -339,6 +339,35 @@
   transform: scale(1.06);
 }
 
+/*
+ * The quick phrases: four equal buttons on one row at every width, as tall as any control. They are not
+ * keys, so the grid's size and turn never touch them; a long word ends in an ellipsis instead of wrapping.
+ */
+.quick-phrases {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  max-width: var(--width-deck);
+}
+
+.app-space .quick-phrases {
+  max-width: none;
+}
+
+.quick-phrase {
+  min-width: 0;
+  min-height: var(--size-control);
+  padding-inline: var(--space-2);
+  font-weight: var(--weight-semibold);
+}
+
+.quick-phrase-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .deck-pager {
   display: flex;
   align-items: center;
@@ -480,6 +509,19 @@
     "header pager"
     "grid grid";
   gap: var(--space-3) var(--space-2);
+}
+
+/* With the quick phrases (Voice): their row sits between the header and the keys. */
+.app-space .deck-full.deck-with-strip {
+  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-areas:
+    "header pager"
+    "strip strip"
+    "grid grid";
+}
+
+.app-space .deck-full .deck-strip {
+  grid-area: strip;
 }
 
 .app-space .deck-full .deck-header {

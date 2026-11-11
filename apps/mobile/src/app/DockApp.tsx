@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { DOCK_BOARD_POSITION_STORAGE_KEY, LocalStorageBoardPositionStore } from "../adapters/local-storage-board-position-store";
 import { BoardMenu } from "../components/BoardMenu";
+import { QuickPhrases } from "../components/QuickPhrases";
 import { BoardPlayer } from "../components/BoardPlayer";
 import { DockComposer } from "../components/DockComposer";
 import { KeyEditorDialog } from "../components/KeyEditorDialog";
@@ -75,6 +76,7 @@ function DockContent({ target }: { target: SpeechTarget }) {
         onEditKey={setDialogSlot}
         onDeleteKey={deck.clearKey}
         onMoveKey={deck.moveKey}
+        strip={board?.kind === "voice" && <QuickPhrases language={target.voiceLanguage ?? language} onSpeak={(phrase) => confirmed.run({ type: "voice.speak", text: phrase })} />}
         toolbar={
           board && (
             <BoardMenu

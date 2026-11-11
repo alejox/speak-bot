@@ -45,6 +45,8 @@ interface BoardPlayerProps {
   onAddSlotChange?: (slot: number | null) => void;
   /** The deck's header: the board pill and its menu. */
   toolbar?: ReactNode;
+  /** A row between the header and the keys that stays the same on every page (the Voice quick phrases). */
+  strip?: ReactNode;
   /** "dock" is the compact layout for the OBS dock. */
   variant?: "full" | "dock";
 }
@@ -61,6 +63,7 @@ export function BoardPlayer({
   selectedSlot = null,
   onAddSlotChange,
   toolbar,
+  strip,
   variant = "full",
 }: BoardPlayerProps) {
   const t = useT();
@@ -279,8 +282,9 @@ export function BoardPlayer({
   };
 
   return (
-    <section className={`deck deck-${variant}`} aria-label={board.name}>
+    <section className={["deck", `deck-${variant}`, strip ? "deck-with-strip" : ""].filter(Boolean).join(" ")} aria-label={board.name}>
       {toolbar && <div className="deck-header">{toolbar}</div>}
+      {strip && <div className="deck-strip">{strip}</div>}
 
       {/* The grid's own box, so wide layouts can size the keys to the room it gets. */}
       <div className="deck-grid-area">
