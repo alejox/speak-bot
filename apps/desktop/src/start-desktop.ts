@@ -1,6 +1,6 @@
 import type { DesktopSettings } from "@speed-deck/core";
 import { randomUUID } from "node:crypto";
-import { homedir, networkInterfaces } from "node:os";
+import { homedir, hostname, networkInterfaces } from "node:os";
 import { join } from "node:path";
 import { prepareBoards } from "./adapters/board-migration";
 import { migrateLegacyDataDir } from "./adapters/legacy-data-dir";
@@ -11,6 +11,10 @@ import { ObsConnectionManager } from "./adapters/obs/obs-connection-manager";
 import { createApplicationLauncher } from "./adapters/apps/create-application-launcher";
 import { createSystemSynthesizer } from "./adapters/tts/create-system-synthesizer";
 import { loadConfig, type ConfigSources } from "./config";
+import { loadMonetizationConfig } from "./config/monetization";
+import { JsonFileLicenseStore } from "./license/json-file-license-store";
+import { LemonSqueezyLicenseService } from "./license/lemon-squeezy-license-service";
+import { LicenseManager } from "./license/license-manager";
 import { createDesktopServer } from "./server/create-server";
 import { applyObsSettings } from "./server/obs-settings";
 import { connectionInfo } from "./server/network";
@@ -28,6 +32,8 @@ export interface StartDesktopOptions extends Partial<ConfigSources> {
   portAttempts?: number;
   /** Creates OBS clients; defaults to obs-websocket-js. */
   createObsClient?: () => ObsClient;
+  /** Used for the license server and the ad feed; defaults to the global fetch. */
+  fetch?: typeof globalThis.fetch;
 }
 
 export interface RunningDesktop {
@@ -54,9 +60,10 @@ export const DEFAULT_PORT_ATTEMPTS = 10;
 
 /** Starts the desktop server with the system speech engine. Used by the CLI and the Electron app. */
 export async function startDesktop(options: StartDesktopOptions = {}): Promise<RunningDesktop> {
+  const env = options.env ?? process.env;
   const config = loadConfig({
     argv: options.argv ?? [],
-    env: options.env ?? process.env,
+    env,
     platform: options.platform ?? process.platform,
     homeDir: options.homeDir ?? homedir(),
   });
@@ -77,6 +84,18 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     log,
   });
   if (prepared === "migrated") log("Moved the saved phrases to the communication board (backup: phrases.json.migrated.bak).");
+  const monetization = loadMonetizationConfig(env);
+  const license = new LicenseManager({
+    store: new JsonFileLicenseStore(join(config.dataDir, "license.json")),
+    service:
+      monetization.storeId !== undefined && monetization.productId !== undefined
+        ? new LemonSqueezyLicenseService({ storeId: monetization.storeId, productId: monetization.productId, fetch: options.fetch })
+        : undefined,
+    instanceName: hostname(),
+    checkoutUrl: monetization.checkoutUrl,
+    now: () => Date.now(),
+    log,
+  });
   const settingsListeners = new Set<(next: DesktopSettings) => void>();
 
   const pageHandler = createPageHandler({
@@ -92,6 +111,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     allowedHosts: config.allowedHosts,
     obs,
     apps: createApplicationLauncher(),
+    license,
     onSettingsChanged: (next) => {
       for (const listener of [...settingsListeners]) listener(next);
     },
@@ -112,6 +132,8 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
   log(`Data directory: ${config.dataDir}`);
   // Connects in the background when OBS control is enabled; failures retry and never stop the server.
   void applyObsSettings(obs, (await settings.loadStored()).obs).catch((error: unknown) => log(`OBS: ${String(error)}`));
+  // Validates the saved license now and every 24 h; failures keep the saved status.
+  void license.start();
   log(`Speech engine: ${engine}${supportsDeviceSelection ? " (output device selectable)" : ""}`);
 
   let closing: Promise<void> | undefined;
@@ -131,6 +153,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     close: () => {
       closing ??= (async () => {
         synthesizer.cancel();
+        license.stop();
         await obs.close();
         await server.close();
       })();

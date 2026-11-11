@@ -12,6 +12,11 @@ import {
   deleteBoard,
   DESKTOP_SERVER_NAME,
   InvalidBoardError,
+  InvalidLicenseKeyError,
+  LicenseActivationLimitError,
+  LicenseServiceUnavailableError,
+  LicensingDisabledError,
+  WrongLicenseProductError,
   isSpeakMode,
   isUiLanguage,
   KeyNotFoundError,
@@ -36,6 +41,7 @@ import {
   type BoardRepository,
   type DesktopSettings,
   type HealthResponse,
+  type LicenseResponse,
   type ObsController,
   type ObsInputVolumeResponse,
   type ObsStatusResponse,
@@ -46,6 +52,7 @@ import { networkInterfaces as osNetworkInterfaces } from "node:os";
 import { InvalidSettingsError, isValidRate, toPublicSettings, type JsonFileSettingsStore } from "../adapters/json-file-settings-store";
 import type { DesktopSpeechSynthesizer } from "../adapters/tts/process-speech-synthesizer";
 import { ClientActionError, createActionExecutor, NothingToRepeatError, type SpeechOverrides } from "./action-executor";
+import type { LicenseManager } from "../license/license-manager";
 import { applyObsSettings, ObsDisabledError } from "./obs-settings";
 import { asObject, HttpError, readJsonBody, sendEmpty, sendJson } from "./http-utils";
 import { connectionInfo, isLoopbackAddress, type NetworkInterfaces } from "./network";
@@ -68,7 +75,13 @@ export interface ApiDependencies {
   obs?: ObsController;
   /** Lists and opens the applications of this computer; absent means it cannot. */
   apps?: ApplicationLauncher;
+  /** The "remove ads" license; absent means ads always show and keys cannot be activated. */
+  license?: LicenseManager;
 }
+
+/** The longest license key accepted; Lemon Squeezy keys are UUIDs. */
+const MAX_LICENSE_KEY_LENGTH = 200;
+const NO_LICENSE: LicenseResponse = { adsFree: false, canActivate: false };
 
 type Params = Record<string, string>;
 type Handler = (request: IncomingMessage, response: ServerResponse, params: Params) => Promise<void>;
@@ -317,6 +330,35 @@ export function createApiHandler(deps: ApiDependencies) {
       },
     },
 
+    // ---- Remove-ads license (changes are broadcast as license-changed by the server) ----
+    {
+      method: "GET",
+      path: "/api/license",
+      handler: async (_request, response) => sendJson(response, 200, (await deps.license?.status()) ?? NO_LICENSE),
+    },
+    {
+      /** The key is typed on the computer only: phones show the status. */
+      method: "PUT",
+      path: "/api/license",
+      handler: async (request, response) => {
+        requireLoopback(request);
+        const { key } = asObject(await readJsonBody(request));
+        if (typeof key !== "string" || key.trim() === "" || key.trim().length > MAX_LICENSE_KEY_LENGTH || /[\u0000-\u001f]/.test(key)) {
+          throw new HttpError(400, "key must be a license key.");
+        }
+        if (!deps.license) throw new LicensingDisabledError();
+        sendJson(response, 200, await deps.license.activate(key));
+      },
+    },
+    {
+      method: "DELETE",
+      path: "/api/license",
+      handler: async (request, response) => {
+        requireLoopback(request);
+        sendJson(response, 200, deps.license ? await deps.license.remove() : NO_LICENSE);
+      },
+    },
+
     // ---- OBS ----
     {
       method: "GET",
@@ -463,6 +505,11 @@ function describeFailure(error: unknown): { status: number; message: string; cod
   if (error instanceof ApplicationNotListedError) return { status: 404, message: error.message, code: "app-not-found" };
   if (error instanceof ApplicationsUnsupportedError) return { status: 409, message: error.message, code: "apps-unsupported" };
   if (error instanceof ApplicationOpenFailedError) return { status: 502, message: error.message, code: "app-open-failed" };
+  if (error instanceof InvalidLicenseKeyError) return { status: 400, message: error.message, code: "license-invalid" };
+  if (error instanceof WrongLicenseProductError) return { status: 400, message: error.message, code: "license-wrong-product" };
+  if (error instanceof LicenseActivationLimitError) return { status: 409, message: error.message, code: "license-limit" };
+  if (error instanceof LicenseServiceUnavailableError) return { status: 503, message: error.message, code: "license-offline" };
+  if (error instanceof LicensingDisabledError) return { status: 409, message: error.message, code: "license-disabled" };
   if (error instanceof ObsRequestError) return { status: 502, message: error.message, code: "obs-request-failed" };
   return null;
 }

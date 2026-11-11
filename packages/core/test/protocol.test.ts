@@ -30,6 +30,8 @@ describe("isServerEvent", () => {
       { type: "obs-state", state: { currentScene: "Main", mutedInputs: ["Mic"], streaming: true, recording: false }, at: 13 },
       { type: "obs-state", state: { currentScene: null, mutedInputs: [], streaming: false, recording: false }, at: 14 },
       { type: "settings-changed", settings: { voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true }, at: 15 },
+      { type: "license-changed", license: { adsFree: true, canActivate: true, maskedKey: "••••4D51", lastValidatedAt: 3 }, at: 16 },
+      { type: "license-changed", license: { adsFree: false, canActivate: false }, at: 17 },
     ];
     for (const event of events) expect(isServerEvent(event)).toBe(true);
   });
@@ -38,6 +40,8 @@ describe("isServerEvent", () => {
     expect(isServerEvent(null)).toBe(false);
     expect(isServerEvent("caption")).toBe(false);
     expect(isServerEvent({ type: "caption", at: 1 })).toBe(false);
+    expect(isServerEvent({ type: "license-changed", at: 1 })).toBe(false);
+    expect(isServerEvent({ type: "license-changed", license: { adsFree: "yes", canActivate: true }, at: 1 })).toBe(false);
     expect(isServerEvent({ type: "speaking", state: "paused", at: 1 })).toBe(false);
     expect(isServerEvent({ type: "unknown", at: 1 })).toBe(false);
     expect(isServerEvent({ type: "boards-changed" })).toBe(false);

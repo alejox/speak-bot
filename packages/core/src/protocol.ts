@@ -112,7 +112,15 @@ export interface ComposingEvent {
 /** The desktop turns the composing flag off by itself this long after the last PUT /api/composing. */
 export const COMPOSING_TIMEOUT_MS = 10_000;
 
+/** The remove-ads license was activated, removed or re-validated on the computer. */
+export interface LicenseChangedEvent {
+  readonly type: "license-changed";
+  readonly license: LicenseResponse;
+  readonly at: number;
+}
+
 export type ServerEvent =
+  | LicenseChangedEvent
   | SettingsChangedEvent
   | ComposingEvent
   | CaptionEvent
@@ -150,11 +158,19 @@ export function isServerEvent(value: unknown): value is ServerEvent {
       return isObsState(event.state);
     case "obs-input-volume":
       return typeof event.inputName === "string" && typeof event.volumeMul === "number" && Number.isFinite(event.volumeMul);
+    case "license-changed":
+      return isLicenseResponse(event.license);
     case "settings-changed":
       return typeof event.settings === "object" && event.settings !== null && isUiLanguage((event.settings as { language?: unknown }).language);
     default:
       return false;
   }
+}
+
+function isLicenseResponse(value: unknown): value is LicenseResponse {
+  if (typeof value !== "object" || value === null) return false;
+  const license = value as Record<string, unknown>;
+  return typeof license.adsFree === "boolean" && typeof license.canActivate === "boolean";
 }
 
 function isObsState(value: unknown): value is ObsState {
@@ -365,6 +381,27 @@ export interface SetObsInputVolumeRequest {
   volumeMul: number;
 }
 
+/**
+ * GET /api/license → whether ads are removed on this computer and every paired phone. PUT /api/license
+ * with `ActivateLicenseRequest` activates a key and DELETE removes it (both only from the computer itself,
+ * else 403 "loopback-only"); both answer with the new `LicenseResponse` and broadcast license-changed.
+ */
+export interface LicenseResponse {
+  readonly adsFree: boolean;
+  /** False when this build has no license store configured: the key field is hidden. */
+  readonly canActivate: boolean;
+  /** The saved key with all but its last 4 characters hidden. */
+  readonly maskedKey?: string;
+  /** Epoch ms of the last answer from the license server. */
+  readonly lastValidatedAt?: number;
+  /** Where to buy a key (opened outside the app); absent when not configured. */
+  readonly checkoutUrl?: string;
+}
+
+export interface ActivateLicenseRequest {
+  key: string;
+}
+
 /** The language the automatic voice should speak. */
 export function voiceLanguageOf(settings: { language: UiLanguage; voiceLanguage?: UiLanguage }): UiLanguage {
   return settings.voiceLanguage ?? settings.language;
@@ -389,7 +426,12 @@ export type ApiErrorCode =
   | "queue-full"
   | "app-not-found"
   | "apps-unsupported"
-  | "app-open-failed";
+  | "app-open-failed"
+  | "license-invalid"
+  | "license-wrong-product"
+  | "license-limit"
+  | "license-offline"
+  | "license-disabled";
 
 export interface ErrorResponse {
   /** Technical detail in English. */

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { hostname as osHostname } from "node:os";
 import type { JsonFileSettingsStore } from "../adapters/json-file-settings-store";
+import type { LicenseManager } from "../license/license-manager";
 import type { DesktopSpeechSynthesizer } from "../adapters/tts/process-speech-synthesizer";
 import { createApiHandler } from "./api";
 import { EventHub } from "./event-hub";
@@ -33,6 +34,8 @@ export interface DesktopServerDependencies {
   obs?: ObsController;
   /** Lists and opens the applications of this computer for "open application" keys. */
   apps?: ApplicationLauncher;
+  /** The "remove ads" license; its changes are broadcast as license-changed. */
+  license?: LicenseManager;
 }
 
 export interface DesktopServer {
@@ -57,6 +60,8 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
     else if (event.type === "state") hub.broadcast({ type: "obs-state", state: event.state, at: now() });
     else hub.broadcast({ type: "obs-input-volume", inputName: event.inputName, volumeMul: event.volumeMul, at: now() });
   });
+
+  const stopLicenseEvents = deps.license?.subscribe((license) => hub.broadcast({ type: "license-changed", license, at: now() }));
 
   const httpServer = createServer((request, response) => {
     void (async () => {
@@ -98,6 +103,7 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
     },
     close: async () => {
       stopObsEvents?.();
+      stopLicenseEvents?.();
       await hub.close();
       httpServer.closeAllConnections();
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));

@@ -127,6 +127,16 @@ export {
   type ApplicationLauncher,
 } from "./ports/application-launcher";
 export {
+  InvalidLicenseKeyError,
+  LicenseActivationLimitError,
+  LicenseServiceUnavailableError,
+  LicensingDisabledError,
+  maskLicenseKey,
+  WrongLicenseProductError,
+  type LicenseActivation,
+  type LicenseService,
+} from "./ports/license-service";
+export {
   MAX_OBS_VOLUME_MUL,
   ObsRequestError,
   ObsUnavailableError,
@@ -188,8 +198,11 @@ export {
   UI_LANGUAGES,
   MAX_SPEAK_TEXT_LENGTH,
   voiceLanguageOf,
+  type ActivateLicenseRequest,
   type ApiErrorCode,
   type ApplicationsResponse,
+  type LicenseChangedEvent,
+  type LicenseResponse,
   type AudioDevice,
   type CaptionClearEvent,
   type CaptionEvent,
