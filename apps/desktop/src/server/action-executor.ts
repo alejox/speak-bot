@@ -1,13 +1,16 @@
 import {
   COMPOSING_TIMEOUT_MS,
+  MAX_SPEECH_QUEUE,
   ObsUnavailableError,
   pickVoiceForLanguage,
+  SpeechQueueFullError,
   voiceLanguageOf,
   type Action,
   type DesktopSettings,
   type ObsController,
   type ServerEvent,
   type SpeakErrorCode,
+  type SpeakMode,
   type UiLanguage,
   type Voice,
 } from "@speed-deck/core";
@@ -60,8 +63,11 @@ export interface ExecuteResult {
 /** Runs the actions the desktop owns: voice, captions and OBS. Keeps the speech state for repeat and stop. */
 export function createActionExecutor(deps: ActionExecutorDependencies) {
   const { settings, synthesizer, broadcast, now, log } = deps;
-  // Only the latest utterance may report "end", so a cancelled one never hides a newer caption.
-  let speechRequest = 0;
+  // The utterance being said. One that was cut off (by a newer one or by stop) is marked ended at once, so
+  // it never reports an "end" that would hide a newer caption.
+  let active: { started: boolean; ended: boolean } | null = null;
+  // Utterances asked for and not finished yet: the one being said and those waiting behind it.
+  let unfinished = 0;
   // What voice.repeat says again; kept in memory only, so nothing spoken is written to disk.
   let lastSpokenText: string | undefined;
   // Listing system voices spawns a process, so a non-empty list is kept for the server's lifetime.
@@ -105,30 +111,56 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
     return options;
   }
 
-  /** Starts speaking `text` (already validated) and returns once it started. */
-  async function speak(text: string, overrides: SpeechOverrides = {}): Promise<void> {
+  /**
+   * Speaks `text` (already validated) and returns once it started or took its place in the queue. By
+   * default it interrupts what is being said and empties the queue; with "queue" it waits its turn. The
+   * caption and the "speaking" events go out when the utterance really starts, never for one that is dropped.
+   */
+  async function speak(text: string, overrides: SpeechOverrides = {}, mode: SpeakMode = "interrupt"): Promise<void> {
     const options = await speakOptions(overrides);
-    const current = ++speechRequest;
-    lastSpokenText = text;
-    // What was being typed is being said now.
-    setComposing(false);
-    broadcast({ type: "caption", text, at: now() });
-    broadcast({ type: "speaking", state: "start", at: now() });
+    if (mode === "queue") {
+      if (unfinished > MAX_SPEECH_QUEUE) throw new SpeechQueueFullError();
+      options.mode = mode;
+    }
+    const utterance = { started: false, ended: false };
+    // An interrupting utterance cuts the current one off without an "end": its own caption follows at once.
+    if (mode === "interrupt" && active) active.ended = true;
+    options.onStart = () => {
+      // Its turn in the queue came: the one before it ends first, so the events stay in order.
+      if (active && !active.ended) {
+        active.ended = true;
+        broadcast({ type: "speaking", state: "end", at: now() });
+      }
+      active = utterance;
+      utterance.started = true;
+      lastSpokenText = text;
+      // What was being typed is being said now.
+      setComposing(false);
+      broadcast({ type: "caption", text, at: now() });
+      broadcast({ type: "speaking", state: "start", at: now() });
+    };
+    unfinished += 1;
     synthesizer
       .speak(text, options)
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
         log(`Speech failed: ${message}`);
         const code: SpeakErrorCode = error instanceof SpeechEngineUnavailableError ? "engine-unavailable" : "speech-failed";
-        if (current === speechRequest) broadcast({ type: "speak-error", message, code, at: now() });
+        if (utterance.started && !utterance.ended) broadcast({ type: "speak-error", message, code, at: now() });
       })
       .finally(() => {
-        if (current === speechRequest) broadcast({ type: "speaking", state: "end", at: now() });
+        unfinished -= 1;
+        if (active === utterance) active = null;
+        if (!utterance.started || utterance.ended) return;
+        utterance.ended = true;
+        broadcast({ type: "speaking", state: "end", at: now() });
       });
   }
 
+  /** Stops what is being said and empties the queue. */
   function stop(): void {
-    speechRequest += 1;
+    if (active) active.ended = true;
+    active = null;
     synthesizer.cancel();
     broadcast({ type: "speaking", state: "end", at: now() });
   }

@@ -1,3 +1,4 @@
+import { MAX_SPEECH_QUEUE, SpeechQueueFullError } from "@speed-deck/core";
 import { describe, expect, it } from "vitest";
 import { CommandNotFoundError } from "../src/adapters/tts/command-runner";
 import {
@@ -80,5 +81,79 @@ describe("ProcessSpeechSynthesizer", () => {
     expect(synthesizer.capabilities).toEqual({ platform: "test", engine: "tts", supportsDeviceSelection: true });
     expect(await synthesizer.listVoices()).toHaveLength(1);
     expect(await synthesizer.listDevices()).toEqual([{ id: "d", name: "D" }]);
+  });
+
+  const done = { code: 0, stdout: "", stderr: "" };
+  const textsOf = (runner: FakeRunner) => runner.calls.map((call) => call.pipeline[0]!.args[2]);
+  /** Lets the promise chain between two utterances run. */
+  const settle = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+  it("queues an utterance behind the current one and says them in order, each starting when its turn comes", async () => {
+    const runner = new FakeRunner();
+    const synthesizer = new ProcessSpeechSynthesizer(fakePlatform(), runner);
+    const started: string[] = [];
+    const speak = (text: string) => synthesizer.speak(text, { mode: "queue", onStart: () => started.push(text) });
+
+    const all = [speak("One"), speak("Two"), speak("Three")];
+    expect(textsOf(runner)).toEqual(["One"]);
+    expect(started).toEqual(["One"]);
+    expect(runner.calls[0]!.killed).toBe(false);
+
+    runner.calls[0]!.finish(done);
+    await settle();
+    expect(textsOf(runner)).toEqual(["One", "Two"]);
+    expect(started).toEqual(["One", "Two"]);
+
+    runner.calls[1]!.finish(done);
+    await settle();
+    runner.calls[2]!.finish(done);
+    await Promise.all(all);
+    expect(textsOf(runner)).toEqual(["One", "Two", "Three"]);
+    expect(started).toEqual(["One", "Two", "Three"]);
+  });
+
+  it("keeps the queue going after an utterance fails", async () => {
+    const runner = new FakeRunner();
+    const synthesizer = new ProcessSpeechSynthesizer(fakePlatform(), runner);
+    const first = synthesizer.speak("One", { mode: "queue" });
+    void synthesizer.speak("Two", { mode: "queue" });
+    runner.calls[0]!.finish({ code: 1, stdout: "", stderr: "boom" });
+    await expect(first).rejects.toThrow("boom");
+    await settle();
+    expect(textsOf(runner)).toEqual(["One", "Two"]);
+  });
+
+  it("drops the queue when an utterance interrupts, and when cancel is called", async () => {
+    const runner = new FakeRunner();
+    const synthesizer = new ProcessSpeechSynthesizer(fakePlatform(), runner);
+    const started: string[] = [];
+    const speak = (text: string, mode?: "queue" | "interrupt") => synthesizer.speak(text, { mode, onStart: () => started.push(text) });
+
+    const one = speak("One");
+    const two = speak("Two", "queue");
+    const now = speak("Now");
+    expect(runner.calls[0]!.killed).toBe(true);
+    await expect(one).resolves.toBeUndefined();
+    await expect(two).resolves.toBeUndefined();
+    await settle();
+    expect(textsOf(runner)).toEqual(["One", "Now"]);
+
+    const later = speak("Later", "queue");
+    synthesizer.cancel();
+    expect(runner.calls[1]!.killed).toBe(true);
+    await expect(now).resolves.toBeUndefined();
+    await expect(later).resolves.toBeUndefined();
+    await settle();
+    expect(started).toEqual(["One", "Now"]);
+    expect(textsOf(runner)).toEqual(["One", "Now"]);
+  });
+
+  it("refuses one utterance more than the queue holds", async () => {
+    const runner = new FakeRunner();
+    const synthesizer = new ProcessSpeechSynthesizer(fakePlatform(), runner);
+    void synthesizer.speak("Speaking");
+    for (let index = 0; index < MAX_SPEECH_QUEUE; index += 1) void synthesizer.speak(`Waiting ${index}`, { mode: "queue" });
+    await expect(synthesizer.speak("One too many", { mode: "queue" })).rejects.toBeInstanceOf(SpeechQueueFullError);
+    expect(textsOf(runner)).toEqual(["Speaking"]);
   });
 });

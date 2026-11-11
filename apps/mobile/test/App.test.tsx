@@ -18,7 +18,7 @@ describe("App composer", () => {
     const { synthesizer, user } = renderLocalApp({ settings: { voiceId: "alex", rate: 1.3 } });
     await user.type(screen.getByLabelText("Text to speak"), "Hello world");
     await user.click(screen.getByRole("button", { name: "Speak" }));
-    expect(synthesizer.spoken).toEqual([{ text: "Hello world", options: { voiceId: "alex", rate: 1.3 } }]);
+    expect(synthesizer.spoken).toEqual([{ text: "Hello world", options: { voiceId: "alex", rate: 1.3, mode: "queue" } }]);
   });
 
   it("speaks on Enter and inserts a new line on Shift+Enter", async () => {

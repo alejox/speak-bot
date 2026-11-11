@@ -1,4 +1,4 @@
-import type { SpeakOptions, SpeechSynthesizer, Voice } from "@speed-deck/core";
+import { MAX_SPEECH_QUEUE, SpeechQueueFullError, type SpeakOptions, type SpeechSynthesizer, type Voice } from "@speed-deck/core";
 
 export class SpeechUnsupportedError extends Error {
   constructor() {
@@ -29,6 +29,8 @@ const VOICES_TIMEOUT_MS = 2000;
 export class WebSpeechSynthesizer implements AppSpeechSynthesizer {
   private readonly synth: SpeechSynthesis | undefined;
   private readonly Utterance: UtteranceConstructor | undefined;
+  /** Settles each utterance handed to the browser and not finished yet: the one being said and those queued behind it. */
+  private readonly unfinished = new Set<() => void>();
 
   constructor(
     synth: SpeechSynthesis | undefined = globalThis.speechSynthesis,
@@ -44,11 +46,15 @@ export class WebSpeechSynthesizer implements AppSpeechSynthesizer {
 
   /**
    * Calls speechSynthesis.speak synchronously so it runs inside the user's tap,
-   * which mobile browsers (notably iOS Safari) require.
+   * which mobile browsers (notably iOS Safari) require. A queued utterance joins the browser's own queue;
+   * any other replaces whatever is being said or waiting.
    */
   speak(text: string, options: SpeakOptions = {}): Promise<void> {
     const { synth, Utterance } = this;
     if (!synth || !Utterance) return Promise.reject(new SpeechUnsupportedError());
+    const queued = options.mode === "queue";
+    // One being said plus a full queue behind it.
+    if (queued && this.unfinished.size > MAX_SPEECH_QUEUE) return Promise.reject(new SpeechQueueFullError());
 
     return new Promise((resolve, reject) => {
       const utterance = new Utterance(text);
@@ -60,21 +66,30 @@ export class WebSpeechSynthesizer implements AppSpeechSynthesizer {
       if (options.rate !== undefined) utterance.rate = options.rate;
       if (options.pitch !== undefined) utterance.pitch = options.pitch;
 
-      utterance.onend = () => resolve();
+      const finish = () => {
+        if (this.unfinished.delete(finish)) resolve();
+      };
+      utterance.onend = finish;
       utterance.onerror = (event) => {
         // Being cut off by cancel() or a newer utterance is not a failure.
-        if (event.error === "canceled" || event.error === "interrupted") resolve();
-        else reject(new SpeechFailedError(event.error));
+        if (event.error === "canceled" || event.error === "interrupted") finish();
+        else if (this.unfinished.delete(finish)) reject(new SpeechFailedError(event.error));
       };
 
-      // A new utterance replaces whatever is still being spoken.
-      synth.cancel();
+      if (!queued) this.drop(synth);
+      this.unfinished.add(finish);
       synth.speak(utterance);
     });
   }
 
   cancel(): void {
-    this.synth?.cancel();
+    if (this.synth) this.drop(this.synth);
+  }
+
+  /** Stops what is being said and empties the queue. Settled here: browsers do not always report dropped utterances. */
+  private drop(synth: SpeechSynthesis): void {
+    for (const finish of [...this.unfinished]) finish();
+    synth.cancel();
   }
 
   /** Resolves with the system voices, waiting briefly for browsers that load them asynchronously. */

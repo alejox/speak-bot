@@ -1,4 +1,4 @@
-import type { SpeakErrorCode, SpeakOptions, Voice } from "@speed-deck/core";
+import type { SpeakErrorCode, SpeakOptions, SpeakRequest, Voice } from "@speed-deck/core";
 import type { DesktopApiClient } from "./desktop-api";
 import type { DesktopEventSource } from "./desktop-events";
 import type { AppSpeechSynthesizer } from "./web-speech-synthesizer";
@@ -20,10 +20,14 @@ interface PendingUtterance {
   reject: (error: Error) => void;
 }
 
-/** Speaks through the desktop computer. Completion is tracked with the desktop WebSocket events. */
+/**
+ * Speaks through the desktop computer, which keeps the queue. Completion is tracked with the desktop
+ * WebSocket events: they do not say which utterance ended, so an "end" settles everything asked so far
+ * (the app shows the desktop as speaking from its events, not from these promises).
+ */
 export class RemoteSpeechSynthesizer implements AppSpeechSynthesizer {
   readonly isSupported = true;
-  private pending: PendingUtterance | undefined;
+  private readonly pending = new Set<PendingUtterance>();
   private unsubscribe: (() => void) | undefined;
 
   constructor(
@@ -33,13 +37,15 @@ export class RemoteSpeechSynthesizer implements AppSpeechSynthesizer {
 
   speak(text: string, options: SpeakOptions = {}): Promise<void> {
     this.listen();
-    this.settle();
+    // An interrupting utterance cuts off the one being said and those waiting behind it.
+    if (options.mode !== "queue") this.settleAll();
     return new Promise((resolve, reject) => {
       const pending: PendingUtterance = { resolve, reject };
-      this.pending = pending;
-      const request: { text: string; voiceId?: string; rate?: number } = { text };
+      this.pending.add(pending);
+      const request: SpeakRequest = { text };
       if (options.voiceId) request.voiceId = options.voiceId;
       if (options.rate !== undefined) request.rate = options.rate;
+      if (options.mode === "queue") request.mode = options.mode;
       this.api.speak(request).then(
         () => {
           // Without live events there is no "end" to wait for.
@@ -51,7 +57,7 @@ export class RemoteSpeechSynthesizer implements AppSpeechSynthesizer {
   }
 
   cancel(): void {
-    this.settle();
+    this.settleAll();
     void this.api.stop().catch(() => {});
   }
 
@@ -71,16 +77,19 @@ export class RemoteSpeechSynthesizer implements AppSpeechSynthesizer {
 
   private listen(): void {
     this.unsubscribe ??= this.events.subscribe((event) => {
-      if (event.type === "speaking" && event.state === "end") this.settle();
-      else if (event.type === "speak-error") this.settle(this.pending, new DesktopSpeechError(event.message, event.code));
+      if (event.type === "speaking" && event.state === "end") this.settleAll();
+      else if (event.type === "speak-error") this.settleAll(new DesktopSpeechError(event.message, event.code));
     });
   }
 
-  /** Resolves (or rejects) the given utterance, defaulting to the current one. */
-  private settle(target: PendingUtterance | undefined = this.pending, error?: Error): void {
-    if (!target) return;
-    if (this.pending === target) this.pending = undefined;
+  /** Resolves (or rejects) one utterance, once. */
+  private settle(target: PendingUtterance, error?: Error): void {
+    if (!this.pending.delete(target)) return;
     if (error) target.reject(error);
     else target.resolve();
+  }
+
+  private settleAll(error?: Error): void {
+    for (const target of [...this.pending]) this.settle(target, error);
   }
 }

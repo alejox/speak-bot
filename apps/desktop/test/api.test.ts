@@ -320,6 +320,63 @@ describe("desktop HTTP API", () => {
     expect((await post("/api/composing", { composing: "yes" }, "PUT")).status).toBe(400);
     expect((await post("/api/composing", {}, "PUT")).status).toBe(400);
   });
+
+  const captions = (events: readonly ServerEvent[]) => events.flatMap((event) => (event.type === "caption" ? [event.text] : []));
+  const shape = (events: readonly ServerEvent[]) => events.map((event) => (event.type === "caption" ? event.text : event.type === "speaking" ? event.state : event.type));
+
+  it("queues typed text behind the current utterance, with captions as each one starts", async () => {
+    const client = await connect();
+    expect((await post("/api/speak", { text: "First" })).status).toBe(202);
+    expect((await post("/api/speak", { text: "Second", mode: "queue" })).status).toBe(202);
+    expect((await post("/api/speak", { text: "Third", mode: "queue" })).status).toBe(202);
+    expect(shape(await client.next(2))).toEqual(["First", "start"]);
+    expect(synthesizer.spoken.map((entry) => entry.text)).toEqual(["First"]);
+
+    synthesizer.finishCurrent();
+    expect(shape(await client.next(5))).toEqual(["First", "start", "end", "Second", "start"]);
+    synthesizer.finishCurrent();
+    expect(shape(await client.next(8))).toEqual(["First", "start", "end", "Second", "start", "end", "Third", "start"]);
+    synthesizer.finishCurrent();
+    expect(shape(await client.next(9)).at(-1)).toBe("end");
+    expect(synthesizer.spoken.map((entry) => entry.text)).toEqual(["First", "Second", "Third"]);
+    expect(synthesizer.spoken[1]!.options).toMatchObject({ mode: "queue" });
+    client.close();
+  });
+
+  it("empties the queue when a key interrupts: only what is said gets a caption", async () => {
+    const client = await connect();
+    await post("/api/speak", { text: "First" });
+    await post("/api/speak", { text: "Never said", mode: "queue" });
+    await post("/api/actions/execute", { action: { type: "voice.speak", text: "Now" } });
+    synthesizer.finishCurrent();
+    expect(shape(await client.next(5))).toEqual(["First", "start", "Now", "start", "end"]);
+    expect(captions(client.events)).toEqual(["First", "Now"]);
+    expect(synthesizer.spoken.map((entry) => entry.text)).toEqual(["First", "Now"]);
+    client.close();
+  });
+
+  it("empties the queue on stop, and repeat says the last utterance that really started", async () => {
+    const client = await connect();
+    await post("/api/speak", { text: "First" });
+    await post("/api/speak", { text: "Never said", mode: "queue" });
+    await post("/api/stop", {});
+    expect(shape(await client.next(3))).toEqual(["First", "start", "end"]);
+    await post("/api/repeat", {});
+    expect(shape(await client.next(5))).toEqual(["First", "start", "end", "First", "start"]);
+    expect(synthesizer.spoken.map((entry) => entry.text)).toEqual(["First", "First"]);
+    client.close();
+  });
+
+  it("rejects an unknown mode, and a full queue with a code", async () => {
+    expect((await post("/api/speak", { text: "Hi", mode: "later" })).status).toBe(400);
+    await post("/api/speak", { text: "Speaking" });
+    for (let index = 0; index < 20; index += 1) expect((await post("/api/speak", { text: `Waiting ${index}`, mode: "queue" })).status).toBe(202);
+    const full = await post("/api/speak", { text: "One too many", mode: "queue" });
+    expect(full.status).toBe(409);
+    expect(await full.json()).toMatchObject({ code: "queue-full" });
+    // An interrupting utterance is never refused.
+    expect((await post("/api/speak", { text: "Now" })).status).toBe(202);
+  });
 });
 
 // Keep SpeakOptions referenced so the fake stays aligned with the core port.

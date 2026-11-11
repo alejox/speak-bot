@@ -209,9 +209,10 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const railNav = navCollapsed || isShortSidebar;
   const hasPanel = Boolean(inspection) || reservesPanel;
 
+  // Typed text waits its turn behind what is being said; keys, quick and recent phrases cut in.
   // Only what is typed here is remembered; phrases on board keys are already one tap away.
   const speakComposerText = () => {
-    speech.speak(text);
+    speech.speak(text, "queue");
     if (text.trim() !== "") setRecentPhrases(services.recentPhrases.add(text));
   };
   const clearRecentPhrases = () => {

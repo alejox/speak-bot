@@ -128,6 +128,8 @@ export interface DesktopState {
   supportsDeviceSelection: boolean;
   /** Answers for POST /api/actions/execute by action type (default 200 `{ ok: true }`). */
   execute: Record<string, { status?: number; body?: unknown }>;
+  /** The answer to POST /api/speak when it is not the usual 202. */
+  speak?: { status?: number; body?: unknown };
   /** When set, PUT /api/boards/grid answers 409 "grid-full". */
   gridFull?: boolean;
 }
@@ -202,7 +204,7 @@ export function desktopRoute(state: DesktopState) {
         return { body: state.settings };
       }
       case "POST /api/speak":
-        return { status: 202, body: { ok: true } };
+        return state.speak ?? { status: 202, body: { ok: true } };
       case "PUT /api/composing":
         return { body: { ok: true } };
       case "POST /api/stop":

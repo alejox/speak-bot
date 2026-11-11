@@ -1,3 +1,4 @@
+import { MAX_SPEECH_QUEUE, SpeechQueueFullError } from "@speed-deck/core";
 import { describe, expect, it, vi } from "vitest";
 import { SpeechUnsupportedError, WebSpeechSynthesizer } from "../src/adapters/web-speech-synthesizer";
 
@@ -135,5 +136,51 @@ describe("WebSpeechSynthesizer", () => {
     fake.loadVoices([spanishVoice]);
 
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("queues an utterance behind the current one instead of cutting it off", async () => {
+    const fake = createFakeSpeechSynthesis();
+    const synthesizer = createSynthesizer(fake);
+
+    const first = synthesizer.speak("One");
+    const second = synthesizer.speak("Two", { mode: "queue" });
+    expect(fake.cancel).toHaveBeenCalledTimes(1);
+    expect(fake.spoken.map((utterance) => utterance.text)).toEqual(["One", "Two"]);
+
+    fake.spoken[0]!.onend?.();
+    await expect(first).resolves.toBeUndefined();
+    fake.spoken[1]!.onend?.();
+    await expect(second).resolves.toBeUndefined();
+  });
+
+  it("drops the queue when an utterance interrupts or cancel is called, settling what waited", async () => {
+    const fake = createFakeSpeechSynthesis();
+    const synthesizer = createSynthesizer(fake);
+
+    const first = synthesizer.speak("One");
+    const queued = synthesizer.speak("Two", { mode: "queue" });
+    const now = synthesizer.speak("Now");
+    expect(fake.cancel).toHaveBeenCalledTimes(2);
+    // Browsers do not always report the utterances a cancel dropped.
+    await expect(first).resolves.toBeUndefined();
+    await expect(queued).resolves.toBeUndefined();
+
+    const later = synthesizer.speak("Later", { mode: "queue" });
+    synthesizer.cancel();
+    await expect(now).resolves.toBeUndefined();
+    await expect(later).resolves.toBeUndefined();
+  });
+
+  it("refuses one utterance more than the queue holds", async () => {
+    const fake = createFakeSpeechSynthesis();
+    const synthesizer = createSynthesizer(fake);
+    void synthesizer.speak("Speaking");
+    for (let index = 0; index < MAX_SPEECH_QUEUE; index += 1) void synthesizer.speak(`Waiting ${index}`, { mode: "queue" });
+    await expect(synthesizer.speak("One too many", { mode: "queue" })).rejects.toBeInstanceOf(SpeechQueueFullError);
+    expect(fake.spoken).toHaveLength(MAX_SPEECH_QUEUE + 1);
+
+    fake.spoken[0]!.onend?.();
+    void synthesizer.speak("Room again", { mode: "queue" });
+    expect(fake.spoken).toHaveLength(MAX_SPEECH_QUEUE + 2);
   });
 });

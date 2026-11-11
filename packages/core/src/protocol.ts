@@ -5,7 +5,7 @@
 import type { Action } from "./domain/actions";
 import type { Board, BoardKind, Key } from "./domain/board";
 import type { ObsConnectionStatus, ObsErrorCode, ObsInput, ObsSceneItem, ObsState } from "./ports/obs-controller";
-import type { Voice } from "./ports/speech-synthesizer";
+import type { SpeakMode, Voice } from "./ports/speech-synthesizer";
 
 /** Longest text the desktop server accepts for a single utterance. */
 export const MAX_SPEAK_TEXT_LENGTH = 1000;
@@ -241,12 +241,17 @@ export interface ExecuteActionRequest {
 
 export type { Board, Key };
 
-/** POST /api/speak → 202. */
+/**
+ * POST /api/speak → 202. With `mode: "queue"` the text waits behind what is being said (409 "queue-full"
+ * when too many already wait); otherwise it interrupts it and empties the queue.
+ */
 export interface SpeakRequest {
   text: string;
   voiceId?: string;
   /** Speaking rate multiplier, 1 is normal speed. */
   rate?: number;
+  /** "interrupt" when left out. */
+  mode?: SpeakMode;
 }
 
 /**
@@ -339,7 +344,8 @@ export type ApiErrorCode =
   | "obs-request-failed"
   | "loopback-only"
   | "board-limit"
-  | "grid-full";
+  | "grid-full"
+  | "queue-full";
 
 export interface ErrorResponse {
   /** Technical detail in English. */

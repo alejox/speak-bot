@@ -135,7 +135,16 @@ export {
   setKey,
   type BoardDependencies,
 } from "./use-cases/boards";
-export type { SpeakOptions, SpeechSynthesizer, Voice } from "./ports/speech-synthesizer";
+export {
+  isSpeakMode,
+  MAX_SPEECH_QUEUE,
+  SPEAK_MODES,
+  SpeechQueueFullError,
+  type SpeakMode,
+  type SpeakOptions,
+  type SpeechSynthesizer,
+  type Voice,
+} from "./ports/speech-synthesizer";
 export { EmptyTextError, speakText, stopSpeaking } from "./use-cases/speak";
 export {
   DEFAULT_PHRASE_TEXTS,

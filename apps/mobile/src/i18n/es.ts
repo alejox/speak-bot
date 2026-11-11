@@ -276,6 +276,7 @@ export const es: Messages = {
   "error.desktopSpeechFailed": "La computadora no pudo decir eso. Inténtalo de nuevo.",
   "error.desktopRequestFailed": "La computadora no aceptó la solicitud. Inténtalo de nuevo.",
   "error.speechFailed": "No se pudo decir eso. Inténtalo de nuevo.",
+  "error.queueFull": "Hay demasiadas frases en espera. Espera a que se diga alguna.",
   "error.loadDesktopSettings": "No se pudo cargar la configuración de la computadora.",
   "error.saveDesktopSettings": "No se pudo guardar la configuración de la computadora.",
 

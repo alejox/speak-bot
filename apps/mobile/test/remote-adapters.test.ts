@@ -137,6 +137,34 @@ describe("RemoteSpeechSynthesizer", () => {
     await expect(done).resolves.toBeUndefined();
   });
 
+  it("asks the desktop to queue an utterance, without settling the one before it", async () => {
+    const { synthesizer, requests } = setup();
+    const first = synthesizer.speak("One");
+    FakeSocket.instances[0]!.open();
+    const second = synthesizer.speak("Two", { mode: "queue" });
+    expect(requests.map((request) => request.body)).toEqual([{ text: "One" }, { text: "Two", mode: "queue" }]);
+
+    let firstSettled = false;
+    void first.then(() => (firstSettled = true));
+    await Promise.resolve();
+    expect(firstSettled).toBe(false);
+
+    // The events do not say which utterance ended, so an end settles everything asked so far.
+    FakeSocket.instances[0]!.emit({ type: "speaking", state: "end", at: 1 });
+    await expect(first).resolves.toBeUndefined();
+    await expect(second).resolves.toBeUndefined();
+  });
+
+  it("settles everything that waited when an utterance interrupts", async () => {
+    const { synthesizer } = setup();
+    const first = synthesizer.speak("One");
+    FakeSocket.instances[0]!.open();
+    const second = synthesizer.speak("Two", { mode: "queue" });
+    void synthesizer.speak("Now");
+    await expect(first).resolves.toBeUndefined();
+    await expect(second).resolves.toBeUndefined();
+  });
+
   it("resolves right after the request when events are not connected", async () => {
     const { synthesizer } = setup();
 

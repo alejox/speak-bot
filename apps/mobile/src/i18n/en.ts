@@ -273,6 +273,7 @@ export const en = {
   "error.desktopSpeechFailed": "The computer could not speak that. Please try again.",
   "error.desktopRequestFailed": "The computer did not accept the request. Please try again.",
   "error.speechFailed": "Could not speak that. Please try again.",
+  "error.queueFull": "Too many phrases are waiting. Wait for one to be spoken.",
   "error.loadDesktopSettings": "Could not load the computer settings.",
   "error.saveDesktopSettings": "Could not save the computer settings.",
 

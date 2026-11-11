@@ -61,7 +61,7 @@ function DockContent({ target }: { target: SpeechTarget }) {
         text={text}
         isSpeaking={speech.isSpeaking}
         onTextChange={setText}
-        onSpeak={() => speech.speak(text)}
+        onSpeak={() => speech.speak(text, "queue")}
         onStop={speech.stop}
       />
       <p className="status" role="status" aria-live="polite">

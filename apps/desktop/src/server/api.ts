@@ -9,6 +9,7 @@ import {
   deleteBoard,
   DESKTOP_SERVER_NAME,
   InvalidBoardError,
+  isSpeakMode,
   isUiLanguage,
   KeyNotFoundError,
   LastBoardError,
@@ -24,6 +25,7 @@ import {
   setBoardGrid,
   setKey,
   SlotOccupiedError,
+  SpeechQueueFullError,
   type ApiErrorCode,
   type BoardRepository,
   type DesktopSettings,
@@ -225,7 +227,8 @@ export function createApiHandler(deps: ApiDependencies) {
       handler: async (request, response) => {
         const body = asObject(await readJsonBody(request));
         const text = parseSpeakText(body.text);
-        await executor.speak(text, parseOverrides(body));
+        if (body.mode !== undefined && !isSpeakMode(body.mode)) throw new HttpError(400, 'mode must be "queue" or "interrupt".');
+        await executor.speak(text, parseOverrides(body), body.mode);
         sendJson(response, 202, { ok: true });
       },
     },
@@ -412,6 +415,7 @@ function describeFailure(error: unknown): { status: number; message: string; cod
   if (error instanceof NothingToRepeatError) return { status: 404, message: error.message, code: "nothing-to-repeat" };
   if (error instanceof SlotOccupiedError) return { status: 409, message: error.message, code: "slot-occupied" };
   if (error instanceof BoardGridFullError) return { status: 409, message: error.message, code: "grid-full" };
+  if (error instanceof SpeechQueueFullError) return { status: 409, message: error.message, code: "queue-full" };
   if (error instanceof BoardLimitError) return { status: 409, message: error.message, code: "board-limit" };
   if (error instanceof LastBoardError) return { status: 409, message: error.message, code: "last-board" };
   if (error instanceof ObsUnavailableError) return { status: 409, message: error.message, code: "obs-unavailable" };
