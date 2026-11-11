@@ -11,4 +11,13 @@
     <string name="connect_invalid_address">Enter an address like 192.168.1.5 or 192.168.1.5:4545.</string>
     <string name="connect_invalid_qr">That QR code is not a Speed Deck address. Scan the code shown by Speed Deck on your computer.</string>
     <string name="connect_scanner_unavailable">The QR scanner is not available right now. Type the address instead.</string>
+
+    <string name="unreachable_title">Can\'t reach your computer</string>
+    <string name="unreachable_body">Make sure Speed Deck is open on your computer and that your phone is on the same Wi-Fi network.</string>
+    <string name="unreachable_retry">Retry</string>
+    <string name="change_computer">Change computer</string>
+
+    <string name="deck_menu_title">Leave the deck?</string>
+    <string name="deck_menu_exit">Exit</string>
+    <string name="deck_menu_cancel">Cancel</string>
 </resources>
