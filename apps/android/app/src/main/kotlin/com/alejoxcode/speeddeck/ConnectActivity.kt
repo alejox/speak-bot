@@ -88,7 +88,7 @@ class ConnectActivity : AppCompatActivity() {
             val button = layoutInflater.inflate(R.layout.item_discovered_desktop, foundList, false) as Button
             button.text = getString(R.string.connect_found_item, desktop.name, desktop.address)
             button.contentDescription = desktop.name
-            button.setOnClickListener { openDeck(SavedDesktop(desktop.address, desktop.id)) }
+            button.setOnClickListener { openDeck(SavedDesktop(desktop.address, desktop.id, desktop.name)) }
             foundList.addView(button)
         }
     }

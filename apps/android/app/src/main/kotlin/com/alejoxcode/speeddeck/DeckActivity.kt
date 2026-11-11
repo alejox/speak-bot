@@ -48,6 +48,7 @@ class DeckActivity : AppCompatActivity() {
     private val address: String get() = saved?.address ?: LocalWebApp.URL
     private var localWebApp: LocalWebApp? = null
     private var speech: SpeechBridge? = null
+    private var device: DeviceBridge? = null
     private lateinit var webView: WebView
     private lateinit var unreachablePanel: View
     private lateinit var searchingPanel: View
@@ -164,6 +165,8 @@ class DeckActivity : AppCompatActivity() {
         // The WebView has no speechSynthesis, so "speak on this device" needs the bridge in both modes.
         // Only the bundled app or the user's own computer ever loads here: other links open outside the app.
         speech = SpeechBridge(this, webView).also { webView.addJavascriptInterface(it, SpeechBridge.JS_NAME) }
+        // Vibrates when the phone loses the computer (or gets it back) and names that computer in the banner.
+        device = DeviceBridge(this) { saved?.name }.also { webView.addJavascriptInterface(it, DeviceBridge.JS_NAME) }
         webView.webViewClient = DeckWebViewClient()
     }
 
@@ -239,8 +242,12 @@ class DeckActivity : AppCompatActivity() {
         val found = ReconnectRule.find(current, desktops) ?: return
         stopSearch()
         val moved = ReconnectRule.addressChanged(current, found)
-        if (moved && deckLoaded) return // The saved address works; keep it.
-        saved = SavedDesktop(found.address, found.id).also(store::save)
+        if (moved && deckLoaded) {
+            // The saved address works; keep it, and learn the computer's name for the disconnect banner.
+            if (current.name != found.name) saved = current.copy(name = found.name).also(store::save)
+            return
+        }
+        saved = SavedDesktop(found.address, found.id, found.name).also(store::save)
         findViewById<TextView>(R.id.deck_unreachable_address).text = address
         when {
             moved -> load(address)
@@ -313,7 +320,7 @@ class DeckActivity : AppCompatActivity() {
             is FoundComputerOffer.Single -> {
                 finishOffer()
                 // Exactly like picking it on the connect screen.
-                store.save(SavedDesktop(current.desktop.address, current.desktop.id))
+                store.save(SavedDesktop(current.desktop.address, current.desktop.id, current.desktop.name))
                 startActivity(Intent(this, DeckActivity::class.java))
                 finish()
             }

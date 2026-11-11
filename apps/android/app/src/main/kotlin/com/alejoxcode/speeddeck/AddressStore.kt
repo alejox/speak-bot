@@ -12,7 +12,7 @@ class AddressStore(context: Context) {
 
     fun load(): SavedDesktop? {
         val address = preferences.getString(KEY_ADDRESS, null) ?: return null
-        return SavedDesktop(address, preferences.getString(KEY_DESKTOP_ID, null))
+        return SavedDesktop(address, preferences.getString(KEY_DESKTOP_ID, null), preferences.getString(KEY_DESKTOP_NAME, null))
     }
 
     fun loadMode(): LaunchMode? =
@@ -25,6 +25,7 @@ class AddressStore(context: Context) {
         preferences.edit()
             .putString(KEY_ADDRESS, desktop.address)
             .putString(KEY_DESKTOP_ID, desktop.desktopId)
+            .putString(KEY_DESKTOP_NAME, desktop.name)
             .putString(KEY_MODE, LaunchMode.COMPUTER.name)
             .apply()
     }
@@ -38,6 +39,7 @@ class AddressStore(context: Context) {
         const val PREFERENCES_NAME = "speed_deck"
         const val KEY_ADDRESS = "desktop_address"
         const val KEY_DESKTOP_ID = "desktop_id"
+        const val KEY_DESKTOP_NAME = "desktop_name"
         const val KEY_MODE = "launch_mode"
     }
 }
