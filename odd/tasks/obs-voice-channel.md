@@ -11,7 +11,7 @@ The spoken voice reaches OBS as an independent audio source (its own mixer chann
 
 ## Tasks
 - [x] V1 Desktop: render-to-file per platform behind the synthesizer port, serve the clip, broadcast "play clip" to overlays; voice output setting; fallback to speakers when no overlay is connected or none plays the clip. Route: delegated. Commit `1b257b6`.
-- [ ] V2 Overlay page: play clips in order, report start/end so speaking state, stop and queue stay correct. Route: delegated. BLOCKED: the page is `apps/desktop/public/overlay.html`, outside the writer's allowed edit surfaces. Implementation and tests are ready as a patch (see Status); not committed.
+- [x] V2 Overlay page: play clips in order, report start/end so speaking state, stop and queue stay correct. Route: delegated (patch), applied by the parent after review. Commit `5daf1b9`.
 - [x] V3 Settings UI + OBS setup hint (enable "Control audio via OBS"). Route: delegated. Commit `11bd9c3`.
 
 ## Acceptance criteria
@@ -27,9 +27,9 @@ The spoken voice reaches OBS as an independent audio source (its own mixer chann
 
 ## Acceptance evidence
 - V1: typecheck pass; tests core 224, desktop 306, electron 24, mobile 435 (all pass); mobile and Electron builds pass. Real checks on macOS: `say` render through the adapter wrote a RIFF/WAVE, 1 ch 22050 Hz Int16 file (afinfo); an isolated desktop (temp home, random port, not 4545) with output "obs" served the rendered clip as `audio/wav` (78,726 bytes, RIFF/WAVE) to a `?client=overlay` socket and emitted speaking start/end following the overlay's reports.
-- V2 (patch only): overlay tests 13/13 and desktop 311 pass with the patch applied; reverted because of the edit surface.
+- V2: patch reviewed and applied by the parent; desktop tests pass after applying.
 - V3: typecheck pass; tests core 224, desktop 306, electron 24, mobile 440 (all pass); mobile and Electron builds pass.
 - Not run: Windows and Linux render/play commands (argument building unit-tested only); playback inside real OBS CEF.
 
 ## Status
-V1 and V3 done. V2 waits for approval to edit `apps/desktop/public/overlay.html` (and `apps/desktop/test/overlay-script.test.ts`, already allowed). Until then the desktop never sees an overlay, so "obs" falls back to the speakers and the settings warn.
+V1–V3 done. Pending: try it in a real OBS Browser Source with "Control audio via OBS".
