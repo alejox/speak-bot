@@ -714,20 +714,21 @@
 .app-space .deck-full .deck-key {
   gap: clamp(1px, 4cqi, var(--space-2));
   padding: clamp(2px, 6cqi, var(--space-3));
-  font-size: clamp(9px, 12cqi, var(--text-md));
+  font-size: clamp(13px, 13cqi, var(--text-md));
   border-radius: clamp(6px, 12cqi, var(--radius-xl));
 }
 
 .app-space .deck-full .deck-key-phrase {
-  font-size: clamp(10px, 14cqi, var(--text-lg));
+  font-size: clamp(14px, 15cqi, var(--text-lg));
 }
 
+/* Long labels step down, but never below a size that can still be read. */
 .app-space .deck-full .deck-key[data-label-length="long"] .deck-key-text {
-  font-size: 0.875em;
+  font-size: max(12px, 0.875em);
 }
 
 .app-space .deck-full .deck-key[data-label-length="longer"] .deck-key-text {
-  font-size: 0.75em;
+  font-size: max(12px, 0.8em);
 }
 
 .app-space .deck-full .deck-key .key-icon {
@@ -751,6 +752,38 @@
 
   .app-workspace .deck-full .deck-grid {
     --deck-gap: var(--space-4);
+  }
+}
+
+/*
+ * Phones and tablets: a key never shrinks below a size a finger can hit and its label can be read
+ * (--key-min, or as wide as the columns allow). When the room left under the composer is shorter than
+ * that page, the screen scrolls instead of shrinking the keys (a phone on its side).
+ */
+@media (max-width: 999px) {
+  .app-space .app-main > .section,
+  .app-space .deck-layout,
+  .app-space .deck-full {
+    min-height: auto;
+  }
+
+  .app-space .deck-full {
+    grid-template-rows: auto minmax(auto, 1fr);
+  }
+
+  .app-space .deck-full.deck-with-strip {
+    grid-template-rows: auto auto minmax(auto, 1fr);
+  }
+
+  .app-space .deck-full .deck-grid-area {
+    --key-min: 88px;
+    --min-columns: var(--grid-columns, 5);
+    --min-rows: var(--grid-rows, 3);
+    min-height: calc(
+      var(--min-rows) *
+        min(var(--key-min), (100cqw - (var(--min-columns) - 1) * var(--space-2)) / var(--min-columns)) +
+        (var(--min-rows) - 1) * var(--space-2)
+    );
   }
 }
 

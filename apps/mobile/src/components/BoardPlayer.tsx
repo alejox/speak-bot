@@ -143,6 +143,8 @@ export function BoardPlayer({
 
   const isTransposed = isPortraitBoard && board.columns !== board.rows;
   const cellIndexes = displayedCellIndexes(board.columns, board.rows, isTransposed);
+  // The page's drawn columns and rows; its box reads them too, to keep room for keys large enough to use.
+  const gridSize = { "--grid-columns": isTransposed ? board.rows : board.columns, "--grid-rows": isTransposed ? board.columns : board.rows } as CSSProperties;
   const shownPageCount = Math.max(pageCount, page + 1);
   // Past the last page, "next" opens a new one for editors, up to the board limit.
   const opensNewPage = canEdit && page >= shownPageCount - 1 && shownPageCount < MAX_BOARD_PAGES;
@@ -311,12 +313,12 @@ export function BoardPlayer({
       {strip && <div className="deck-strip">{strip}</div>}
 
       {/* The grid's own box, so wide layouts can size the keys to the room it gets. */}
-      <div className="deck-grid-area">
+      <div className="deck-grid-area" style={gridSize}>
         <ol
           ref={gridElement}
           className={canTouchMove ? "deck-grid deck-grid-movable" : "deck-grid"}
           aria-label={t("board.keys", { board: board.name })}
-          style={{ "--grid-columns": isTransposed ? board.rows : board.columns, "--grid-rows": isTransposed ? board.columns : board.rows } as CSSProperties}
+          style={gridSize}
         >
           {/* Cells in the order they are drawn, so reading order follows the screen; names keep the real position. */}
           {cellIndexes.map((index) => {
