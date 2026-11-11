@@ -72,6 +72,7 @@ export const VolumeKey = forwardRef<HTMLInputElement, VolumeKeyProps>(function V
         ref={ref}
         type="range"
         className="deck-volume-range"
+        style={{ "--volume-percent": `${percent}%` } as CSSProperties}
         min={0}
         max={100}
         step={1}

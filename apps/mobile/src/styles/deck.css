@@ -474,16 +474,66 @@
   opacity: 0.8;
 }
 
+/*
+ * The slider is drawn by hand, the same in every engine: a native one tints its fill with accent-color,
+ * which is the key's own colour and vanishes on it. Track and thumb take the key's text colour, which
+ * already contrasts with the key; --volume-percent (set inline) is how much of the track is filled.
+ */
 .deck-volume-range {
+  --volume-thumb: 24px;
+  --volume-track: 8px;
+  --volume-fill: currentColor;
+  --volume-rest: color-mix(in srgb, currentColor 28%, transparent);
+  appearance: none;
+  -webkit-appearance: none;
   flex: 1;
   min-width: 0;
   min-height: 0;
   width: 100%;
+  height: var(--volume-thumb);
   margin: 0;
-  accent-color: var(--key-color, var(--color-accent));
+  color: inherit;
+  background: linear-gradient(to right, var(--volume-fill) var(--volume-percent, 0%), var(--volume-rest) 0) center / 100%
+    var(--volume-track) no-repeat;
+  border-radius: var(--radius-full);
   cursor: pointer;
   /* The finger on the track moves the slider only: no scroll, no zoom, no key move. */
   touch-action: none;
+}
+
+.deck-volume-range::-webkit-slider-runnable-track {
+  background: transparent;
+  border: none;
+}
+
+.deck-volume-range::-moz-range-track {
+  background: transparent;
+  border: none;
+}
+
+.deck-volume-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--volume-thumb);
+  height: var(--volume-thumb);
+  background: var(--volume-fill);
+  border: 2px solid color-mix(in srgb, currentColor 30%, black);
+  border-radius: var(--radius-full);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+}
+
+.deck-volume-range::-moz-range-thumb {
+  width: var(--volume-thumb);
+  height: var(--volume-thumb);
+  background: var(--volume-fill);
+  border: 2px solid color-mix(in srgb, currentColor 30%, black);
+  border-radius: var(--radius-full);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+}
+
+.deck-volume-range:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 .deck-volume-range:disabled {
@@ -495,9 +545,11 @@
 .deck-volume-vertical .deck-volume-range {
   writing-mode: vertical-lr;
   direction: rtl;
-  width: auto;
+  width: var(--volume-thumb);
   height: 100%;
   align-self: center;
+  background: linear-gradient(to top, var(--volume-fill) var(--volume-percent, 0%), var(--volume-rest) 0) center /
+    var(--volume-track) 100% no-repeat;
 }
 
 .deck-volume:not(.deck-volume-vertical) .deck-volume-range {
