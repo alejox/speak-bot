@@ -15,9 +15,13 @@ Device capture (Samsung landscape, 2026-11-11): the text box, Hablar, Detener an
 - Accessibility: the sheet is a modal dialog (focus trap, Escape/back closes, labelled), keyboard-safe on Android (sheet rises above the soft keyboard).
 
 ## Tasks
-- [x] W1 Compact Voice layout: slim bar, edit toggle, fitted phrase grid. Route: delegated.
-- [ ] W2 Composer sheet + floating Write and Stop buttons; long phrases shortened with an ellipsis (visual only). Route: delegated.
+- [x] W1 Compact Voice layout: slim bar, edit toggle, fitted phrase grid. Route: delegated. Commit 582cb40.
+- [x] W2 Composer sheet + floating Write and Stop buttons; long phrases shortened with an ellipsis (visual only). Route: delegated. Commit: see the W2 evidence line.
 - [ ] W3 Deck editing only on the computer: one exported `canEditDeck` flag (localhost hostname), applied in the Deck space; Voice stays editable everywhere. Route: delegated.
+
+## Accepted changes
+- User (2026-11-11): a long phrase is shortened on its key with "…" (CSS clamp, two lines on phrase keys; quick-phrase and recent chips already one line), never by cutting the stored text: the key's name, tooltip (`title`), speech and edit form keep the whole phrase.
+- User (2026-11-11): creating and editing the Deck (OBS keys) happens only on the computer; a page not served on localhost shows the Deck as configured. Voice stays editable on every device. Added as W3.
 
 ## Acceptance criteria
 - At 915×412, 800×360 and 412×915 the phrase grid of a 4×3 board is fully visible without scrolling; Write and Stop reachable.
@@ -26,3 +30,5 @@ Device capture (Samsung landscape, 2026-11-11): the text box, Hablar, Detener an
 
 ## Progress and evidence
 - W1: `App` passes `compact` to the Voice BoardPlayer too (`isCompactSpace = isPhoneSized && space !== null`) and shows the Edit keys toggle there; editing is remembered per space (`editingSpaces`). The quick phrases stay in the strip (top bar on its side, own row upright), since they fit. Test-first: `test/compact-voice.test.tsx` RED 4 failed, then GREEN; phone tests that edit Voice keys (`compact-space`, `touch-move`) now toggle Edit keys first. Checks: typecheck exit 0; 52 files, 447 tests passed; build exit 0.
+- W2 (checks: typecheck exit 0; 52 files, 458 tests passed; build exit 0): on a phone, Voice hides the inline composer (`usesComposerSheet = isCompactSpace && voice && !isWorkspace`) and shows `VoiceActions` beside the keys (a column at the right on its side, a row under the keys upright; never over them): Write (pencil, 56px) and Stop while speech plays. Write opens `ComposerSheet` (the existing `ModalDialog`, so focus trap, Escape/back and focus return come with it) holding the same `Composer` and `RecentPhrases`; speaking keeps it open. The sheet docks to the bottom and rises by `--keyboard-inset` (from `visualViewport`, `useKeyboardInset`), max height `100dvh` minus it, its body scrolls; on its side text, Speak, Stop and Save share one row. Labels reuse the existing names ("Save as key" / "Guardar como tecla", "Close"); new: "Write" / "Escribir". Long phrase keys clamp at two lines; `BoardKey` sets `title` to the full label when it is long. Test-first: 10 new tests RED, then GREEN; `compact-space` and `shell-overflow` updated.
+- Visual (headless Chrome, `vite preview`, local mode, 4x3 board with 8 phrases incl. a long one, Spanish): 915x412, 800x360, 412x915 dark and light, sheet closed, open and with a simulated keyboard (45% inset): no scroll, 8 keys on screen, none under the actions, smallest key 122px; with the keyboard the text box and Hablar stay visible. 1024x768 (dark, light) identical to the base commit except inside the long-phrase key (3 lines -> 2 with an ellipsis, the requested change).

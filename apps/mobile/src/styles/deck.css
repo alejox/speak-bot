@@ -189,6 +189,12 @@
   text-wrap: balance;
 }
 
+/* A phrase is cut after two lines with an ellipsis rather than growing the key; its name and tooltip keep it all. */
+.deck-key-phrase .deck-key-text {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
 /* Long labels step the font down before the clamp cuts them (BoardKey sets data-label-length), never below 12px. */
 .deck-key[data-label-length="long"] .deck-key-text {
   font-size: max(12px, 0.875em);

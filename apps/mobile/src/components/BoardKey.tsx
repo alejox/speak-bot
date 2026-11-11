@@ -45,7 +45,7 @@ type BoardKeyProps = BoardKeyView &
  * Every state is drawn with a shape, an icon or words as well as a colour.
  */
 export const BoardKey = forwardRef<HTMLButtonElement, BoardKeyProps>(function BoardKey(
-  { label, iconId, color, role = "phrase", danger = false, pressed, state, stateLabel, detail, speaking = false, offline = false, backwards = false, selected = false, className, style, ...button },
+  { label, iconId, color, role = "phrase", danger = false, pressed, state, stateLabel, detail, speaking = false, offline = false, backwards = false, selected = false, className, style, title: givenTitle, ...button },
   ref,
 ) {
   // The colour fills the key as a gradient (deck.css reads --key-color); the flat colour is the fallback.
@@ -76,8 +76,11 @@ export const BoardKey = forwardRef<HTMLButtonElement, BoardKeyProps>(function Bo
   ) : null;
   // A toggle that is on shows a small dot in the corner; the current scene has its tick instead.
   const hasDot = state !== undefined && state !== "scene";
+  // A long label is cut short on screen (deck.css clamps it); the tooltip keeps all of it, as does the name.
+  const labelLength = keyLabelLength(label);
+  const title = givenTitle ?? (labelLength ? label : undefined);
   return (
-    <button ref={ref} type="button" className={classes} aria-pressed={pressed} data-state={state} data-label-length={keyLabelLength(label)} style={{ ...colors, ...style }} {...button}>
+    <button ref={ref} type="button" className={classes} aria-pressed={pressed} data-state={state} data-label-length={labelLength} title={title} style={{ ...colors, ...style }} {...button}>
       {hasDot && <span className="deck-key-dot" aria-hidden="true" />}
       {cue && (
         <span className="deck-key-cue" aria-hidden="true">

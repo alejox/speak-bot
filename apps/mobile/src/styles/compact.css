@@ -209,3 +209,126 @@
   min-width: 0;
   height: var(--compact-target);
 }
+
+/*
+ * Voice on a phone: the composer waits behind a Write button (and Stop while speech plays) in the corner
+ * beside the keys, never over them. On its side the buttons are a column at the right, bottom-aligned;
+ * upright they are a row under the keys, at the right, above the tab bar.
+ */
+.app-space .deck-layout-actions {
+  gap: var(--space-2);
+}
+
+.app-space .deck-layout-actions > .deck {
+  min-width: 0;
+}
+
+.voice-actions {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.voice-actions .voice-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  min-height: 56px;
+  padding: 0 var(--space-4);
+  gap: var(--space-2);
+  font-weight: var(--weight-semibold);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2);
+}
+
+.voice-action-stop {
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border-strong);
+}
+
+@media (min-width: 601px) {
+  .app-space .deck-layout-actions {
+    flex-direction: row;
+  }
+
+  .voice-actions {
+    flex-direction: column;
+    margin-left: auto;
+  }
+
+  /* Icon over a short label, so the column stays narrow. */
+  .voice-actions .voice-action {
+    width: 5.25rem;
+    padding: var(--space-2) var(--space-1);
+    flex-direction: column;
+    gap: var(--space-1);
+    font-size: var(--text-sm);
+  }
+}
+
+/*
+ * The composer sheet: docked to the bottom edge, as wide as fits, lifted above the soft keyboard
+ * (--keyboard-inset, from the visual viewport) and never taller than what is left; its body scrolls.
+ */
+.modal.composer-sheet {
+  inset: auto 0 var(--keyboard-inset, 0px) 0;
+  margin: 0 auto;
+  width: min(720px, 100vw);
+  max-width: 100vw;
+  max-height: calc(100dvh - var(--keyboard-inset, 0px) - var(--space-2));
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+.modal.composer-sheet:not([open]) {
+  display: none;
+}
+
+.composer-sheet .modal-header {
+  padding: var(--space-2) var(--space-2) 0 var(--space-4);
+}
+
+.composer-sheet .modal-close {
+  width: var(--compact-target, 48px);
+  height: var(--compact-target, 48px);
+}
+
+.composer-sheet .modal-body {
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom));
+}
+
+.composer-sheet .composer {
+  max-width: none;
+}
+
+.composer-sheet .recent {
+  max-width: none;
+}
+
+/* On its side there is width to spare: text, Speak, Stop and Save on one row, so the sheet stays low. */
+@media (min-width: 601px) {
+  .composer-sheet .composer {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: stretch;
+  }
+
+  .composer-sheet .composer-speak {
+    padding: 0 var(--space-5);
+  }
+
+  .composer-sheet .composer-actions {
+    grid-column: auto;
+    grid-template-columns: none;
+    grid-auto-flow: row;
+  }
+}

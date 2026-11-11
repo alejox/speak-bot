@@ -52,12 +52,13 @@ describe("a space below the inspector width", () => {
     expect(screen.getByRole("button", { name: "Grid size" })).toBeInTheDocument();
   });
 
-  it("keeps the Voice composer above the keys, under a hidden heading, with no side panel", async () => {
+  it("keeps the Voice composer behind the Write button, under a hidden heading, with no side panel", async () => {
     setScreen(PHONE_UPRIGHT);
     const { user } = renderLocalApp({ boards: boards() });
     await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
     expect(screen.getByRole("heading", { level: 2, name: "Voice" })).toHaveClass("visually-hidden");
-    expect(within(screen.getByRole("main")).getByLabelText("Text to speak")).toBeInTheDocument();
+    // A phone keeps the screen for the keys: the composer waits in a sheet behind Write.
+    expect(within(screen.getByRole("main")).getByRole("button", { name: "Write" })).toBeInTheDocument();
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
     await editKeys(user);
     expect(screen.getByText("Page 1 of 1")).toHaveClass("visually-hidden");

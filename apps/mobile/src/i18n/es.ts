@@ -39,6 +39,7 @@ export const es: Messages = {
   "composer.stop": "Detener",
   "composer.save": "Guardar como tecla",
   "composer.saveShort": "Guardar",
+  "composer.write": "Escribir",
 
   "quick.label": "Frases rápidas",
   "recent.region": "Frases recientes",

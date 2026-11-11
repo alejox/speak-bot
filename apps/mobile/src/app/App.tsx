@@ -1,6 +1,6 @@
 import { folderDepth, folderPath, isFolderBoard, keysPerPage, MAX_BOARD_PAGES, MAX_FOLDER_DEPTH, type ActionType, type Board, type BoardKind } from "@speed-deck/core";
 import { LayoutGrid, MessageSquare, Settings, Smartphone, Video } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   BOARD_POSITION_STORAGE_KEY,
   LocalStorageBoardPositionStore,
@@ -12,6 +12,7 @@ import { BoardPlayer } from "../components/BoardPlayer";
 import { FolderBreadcrumb } from "../components/FolderBreadcrumb";
 import { GridSizeButton } from "../components/GridSizeButton";
 import { Composer, type ComposerHandle } from "../components/Composer";
+import { ComposerSheet } from "../components/ComposerSheet";
 import { ConnectPanel } from "../components/ConnectPanel";
 import { DeckStatusIndicator } from "../components/DeckStatus";
 import { EditKeysToggle } from "../components/EditKeysToggle";
@@ -26,6 +27,7 @@ import { SectionView } from "../components/SectionView";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { SideNav, type NavItem } from "../components/SideNav";
 import { useConfirmedRun } from "../components/StartConfirmation";
+import { VoiceActions } from "../components/VoiceActions";
 import { VoicePanel } from "../components/VoicePanel";
 import { obsTone } from "../components/StatusDot";
 import { I18nProvider, useMessageText, useT } from "../i18n/I18nProvider";
@@ -140,6 +142,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const [text, setText] = useState("");
   const [recentPhrases, setRecentPhrases] = useState(() => services.recentPhrases.load());
   const composer = useRef<ComposerHandle>(null);
+  // On a phone the composer waits in a sheet, opened from the Write button.
+  const [isComposerOpen, setComposerOpen] = useState(false);
   const monetization = useMonetization(services.desktop, target);
   // Set when the house banner leads to Settings, so focus lands on the Remove ads group.
   const [focusRemoveAds, setFocusRemoveAds] = useState(false);
@@ -263,6 +267,12 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
     if (space) setEditingSpaces((current) => ({ ...current, [space]: editing }));
   };
   const canEditBoard = !isCompactSpace || isEditingSpace;
+  // Voice on a phone keeps the screen for its keys: the composer moves into a sheet behind one Write button.
+  const usesComposerSheet = isCompactSpace && space === "voice" && !isWorkspace;
+  // Leaving the Voice space (or growing out of the phone layout) puts the sheet away for good.
+  useEffect(() => {
+    if (!usesComposerSheet) setComposerOpen(false);
+  }, [usesComposerSheet]);
   const hasPanel = Boolean(inspection) || reservesPanel;
 
   // Typed text waits its turn behind what is being said; keys, quick and recent phrases cut in.
@@ -357,7 +367,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
         {space && deck && (
           <SectionView key={space} title={t(`nav.${space}`)} focusHeading={navigated} hideTitle>
             <>
-              {space === "voice" && !isWorkspace && composerAndRecent}
+              {space === "voice" && !isWorkspace && !usesComposerSheet && composerAndRecent}
               {/* Without a board there is no deck header to hold the indicator, so it gets a row of its own. */}
               {deckIndicator && !board && <div className="deck-header">{deckIndicator}</div>}
               {!deck.boards.isLoaded && <p className="empty">{t("board.loading")}</p>}
@@ -378,7 +388,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   </button>
                 </div>
               )}
-              <div className="deck-layout">
+              <div className={usesComposerSheet ? "deck-layout deck-layout-actions" : "deck-layout"}>
                 <BoardPlayer
                   navigation={deck.navigation}
                   context={deck.context}
@@ -421,9 +431,16 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                     )
                   }
                 />
+                {usesComposerSheet && <VoiceActions isSpeaking={speech.isSpeaking && !isComposerOpen} onWrite={() => setComposerOpen(true)} onStop={speech.stop} />}
               </div>
             </>
           </SectionView>
+        )}
+
+        {usesComposerSheet && isComposerOpen && (
+          <ComposerSheet statusText={statusText} onClose={() => setComposerOpen(false)}>
+            {composerAndRecent}
+          </ComposerSheet>
         )}
 
         {section === "obs" && (
