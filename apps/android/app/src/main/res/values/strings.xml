@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">Speed Deck</string>
-    <string name="deck_no_address">No computer is set up yet.</string>
+
+    <string name="connect_title">Connect to your computer</string>
+    <string name="connect_intro">Open Speed Deck on your computer, then scan the QR code it shows. Your phone must be on the same Wi-Fi network.</string>
+    <string name="connect_scan">Scan QR code</string>
+    <string name="connect_manual_label">Or type the address shown on your computer</string>
+    <string name="connect_address_hint" translatable="false">192.168.1.5:4545</string>
+    <string name="connect_open">Connect</string>
+    <string name="connect_invalid_address">Enter an address like 192.168.1.5 or 192.168.1.5:4545.</string>
+    <string name="connect_invalid_qr">That QR code is not a Speed Deck address. Scan the code shown by Speed Deck on your computer.</string>
+    <string name="connect_scanner_unavailable">The QR scanner is not available right now. Type the address instead.</string>
 </resources>

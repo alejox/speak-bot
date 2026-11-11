@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/connect_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/deck_background"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center_horizontal"
+        android:maxWidth="480dp"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:accessibilityHeading="true"
+            android:text="@string/connect_title"
+            android:textColor="@color/deck_text"
+            android:textSize="28sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/connect_intro"
+            android:textColor="@color/deck_text_muted"
+            android:textSize="18sp" />
+
+        <Button
+            android:id="@+id/connect_scan"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:backgroundTint="@color/deck_accent"
+            android:minHeight="64dp"
+            android:text="@string/connect_scan"
+            android:textAllCaps="false"
+            android:textColor="@color/deck_text"
+            android:textSize="20sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:labelFor="@+id/connect_address"
+            android:text="@string/connect_manual_label"
+            android:textColor="@color/deck_text"
+            android:textSize="18sp" />
+
+        <EditText
+            android:id="@+id/connect_address"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:autofillHints=""
+            android:backgroundTint="@color/deck_text_muted"
+            android:hint="@string/connect_address_hint"
+            android:imeOptions="actionGo"
+            android:importantForAutofill="no"
+            android:inputType="textUri"
+            android:minHeight="56dp"
+            android:singleLine="true"
+            android:textColor="@color/deck_text"
+            android:textColorHint="@color/deck_text_muted"
+            android:textSize="20sp" />
+
+        <TextView
+            android:id="@+id/connect_error"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:accessibilityLiveRegion="polite"
+            android:textColor="@color/deck_error"
+            android:textSize="16sp"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/connect_open"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:backgroundTint="@color/deck_surface"
+            android:minHeight="64dp"
+            android:text="@string/connect_open"
+            android:textAllCaps="false"
+            android:textColor="@color/deck_text"
+            android:textSize="20sp" />
+    </LinearLayout>
+</ScrollView>

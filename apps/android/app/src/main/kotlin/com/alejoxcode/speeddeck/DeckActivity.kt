@@ -5,7 +5,6 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.view.View
 import android.view.WindowManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -23,6 +22,13 @@ class DeckActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val saved = AddressStore(this).load()
+        if (saved == null) {
+            startActivity(ConnectActivity.intent(this))
+            finish()
+            return
+        }
+        address = saved
         setContentView(R.layout.activity_deck)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         hideSystemBars()
@@ -31,33 +37,28 @@ class DeckActivity : AppCompatActivity() {
         configureWebView()
         onBackPressedDispatcher.addCallback(this, backCallback)
 
-        address = AddressStore(this).load()
-        val saved = address
-        if (saved == null) {
-            webView.visibility = View.GONE
-            findViewById<View>(R.id.deck_no_address).visibility = View.VISIBLE
-        } else if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
+        if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
             webView.loadUrl(saved)
         }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        webView.saveState(outState)
+        if (::webView.isInitialized) webView.saveState(outState)
     }
 
     override fun onResume() {
         super.onResume()
-        webView.onResume()
+        if (::webView.isInitialized) webView.onResume()
     }
 
     override fun onPause() {
-        webView.onPause()
+        if (::webView.isInitialized) webView.onPause()
         super.onPause()
     }
 
     override fun onDestroy() {
-        webView.destroy()
+        if (::webView.isInitialized) webView.destroy()
         super.onDestroy()
     }
 
