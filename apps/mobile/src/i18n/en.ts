@@ -299,6 +299,8 @@ export const en = {
   "editor.columns.2": "2 columns",
   "editor.spanHint": "The key takes this many cells, from its place to the right and down.",
   "volume.value": "{percent}%",
+  "volume.muted": "Muted",
+  "volume.mutedValue": "Muted, {percent}%",
   "errorCode.slotOccupied": "That key is already taken.",
   "errorCode.boardLimit": "You reached the maximum number of boards.",
   "errorCode.gridFull": "The keys do not fit in that grid. Choose a larger size or remove keys.",

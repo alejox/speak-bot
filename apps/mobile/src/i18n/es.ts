@@ -302,6 +302,8 @@ export const es: Messages = {
   "editor.columns.2": "2 columnas",
   "editor.spanHint": "La tecla ocupa estas casillas, desde su lugar hacia la derecha y hacia abajo.",
   "volume.value": "{percent}%",
+  "volume.muted": "Silenciado",
+  "volume.mutedValue": "Silenciado, {percent}%",
   "errorCode.slotOccupied": "Esa tecla ya está ocupada.",
   "errorCode.boardLimit": "Llegaste al máximo de tableros.",
   "errorCode.gridFull": "Las teclas no caben en esa cuadrícula. Elige un tamaño mayor o quita teclas.",

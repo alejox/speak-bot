@@ -410,6 +410,7 @@ export function BoardPlayer({
                     iconId={keyLook(key).iconId}
                     color={key.color}
                     vertical={isTransposed ? span.columns > span.rows : span.rows > span.columns}
+                    muted={context.obs?.state?.mutedInputs.includes(key.action.inputName) ?? false}
                     disabledReason={reason}
                     services={volumes}
                     selected={selectedSlot === slot}

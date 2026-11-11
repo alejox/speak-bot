@@ -13,6 +13,8 @@ interface VolumeKeyProps {
   color?: string;
   /** Taller than wide on screen: the slider runs bottom to top. */
   vertical: boolean;
+  /** OBS mutes the input: the key looks muted, and its slider still sets the volume (as in OBS). */
+  muted?: boolean;
   /** Why the key cannot be used right now (no computer, OBS off); undefined when it can. */
   disabledReason?: string;
   services: InputVolumeServices | null;
@@ -31,7 +33,7 @@ interface VolumeKeyProps {
  * or dragging the slider only changes the volume; the key's menu opens from its title row or its "more" button.
  */
 export const VolumeKey = forwardRef<HTMLInputElement, VolumeKeyProps>(function VolumeKey(
-  { label, inputName, iconId, color, vertical, disabledReason, services, selected = false, className, handleProps, dropProps, onSliderKeyDown },
+  { label, inputName, iconId, color, vertical, muted = false, disabledReason, services, selected = false, className, handleProps, dropProps, onSliderKeyDown },
   ref,
 ) {
   const t = useT();
@@ -40,7 +42,7 @@ export const VolumeKey = forwardRef<HTMLInputElement, VolumeKeyProps>(function V
   const reason = disabledReason ?? (volume.missing ? t("key.inputMissing") : undefined);
   const disabled = reason !== undefined || volume.percent === null;
   const percent = volume.percent ?? 0;
-  const valueText = t("volume.value", { percent });
+  const valueText = muted ? t("volume.mutedValue", { percent }) : t("volume.value", { percent });
   const colors: CSSProperties | undefined = color
     ? ({ "--key-color": color, backgroundColor: color, color: contrastTextColor(color), borderColor: color } as CSSProperties)
     : undefined;
@@ -49,6 +51,7 @@ export const VolumeKey = forwardRef<HTMLInputElement, VolumeKeyProps>(function V
     "deck-key-command",
     "deck-volume",
     vertical ? "deck-volume-vertical" : "",
+    muted && !reason ? "deck-volume-muted" : "",
     color ? "deck-key-colored" : "",
     reason ? "deck-key-unavailable" : "",
     selected ? "deck-key-selected" : "",
@@ -58,13 +61,13 @@ export const VolumeKey = forwardRef<HTMLInputElement, VolumeKeyProps>(function V
     .join(" ");
 
   return (
-    <div className={classes} style={colors} {...dropProps}>
+    <div className={classes} style={colors} data-state={muted && !reason ? "muted" : undefined} {...dropProps}>
       <div className="deck-volume-head" {...handleProps}>
-        {iconId && <KeyIcon id={iconId} size={20} />}
+        {iconId && <KeyIcon id={muted && iconId === "mic" ? "mic-off" : iconId} size={20} />}
         <span className="deck-key-text">{label}</span>
         {volume.percent !== null && !reason && (
           <span className="deck-volume-value" aria-hidden="true">
-            {valueText}
+            {muted ? t("volume.muted") : valueText}
           </span>
         )}
       </div>

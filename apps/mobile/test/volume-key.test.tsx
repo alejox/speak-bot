@@ -55,6 +55,27 @@ describe("volume slider keys", () => {
     expect(cellOf(0)!.querySelector(".deck-volume")).toHaveClass("deck-volume-vertical");
   });
 
+  it("looks muted while OBS mutes its input, and the slider still sets the volume", async () => {
+    await openDeck([volume(0, 3, 1), stream(1)], {
+      obs: { enabled: true, status: "connected", state: { currentScene: "Main", mutedInputs: ["Music"], streaming: false, recording: false } },
+    } as Partial<DesktopState>);
+    const slider = await screen.findByRole("slider", { name: "Music" }, { timeout: 5000 });
+    await waitFor(() => expect(slider).toHaveAttribute("aria-valuetext", "Muted, 40%"));
+    // OBS keeps a muted input's volume adjustable, so the slider stays usable; it only looks muted.
+    expect(slider).toBeEnabled();
+    const key = cellOf(0)!.querySelector(".deck-volume")!;
+    expect(key).toHaveClass("deck-volume-muted");
+    expect(key).toHaveAttribute("data-state", "muted");
+    expect(within(key as HTMLElement).getByText("Muted")).toBeInTheDocument();
+  });
+
+  it("does not look muted while its input is live", async () => {
+    await openDeck([volume(0, 3, 1)]);
+    const slider = await screen.findByRole("slider", { name: "Music" }, { timeout: 5000 });
+    await waitFor(() => expect(slider).toHaveAttribute("aria-valuetext", "40%"));
+    expect(cellOf(0)!.querySelector(".deck-volume")).not.toHaveClass("deck-volume-muted");
+  });
+
   it("offers the + on the first cell no key covers", async () => {
     await openDeck([volume(0, 2, 1), stream(1), stream(2), stream(3), stream(4)]);
     expect(await screen.findByRole("button", { name: "Add a key at position 7" })).toBeInTheDocument();

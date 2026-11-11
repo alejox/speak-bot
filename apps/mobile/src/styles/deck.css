@@ -556,6 +556,30 @@
   align-self: center;
 }
 
+/*
+ * Muted in OBS: the key goes grey and its slider fades, like a switched-off channel, but the slider still
+ * works (OBS keeps a muted input's volume adjustable). The name says "Muted" and the mic icon is crossed out.
+ */
+.deck-key.deck-volume-muted,
+.deck-key-colored.deck-volume-muted[data-state] {
+  background-image: none;
+  filter: grayscale(1) brightness(0.75);
+}
+
+.deck-key.deck-volume-muted:not(.deck-key-colored) {
+  color: var(--color-text-muted);
+}
+
+.deck-volume-muted .deck-volume-range {
+  --volume-fill: color-mix(in srgb, currentColor 55%, transparent);
+  opacity: 0.6;
+}
+
+.deck-volume-muted .deck-volume-value {
+  opacity: 1;
+  font-weight: var(--weight-semibold);
+}
+
 .deck-volume-reason {
   font-size: var(--text-sm);
   text-align: center;
