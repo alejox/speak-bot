@@ -19,7 +19,7 @@ A thin native Android shell (Kotlin, plain Views, no Capacitor):
 - Out of scope: Play Console upload and signing keys (user-owned), iOS, Windows.
 
 ## Constraints
-- applicationId `com.alejoxcode.speeddeck` (provisional; permanent after first Play upload).
+- applicationId `com.alejoxcode.speeddeck` (confirmed by the user 2026-11-11; permanent after first Play upload).
 - minSdk 26, target/compile SDK 36, JDK 21 (`/opt/homebrew/opt/openjdk@21`), Gradle wrapper.
 - English for code, comments and UI strings, plus a Spanish `values-es` translation.
 
