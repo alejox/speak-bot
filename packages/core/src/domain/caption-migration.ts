@@ -1,7 +1,7 @@
 import type { UiLanguage } from "../protocol";
 import { ACTION_REGISTRY, MAX_BOARD_ID_LENGTH, type ActionType } from "./actions";
-import { BOARD_COLUMNS, KEYS_PER_PAGE, MAX_BOARD_PAGES, MAX_STORED_BOARDS, sortKeys, type Board, type Key } from "./board";
-import { buildDefaultBoard, COMMUNICATION_KEYS, DEFAULT_BOARD_ID } from "./default-board";
+import { gridOfBoards, keysPerPage, MAX_BOARD_PAGES, MAX_STORED_BOARDS, sortKeys, type Board, type Key } from "./board";
+import { buildDefaultBoard, communicationKeysStart, COMMUNICATION_KEYS, DEFAULT_BOARD_ID } from "./default-board";
 
 /** A caption key that moved from a deck board to a voice board. */
 export interface MovedCaptionKey {
@@ -41,7 +41,7 @@ export interface CaptionMigrationReport {
  * Moves the caption keys stored on deck boards (captions belong to Voice) to a voice board: the
  * communication board, or the first voice board when it was deleted. A key keeps its look and goes
  * to its own slot when free on the first page, else to the slot the default board gives its action
- * (last row, columns 2 and 3), else to the other one of those, else to the first free slot of the
+ * (the last slots of the first page, columns 2 and 3 of the last row in a 5-column grid), else to the other one of those, else to the first free slot of the
  * board's pages, else to a new page. A key whose action the voice board already has is dropped
  * instead of doubled. With no voice board at all, the default communication board in `language`
  * (which has the caption keys) is created first. A key that fits nowhere stays on its deck board,
@@ -62,7 +62,7 @@ export function moveCaptionKeysToVoice(
   let targetIndex = next.findIndex((board) => board.kind === "voice" && board.id === DEFAULT_BOARD_ID);
   if (targetIndex === -1) targetIndex = next.findIndex((board) => board.kind === "voice");
   if (targetIndex === -1 && next.length < MAX_STORED_BOARDS) {
-    const seed = buildDefaultBoard(language);
+    const seed = buildDefaultBoard(language, gridOfBoards(next));
     const created = { ...seed, id: freeBoardId(seed.id, new Set(next.map((board) => board.id))) };
     // The communication board goes first, as when it is restored.
     next = [created, ...next];
@@ -85,7 +85,7 @@ export function moveCaptionKeysToVoice(
         dropped.push({ ...from, toBoardId: target.id });
         return false;
       }
-      const slot = freeSlotFor(key, targetKeys);
+      const slot = freeSlotFor(key, targetKeys, keysPerPage(target));
       if (slot === null) {
         kept.push(from);
         return true;
@@ -107,24 +107,24 @@ function isCaptionKey(key: Key): boolean {
   return ACTION_REGISTRY[key.action.type].category === "captions";
 }
 
-/** Where a caption key goes on a voice board holding `keys`, or null when the board is full. */
-function freeSlotFor(key: Key, keys: readonly Key[]): number | null {
+/** Where a caption key goes on a voice board of `pageSize` keys per page holding `keys`, or null when the board is full. */
+function freeSlotFor(key: Key, keys: readonly Key[], pageSize: number): number | null {
   const used = new Set(keys.map((other) => other.slot));
-  const lastRow = KEYS_PER_PAGE - BOARD_COLUMNS;
+  const lastRow = communicationKeysStart(pageSize);
   const seedSlots = COMMUNICATION_KEYS.filter(({ action }) => ACTION_REGISTRY[action.type].category === "captions").map(({ column, action }) => ({
     slot: lastRow + column,
     type: action.type,
   }));
   const preferred = [
-    ...(key.slot < KEYS_PER_PAGE ? [key.slot] : []),
+    ...(key.slot < pageSize ? [key.slot] : []),
     ...seedSlots.filter(({ type }) => type === key.action.type).map(({ slot }) => slot),
     ...seedSlots.map(({ slot }) => slot),
   ];
   const fromPreferred = preferred.find((slot) => !used.has(slot));
   if (fromPreferred !== undefined) return fromPreferred;
-  const pages = keys.length === 0 ? 1 : Math.floor(Math.max(...used) / KEYS_PER_PAGE) + 1;
-  for (let slot = 0; slot < pages * KEYS_PER_PAGE; slot += 1) if (!used.has(slot)) return slot;
-  return pages < MAX_BOARD_PAGES ? pages * KEYS_PER_PAGE : null;
+  const pages = keys.length === 0 ? 1 : Math.floor(Math.max(...used) / pageSize) + 1;
+  for (let slot = 0; slot < pages * pageSize; slot += 1) if (!used.has(slot)) return slot;
+  return pages < MAX_BOARD_PAGES ? pages * pageSize : null;
 }
 
 /** `id`, or `id-2`, `id-3`… when taken. */

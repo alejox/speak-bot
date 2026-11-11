@@ -196,6 +196,15 @@ export interface MoveKeyRequest {
 }
 
 /**
+ * PUT /api/boards/grid → Board[]: gives every board this grid (3–8 columns, 2–5 rows), moving keys
+ * that no longer fit (see `reflowBoard`). No room for every key → 409 "grid-full".
+ */
+export interface SetBoardGridRequest {
+  columns: number;
+  rows: number;
+}
+
+/**
  * POST /api/boards/restore-default → Board: puts back a built-in board, the communication board
  * unless `boardId` names the built-in deck board.
  */

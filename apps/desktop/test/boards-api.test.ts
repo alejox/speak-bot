@@ -1,4 +1,4 @@
-import { DEFAULT_BOARD_ID, DEFAULT_DECK_BOARD_ID, MAX_BOARDS, type Board, type ServerEvent } from "@speed-deck/core";
+import { DEFAULT_BOARD_ID, DEFAULT_DECK_BOARD_ID, MAX_BOARDS, MAX_KEY_SLOTS, type Board, type ServerEvent } from "@speed-deck/core";
 import { request as httpRequest } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
@@ -188,7 +188,7 @@ describe("boards and actions API", () => {
       ["/api/boards/missing", "PATCH", { name: "x" }, 404, "board-not-found"],
       ["/api/boards/missing", "DELETE", undefined, 404, "board-not-found"],
       ["/api/boards/missing/keys/0", "PUT", { action: { type: "voice.stop" } }, 404, "board-not-found"],
-      [`/api/boards/${DEFAULT_BOARD_ID}/keys/1500`, "PUT", { action: { type: "voice.stop" } }, 400, "invalid-board"],
+      [`/api/boards/${DEFAULT_BOARD_ID}/keys/${MAX_KEY_SLOTS}`, "PUT", { action: { type: "voice.stop" } }, 400, "invalid-board"],
       [`/api/boards/${DEFAULT_BOARD_ID}/keys/abc`, "PUT", { action: { type: "voice.stop" } }, 400],
       [`/api/boards/${DEFAULT_BOARD_ID}/keys/30`, "PUT", { action: { type: "shell.run" } }, 400, "invalid-board"],
       [`/api/boards/${DEFAULT_BOARD_ID}/keys/30`, "PUT", { label: "x".repeat(41), action: { type: "voice.stop" } }, 400, "invalid-board"],

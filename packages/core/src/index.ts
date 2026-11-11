@@ -39,6 +39,16 @@ export {
   assertKeySlot,
   BOARD_COLUMNS,
   BOARD_KINDS,
+  DEFAULT_BOARD_GRID,
+  gridOfBoards,
+  isBoardGrid,
+  keysPerPage,
+  MAX_BOARD_COLUMNS,
+  MAX_BOARD_ROWS,
+  MIN_BOARD_COLUMNS,
+  MIN_BOARD_ROWS,
+  parseBoardGrid,
+  type BoardGrid,
   BOARD_ROWS,
   BoardNotFoundError,
   createKey,
@@ -68,6 +78,7 @@ export {
   type Key,
   type KeyIconId,
 } from "./domain/board";
+export { BoardGridFullError, reflowBoard } from "./domain/board-grid";
 export {
   boardPageCount,
   contrastTextColor,
@@ -120,6 +131,7 @@ export {
   moveKey,
   renameBoard,
   restoreDefaultBoard,
+  setBoardGrid,
   setKey,
   type BoardDependencies,
 } from "./use-cases/boards";
@@ -171,6 +183,7 @@ export {
   type ExecuteActionRequest,
   type MoveKeyRequest,
   type RestoreDefaultBoardRequest,
+  type SetBoardGridRequest,
   type SetKeyRequest,
   type SettingsChangedEvent,
   type ServerEvent,

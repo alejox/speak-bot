@@ -1,5 +1,5 @@
 import type { ActionOf } from "./actions";
-import { isHexColor, KEYS_PER_PAGE, type Board, type Key } from "./board";
+import { isHexColor, keysPerPage, type Board, type Key } from "./board";
 
 /** Where a client is: which board and which page (0-based) it shows. Every client keeps its own. */
 export interface BoardPosition {
@@ -12,14 +12,15 @@ export type NavigationAction = ActionOf<"nav.nextPage" | "nav.prevPage" | "nav.g
 /** Pages needed to show every key of `board`; at least one. */
 export function boardPageCount(board: Board): number {
   const highest = board.keys.reduce((max, key) => Math.max(max, key.slot), -1);
-  return Math.max(1, Math.floor(highest / KEYS_PER_PAGE) + 1);
+  return Math.max(1, Math.floor(highest / keysPerPage(board)) + 1);
 }
 
-/** The keys of one page (0-based) by position on the page; empty slots are undefined. */
+/** The keys of one page (0-based) by position on the page, `columns × rows` of them; empty slots are undefined. */
 export function keysOnPage(board: Board, page: number): (Key | undefined)[] {
-  const first = page * KEYS_PER_PAGE;
+  const size = keysPerPage(board);
+  const first = page * size;
   const bySlot = new Map(board.keys.map((key) => [key.slot, key]));
-  return Array.from({ length: KEYS_PER_PAGE }, (_, index) => bySlot.get(first + index));
+  return Array.from({ length: size }, (_, index) => bySlot.get(first + index));
 }
 
 /**
