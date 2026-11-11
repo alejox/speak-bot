@@ -160,11 +160,10 @@ class DeckActivity : AppCompatActivity() {
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
         }
-        if (local) {
-            localWebApp = LocalWebApp(this)
-            // Only the bundled app ever loads in this WebView: other links open outside the app.
-            speech = SpeechBridge(this, webView).also { webView.addJavascriptInterface(it, SpeechBridge.JS_NAME) }
-        }
+        if (local) localWebApp = LocalWebApp(this)
+        // The WebView has no speechSynthesis, so "speak on this device" needs the bridge in both modes.
+        // Only the bundled app or the user's own computer ever loads here: other links open outside the app.
+        speech = SpeechBridge(this, webView).also { webView.addJavascriptInterface(it, SpeechBridge.JS_NAME) }
         webView.webViewClient = DeckWebViewClient()
     }
 
