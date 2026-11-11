@@ -54,7 +54,8 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
   const now = deps.now;
   const stopObsEvents = deps.obs?.subscribe((event) => {
     if (event.type === "status") hub.broadcast({ type: "obs-status", ...event.status, at: now() });
-    else hub.broadcast({ type: "obs-state", state: event.state, at: now() });
+    else if (event.type === "state") hub.broadcast({ type: "obs-state", state: event.state, at: now() });
+    else hub.broadcast({ type: "obs-input-volume", inputName: event.inputName, volumeMul: event.volumeMul, at: now() });
   });
 
   const httpServer = createServer((request, response) => {

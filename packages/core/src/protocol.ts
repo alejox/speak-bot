@@ -84,6 +84,14 @@ export interface ObsStateEvent {
   readonly at: number;
 }
 
+/** An OBS input's volume changed (from a slider key, OBS itself or anything else); `volumeMul` is OBS's multiplier, 1 = 0 dB. */
+export interface ObsInputVolumeEvent {
+  readonly type: "obs-input-volume";
+  readonly inputName: string;
+  readonly volumeMul: number;
+  readonly at: number;
+}
+
 /** The desktop settings changed (from any client, the tray or an action key); never holds the OBS password. */
 export interface SettingsChangedEvent {
   readonly type: "settings-changed";
@@ -114,7 +122,8 @@ export type ServerEvent =
   | CaptionClearEvent
   | CaptionsVisibilityEvent
   | ObsStatusEvent
-  | ObsStateEvent;
+  | ObsStateEvent
+  | ObsInputVolumeEvent;
 
 export function isServerEvent(value: unknown): value is ServerEvent {
   if (typeof value !== "object" || value === null) return false;
@@ -139,6 +148,8 @@ export function isServerEvent(value: unknown): value is ServerEvent {
       return typeof event.status === "string" && (event.code === undefined || typeof event.code === "string");
     case "obs-state":
       return isObsState(event.state);
+    case "obs-input-volume":
+      return typeof event.inputName === "string" && typeof event.volumeMul === "number" && Number.isFinite(event.volumeMul);
     case "settings-changed":
       return typeof event.settings === "object" && event.settings !== null && isUiLanguage((event.settings as { language?: unknown }).language);
     default:
@@ -336,6 +347,21 @@ export interface ObsStatusResponse {
 export type ObsScenesResponse = string[];
 export type ObsInputsResponse = ObsInput[];
 export type ObsSceneItemsResponse = ObsSceneItem[];
+
+/**
+ * GET /api/obs/inputs/:name/volume → the input's volume as OBS's multiplier (1 = 0 dB); 502
+ * "obs-request-failed" when the input does not exist or has no audio. PUT the same path with
+ * `SetObsInputVolumeRequest` → 200 `{ ok: true }`; OBS then reports the change as an obs-input-volume event.
+ */
+export interface ObsInputVolumeResponse {
+  readonly inputName: string;
+  readonly volumeMul: number;
+}
+
+/** `volumeMul` from 0 to `MAX_OBS_VOLUME_MUL`. */
+export interface SetObsInputVolumeRequest {
+  volumeMul: number;
+}
 
 /** The language the automatic voice should speak. */
 export function voiceLanguageOf(settings: { language: UiLanguage; voiceLanguage?: UiLanguage }): UiLanguage {

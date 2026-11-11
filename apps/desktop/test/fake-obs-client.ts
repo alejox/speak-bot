@@ -62,5 +62,9 @@ export function obsResponses(): Record<string, Responder> {
     GetSceneItemList: () => ({ sceneItems: [{ sceneItemId: 3, sourceName: "Cam", sceneItemEnabled: true }, { sceneItemId: "bad" }] }),
     GetSceneItemId: () => ({ sceneItemId: 3 }),
     GetSceneItemEnabled: () => ({ sceneItemEnabled: true }),
+    GetInputVolume: (data) => {
+      if (data?.inputName === "Camera") throw new Error("The specified input does not support audio.");
+      return { inputVolumeMul: 0.5, inputVolumeDb: -6.02 };
+    },
   };
 }

@@ -1,4 +1,4 @@
-import type { ServerEvent } from "@speed-deck/core";
+import { isServerEvent, type ServerEvent } from "@speed-deck/core";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
@@ -142,6 +142,46 @@ describe("OBS API", () => {
     const failed = await execute({ type: "obs.toggleRecord" });
     expect(failed.status).toBe(502);
     expect(await failed.json()).toMatchObject({ code: "obs-request-failed", error: "Output is busy." });
+  });
+
+  it("reads and sets an input's volume, refusing bad values and answering 409 while disconnected", async () => {
+    const volumePath = `/api/obs/inputs/${encodeURIComponent("Mic")}/volume`;
+    const offline = await fetch(`${baseUrl}${volumePath}`);
+    expect(offline.status).toBe(409);
+    expect(await offline.json()).toMatchObject({ code: "obs-unavailable" });
+
+    await enable();
+    await waitForStatus("connected");
+    expect(await getJson(volumePath)).toEqual({ inputName: "Mic", volumeMul: 0.5 });
+    expect((await send(volumePath, "PUT", { volumeMul: 0.25 })).status).toBe(200);
+    expect(FakeObsClient.created[0]!.calls).toContainEqual({ type: "SetInputVolume", data: { inputName: "Mic", inputVolumeMul: 0.25 } });
+
+    for (const volumeMul of [-0.1, 21, "1", null, Number.NaN]) {
+      const refused = await send(volumePath, "PUT", { volumeMul });
+      expect(refused.status).toBe(400);
+    }
+    const missing = await fetch(`${baseUrl}/api/obs/inputs/Camera/volume`);
+    expect(missing.status).toBe(502);
+    expect(await missing.json()).toMatchObject({ code: "obs-request-failed" });
+    // Pressing a volume key runs nothing on the desktop: its slider uses the route above.
+    expect((await send("/api/actions/execute", "POST", { action: { type: "obs.inputVolume", inputName: "Mic" } })).status).toBe(400);
+  });
+
+  it("relays OBS volume changes to every client", async () => {
+    await enable();
+    await waitForStatus("connected");
+    const socket = new WebSocket(`${baseUrl.replace("http", "ws")}/ws`);
+    const events: ServerEvent[] = [];
+    socket.on("message", (data) => events.push(JSON.parse(String(data)) as ServerEvent));
+    await new Promise((resolve) => socket.once("open", resolve));
+
+    FakeObsClient.created[0]!.emit("InputVolumeChanged", { inputName: "Mic", inputVolumeMul: 0.75, inputVolumeDb: -2.5 });
+    for (let i = 0; i < 50 && !events.some((event) => event.type === "obs-input-volume"); i += 1) await new Promise((resolve) => setTimeout(resolve, 5));
+    socket.close();
+
+    const relayed = events.find((event) => event.type === "obs-input-volume");
+    expect(relayed).toEqual({ type: "obs-input-volume", inputName: "Mic", volumeMul: 0.75, at: 1000 });
+    expect(isServerEvent(relayed)).toBe(true);
   });
 
   it("re-tests the connection with the saved settings on demand", async () => {

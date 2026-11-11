@@ -110,6 +110,21 @@ describe("boards and actions API", () => {
     client.close();
   });
 
+  it("stores a volume key spanning cells and answers 409 no-room for keys without room", async () => {
+    const path = `/api/boards/${DEFAULT_DECK_BOARD_ID}/keys`;
+    const volume = { type: "obs.inputVolume", inputName: "Music" };
+    const set = await send(`${path}/30`, "PUT", { span: { rows: 3, columns: 1 }, action: volume });
+    expect(set.status).toBe(200);
+    expect(await set.json()).toEqual({ slot: 30, span: { rows: 3, columns: 1 }, action: volume });
+
+    const covered = await send(`${path}/35`, "PUT", { action: { type: "obs.toggleStream" } });
+    expect(covered.status).toBe(409);
+    expect(await covered.json()).toMatchObject({ code: "no-room" });
+    const moved = await send(`${path}/move`, "POST", { from: 30, to: 40 });
+    expect(moved.status).toBe(409);
+    expect(await moved.json()).toMatchObject({ code: "no-room" });
+  });
+
   it("sets, overwrites, clears and moves keys", async () => {
     const path = `/api/boards/${DEFAULT_BOARD_ID}/keys`;
     const set = await send(`${path}/20`, "PUT", { label: "Two", icon: "page", color: "#00FF00", action: { type: "nav.goToPage", page: 2 } });

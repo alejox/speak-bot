@@ -158,6 +158,33 @@ describe("ObsConnectionManager", () => {
     ]);
   });
 
+  it("reads and sets an input's volume as a multiplier", async () => {
+    await manager.connect(config);
+    const client = FakeObsClient.created[0]!;
+    client.calls.length = 0;
+
+    expect(await manager.getInputVolume("Mic")).toBe(0.5);
+    await manager.setInputVolume("Mic", 0.25);
+
+    expect(client.calls).toEqual([
+      { type: "GetInputVolume", data: { inputName: "Mic" } },
+      { type: "SetInputVolume", data: { inputName: "Mic", inputVolumeMul: 0.25 } },
+    ]);
+    await expect(manager.getInputVolume("Camera")).rejects.toThrow(ObsRequestError);
+  });
+
+  it("forwards volume changes from OBS as input-volume events and ignores malformed ones", async () => {
+    await manager.connect(config);
+    const client = FakeObsClient.created[0]!;
+    events = [];
+
+    client.emit("InputVolumeChanged", { inputName: "Mic", inputVolumeMul: 0.3, inputVolumeDb: -10.4 });
+    client.emit("InputVolumeChanged", { inputName: "Mic", inputVolumeMul: "loud" });
+    client.emit("InputVolumeChanged", { inputVolumeMul: 0.3 });
+
+    expect(events).toEqual([{ type: "input-volume", inputName: "Mic", volumeMul: 0.3 }]);
+  });
+
   it("lists scenes, inputs and scene items", async () => {
     await manager.connect(config);
     expect(await manager.listScenes()).toEqual(["BRB", "Main"]);
@@ -172,6 +199,8 @@ describe("ObsConnectionManager", () => {
   it("rejects requests while disconnected and wraps OBS errors", async () => {
     await expect(manager.toggleStream()).rejects.toThrow(ObsUnavailableError);
     await expect(manager.listScenes()).rejects.toThrow(ObsUnavailableError);
+    await expect(manager.getInputVolume("Mic")).rejects.toThrow(ObsUnavailableError);
+    await expect(manager.setInputVolume("Mic", 1)).rejects.toThrow(ObsUnavailableError);
 
     await manager.connect(config);
     FakeObsClient.created[0]!.responses.SetCurrentProgramScene = () => {

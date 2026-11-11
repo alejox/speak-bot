@@ -16,6 +16,8 @@ import {
   isUiLanguage,
   KeyNotFoundError,
   LastBoardError,
+  MAX_OBS_VOLUME_MUL,
+  NoRoomForKeyError,
   listBoards,
   MAX_OBS_NAME_LENGTH,
   MAX_SPEAK_TEXT_LENGTH,
@@ -35,6 +37,7 @@ import {
   type DesktopSettings,
   type HealthResponse,
   type ObsController,
+  type ObsInputVolumeResponse,
   type ObsStatusResponse,
   type ServerEvent,
 } from "@speed-deck/core";
@@ -201,9 +204,9 @@ export function createApiHandler(deps: ApiDependencies) {
       method: "PUT",
       path: "/api/boards/:id/keys/:slot",
       handler: async (request, response, { id, slot }) => {
-        const { label, icon, color, activeColor, action, replace } = asObject(await readJsonBody(request));
+        const { label, icon, color, activeColor, span, action, replace } = asObject(await readJsonBody(request));
         if (replace !== undefined && typeof replace !== "boolean") throw new HttpError(400, "replace must be true or false.");
-        const key = await setKey(repository, id!, { slot: parseSlot(slot!), label, icon, color, activeColor, action }, { replace: replace === true });
+        const key = await setKey(repository, id!, { slot: parseSlot(slot!), label, icon, color, activeColor, span, action }, { replace: replace === true });
         boardsChanged();
         sendJson(response, 200, key);
       },
@@ -357,6 +360,29 @@ export function createApiHandler(deps: ApiDependencies) {
     },
     {
       method: "GET",
+      path: "/api/obs/inputs/:name/volume",
+      handler: async (_request, response, { name }) => {
+        const inputName = parseObsName(name!);
+        const body: ObsInputVolumeResponse = { inputName, volumeMul: await requireObs().getInputVolume(inputName) };
+        sendJson(response, 200, body);
+      },
+    },
+    {
+      /** Volume key sliders; anyone who may press keys may move them, like the other OBS actions. */
+      method: "PUT",
+      path: "/api/obs/inputs/:name/volume",
+      handler: async (request, response, { name }) => {
+        const inputName = parseObsName(name!);
+        const { volumeMul } = asObject(await readJsonBody(request));
+        if (typeof volumeMul !== "number" || !Number.isFinite(volumeMul) || volumeMul < 0 || volumeMul > MAX_OBS_VOLUME_MUL) {
+          throw new HttpError(400, `volumeMul must be a number from 0 to ${MAX_OBS_VOLUME_MUL}.`);
+        }
+        await requireObs().setInputVolume(inputName, volumeMul);
+        sendJson(response, 200, { ok: true });
+      },
+    },
+    {
+      method: "GET",
       path: "/api/obs/scenes/:name/items",
       handler: async (_request, response, { name }) => {
         if (name!.length > MAX_OBS_NAME_LENGTH) throw new HttpError(400, "Scene name is too long.");
@@ -427,6 +453,7 @@ function describeFailure(error: unknown): { status: number; message: string; cod
   if (error instanceof KeyNotFoundError) return { status: 404, message: error.message, code: "key-not-found" };
   if (error instanceof NothingToRepeatError) return { status: 404, message: error.message, code: "nothing-to-repeat" };
   if (error instanceof SlotOccupiedError) return { status: 409, message: error.message, code: "slot-occupied" };
+  if (error instanceof NoRoomForKeyError) return { status: 409, message: error.message, code: "no-room" };
   if (error instanceof BoardGridFullError) return { status: 409, message: error.message, code: "grid-full" };
   if (error instanceof SpeechQueueFullError) return { status: 409, message: error.message, code: "queue-full" };
   if (error instanceof BoardLimitError) return { status: 409, message: error.message, code: "board-limit" };
@@ -438,6 +465,12 @@ function describeFailure(error: unknown): { status: number; message: string; cod
   if (error instanceof ApplicationOpenFailedError) return { status: 502, message: error.message, code: "app-open-failed" };
   if (error instanceof ObsRequestError) return { status: 502, message: error.message, code: "obs-request-failed" };
   return null;
+}
+
+/** An OBS input name from the URL. */
+function parseObsName(segment: string): string {
+  if (segment.length === 0 || segment.length > MAX_OBS_NAME_LENGTH) throw new HttpError(400, "Input name is empty or too long.");
+  return segment;
 }
 
 /** A slot from the URL: digits only, range checked by the use cases. */

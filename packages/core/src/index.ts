@@ -125,6 +125,7 @@ export {
   type ApplicationLauncher,
 } from "./ports/application-launcher";
 export {
+  MAX_OBS_VOLUME_MUL,
   ObsRequestError,
   ObsUnavailableError,
   type ObsConnectionConfig,
@@ -196,6 +197,9 @@ export {
   type DesktopSettings,
   type DesktopSettingsPatch,
   type ObsInputsResponse,
+  type ObsInputVolumeEvent,
+  type ObsInputVolumeResponse,
+  type SetObsInputVolumeRequest,
   type ObsSceneItemsResponse,
   type ObsScenesResponse,
   type ObsSettingsPatch,

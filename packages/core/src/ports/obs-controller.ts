@@ -37,7 +37,14 @@ export interface ObsSceneItem {
   readonly enabled: boolean;
 }
 
-export type ObsControllerEvent = { type: "status"; status: ObsStatus } | { type: "state"; state: ObsState };
+/** Highest volume multiplier OBS accepts for an input (+26 dB). */
+export const MAX_OBS_VOLUME_MUL = 20;
+
+export type ObsControllerEvent =
+  | { type: "status"; status: ObsStatus }
+  | { type: "state"; state: ObsState }
+  /** An input's volume changed in OBS, from any source; `volumeMul` is OBS's multiplier (1 = 0 dB). */
+  | { type: "input-volume"; inputName: string; volumeMul: number };
 
 /** OBS is not connected, so OBS actions and lists are unavailable. */
 export class ObsUnavailableError extends Error {
@@ -71,6 +78,10 @@ export interface ObsController {
   toggleStream(): Promise<void>;
   toggleRecord(): Promise<void>;
   toggleSourceVisibility(sceneName: string, sourceName: string): Promise<void>;
-  /** Status and state changes. Returns an unsubscribe function. */
+  /** An input's volume as OBS's multiplier (1 = 0 dB); `ObsRequestError` when it has no audio or does not exist. */
+  getInputVolume(inputName: string): Promise<number>;
+  /** Sets an input's volume as a multiplier from 0 to `MAX_OBS_VOLUME_MUL`. */
+  setInputVolume(inputName: string, volumeMul: number): Promise<void>;
+  /** Status, state and input volume changes. Returns an unsubscribe function. */
   subscribe(listener: (event: ObsControllerEvent) => void): () => void;
 }

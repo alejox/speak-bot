@@ -133,6 +133,16 @@ export class ObsConnectionManager implements ObsController {
     await this.request("SetSceneItemEnabled", { sceneName, sceneItemId, sceneItemEnabled: sceneItemEnabled !== true });
   }
 
+  async getInputVolume(inputName: string): Promise<number> {
+    const { inputVolumeMul } = await this.request("GetInputVolume", { inputName });
+    if (typeof inputVolumeMul !== "number") throw new ObsRequestError("OBS did not report a volume.");
+    return inputVolumeMul;
+  }
+
+  async setInputVolume(inputName: string, volumeMul: number): Promise<void> {
+    await this.request("SetInputVolume", { inputName, inputVolumeMul: volumeMul });
+  }
+
   private async request(type: string, data?: Record<string, unknown>): Promise<Record<string, unknown>> {
     const client = this.client;
     if (!client || this.currentStatus.status !== "connected") throw new ObsUnavailableError();
@@ -213,6 +223,14 @@ export class ObsConnectionManager implements ObsController {
         if (typeof inputName !== "string" || typeof inputMuted !== "boolean") return;
         const others = this.currentState.mutedInputs.filter((name) => name !== inputName);
         this.setState({ mutedInputs: inputMuted ? [...others, inputName] : others });
+      }),
+    );
+    // Part of the Inputs events obs-websocket sends by default (unlike the high-volume InputVolumeMeters).
+    client.on(
+      "InputVolumeChanged",
+      guard(({ inputName, inputVolumeMul }) => {
+        if (typeof inputName !== "string" || typeof inputVolumeMul !== "number" || !Number.isFinite(inputVolumeMul)) return;
+        this.emit({ type: "input-volume", inputName, volumeMul: inputVolumeMul });
       }),
     );
     client.on(
