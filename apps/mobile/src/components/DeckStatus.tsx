@@ -1,10 +1,8 @@
-import { CircleDot, MonitorOff, Plug, Radio, Unplug } from "lucide-react";
+import { MonitorOff, Plug, Unplug } from "lucide-react";
 import { useId } from "react";
 import type { ObsLive } from "../app/key-presentation";
 import { useT } from "../i18n/I18nProvider";
 import { obsTone, StatusDot } from "./StatusDot";
-
-const ICON_SIZE = 16;
 
 interface DeckStatusProps {
   /** The computer app runs the keys of this device. */
@@ -13,7 +11,7 @@ interface DeckStatusProps {
   obs: ObsLive | null;
 }
 
-/** The connection the Deck runs its keys through, read once for both the pills and the compact indicator. */
+/** The connection the Deck runs its keys through. */
 function deckConnection(isComputerConnected: boolean, obs: ObsLive | null) {
   const isObsConnected = isComputerConnected && obs !== null && obs.enabled && obs.status === "connected";
   return {
@@ -25,32 +23,6 @@ function deckConnection(isComputerConnected: boolean, obs: ObsLive | null) {
   } as const;
 }
 
-/** What the Deck is connected to right now: the computer, OBS, and whether OBS is live or recording. */
-export function DeckStatus({ isComputerConnected, obs }: DeckStatusProps) {
-  const t = useT();
-  const { isObsConnected, connection, ConnectionIcon, isLive, isRecording } = deckConnection(isComputerConnected, obs);
-  return (
-    <div className="deck-status" role="group" aria-label={t("deck.status.label")}>
-      <span className={`pill pill-${isObsConnected ? "ok" : "off"}`}>
-        <ConnectionIcon size={ICON_SIZE} aria-hidden="true" focusable="false" />
-        {t(`deck.status.${connection}`)}
-      </span>
-      {isLive && (
-        <span className="pill pill-live">
-          <Radio size={ICON_SIZE} aria-hidden="true" focusable="false" />
-          {t("deck.status.live")}
-        </span>
-      )}
-      {isRecording && (
-        <span className="pill pill-recording">
-          <CircleDot size={ICON_SIZE} aria-hidden="true" focusable="false" />
-          {t("deck.status.recording")}
-        </span>
-      )}
-    </div>
-  );
-}
-
 interface DeckStatusIndicatorProps extends DeckStatusProps {
   /** Why the keys cannot run from here and how to fix it; the indicator then leads to Settings. */
   note?: string;
@@ -60,7 +32,7 @@ interface DeckStatusIndicatorProps extends DeckStatusProps {
 }
 
 /**
- * The Deck status as one icon (wide screens), so the workspace shows only keys and controls. Its name
+ * The Deck status as one icon (every width), so the space shows only keys and controls. Its name
  * and tooltip carry the full text; green with a filled dot when OBS is connected, red with a hollow ring
  * when not. With a note it becomes the way to Settings and the note describes it; when only OBS is
  * missing it leads to the OBS section.

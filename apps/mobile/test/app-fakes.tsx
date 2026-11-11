@@ -316,13 +316,39 @@ export function writes(requests: readonly RecordedRequest[]): string[] {
   return requests.filter((request) => request.method !== "GET").map((request) => `${request.method} ${request.url}`);
 }
 
-/**
- * Makes `matchMedia` answer as a wide (`matches`) or narrow window (jsdom has no layout): min-width queries
- * answer `matches`, max-width ones the opposite.
- */
-export function setWideScreen(matches: boolean) {
+export interface FakeScreen {
+  width: number;
+  height: number;
+  /** A mouse or trackpad; false for a touch screen. */
+  finePointer?: boolean;
+}
+
+/** Whether one `(feature: value)` of a media query holds on `screen`; unknown features follow `finePointer`, as they did before sizes were faked. */
+function featureMatches(feature: string, { width, height, finePointer = false }: FakeScreen): boolean {
+  const [name = "", value = ""] = feature.split(":").map((part) => part.trim());
+  const px = Number.parseFloat(value);
+  switch (name) {
+    case "min-width":
+      return width >= px;
+    case "max-width":
+      return width <= px;
+    case "min-height":
+      return height >= px;
+    case "max-height":
+      return height <= px;
+    case "orientation":
+      return value === (height >= width ? "portrait" : "landscape");
+    case "pointer":
+      return value === (finePointer ? "fine" : "coarse");
+    default:
+      return finePointer;
+  }
+}
+
+/** Makes `matchMedia` answer as a window of this size (jsdom has no layout): every `(feature: value)` joined by `and` must hold. */
+export function setScreen(screen: FakeScreen) {
   window.matchMedia = ((query: string) => ({
-    matches: query.includes("max-width") ? !matches : matches,
+    matches: [...query.matchAll(/\(([^)]+)\)/g)].every((match) => featureMatches(match[1]!, screen)),
     media: query,
     onchange: null,
     addEventListener: () => {},
@@ -331,4 +357,12 @@ export function setWideScreen(matches: boolean) {
     removeListener: () => {},
     dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia;
+}
+
+/**
+ * Makes `matchMedia` answer as a wide desktop window with a mouse (`matches`) or as a narrow touch window in
+ * the tab bar layout, wider than tall so the board is drawn as stored.
+ */
+export function setWideScreen(matches: boolean) {
+  setScreen(matches ? { width: 1280, height: 800, finePointer: true } : { width: 640, height: 560 });
 }

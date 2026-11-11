@@ -339,21 +339,6 @@
   color: var(--color-text-muted);
 }
 
-/* What the Deck is connected to, above its keys; the note under it explains a missing computer. */
-.deck-status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.deck-note {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-3);
-  max-width: var(--width-deck);
-}
-
 /* An editable key: its slot anchors the "more" button and the key menu. */
 .deck-slot {
   position: relative;
@@ -398,7 +383,7 @@
   transform: translateX(-50%);
 }
 
-/* The Deck status as one icon (wide screens): its name and tooltip carry the words. */
+/* The Deck status as one icon: its name and tooltip carry the words. */
 .deck-indicator {
   position: relative;
   flex: none;
@@ -455,9 +440,11 @@
 }
 
 /*
- * A space (Voice or Deck) in the app, at every width: the page of keys keeps the board's proportions,
- * exactly columns x rows square keys, each the largest square that fits both the width and the height
- * left for them (capped), centred, so the page never scrolls. The dock keeps its compact layout.
+ * A space (Voice or Deck) in the app, at every width: one row with the board pill, the grid size, the Deck
+ * status icon and the pager, then the page of keys in all the room left. The page keeps the board's
+ * proportions, exactly columns x rows square keys, each the largest square that fits both the width and the
+ * height left for them (capped), so neither the page nor the document scrolls. Held upright the keys start
+ * at the top; otherwise they are centred. The dock keeps its compact layout.
  */
 .app-space .app-main > .section,
 .app-space .deck-layout {
@@ -470,15 +457,49 @@
 .app-space .deck-full {
   flex: 1 1 auto;
   min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "header pager"
+    "grid grid";
+  gap: var(--space-3) var(--space-2);
+}
+
+.app-space .deck-full .deck-header {
+  grid-area: header;
+  max-width: none;
+  flex-wrap: nowrap;
+}
+
+/* The pill gives way first, so the icons beside it never leave the row. */
+.app-space .deck-full .board-pill {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.app-space .deck-full .grid-size-button {
+  flex: none;
+}
+
+.app-space .deck-full .deck-pager {
+  grid-area: pager;
+  gap: var(--space-2);
 }
 
 .app-space .deck-full .deck-grid-area {
-  flex: 1 1 auto;
+  grid-area: grid;
   min-height: 0;
   container-type: size;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+@media (orientation: portrait) {
+  .app-space .deck-full .deck-grid-area {
+    align-items: flex-start;
+  }
 }
 
 .app-space .deck-full .deck-grid {
@@ -529,52 +550,33 @@
   font-size: clamp(1rem, 30cqi, 2.5rem);
 }
 
-/*
- * A space's workspace on wide screens (Deck and Voice): only the board pill, the Deck status icon, the
- * pager and the keys, with the header and the pager on one row.
- */
+/* Wide screens (the workspace, with the side panel docked beside it): the whole width and more air. */
 @media (min-width: 1000px) {
   .app-workspace .app-main {
     max-width: none;
   }
 
-  .app-workspace .deck {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto minmax(0, 1fr);
-    grid-template-areas:
-      "header pager"
-      "grid grid";
-    gap: var(--space-5) var(--space-2);
-  }
-
-  .app-workspace .deck-header {
-    grid-area: header;
-    max-width: none;
-    flex-wrap: nowrap;
-  }
-
-  .app-workspace .deck-pager {
-    grid-area: pager;
-    gap: var(--space-2);
-  }
-
-  /* The page number is still announced; on screen the arrows and the + say enough. */
-  .app-workspace .deck-page {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    min-width: 0;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
-
-  .app-workspace .deck-grid-area {
-    grid-area: grid;
+  .app-workspace .deck-full {
+    row-gap: var(--space-5);
   }
 
   .app-workspace .deck-full .deck-grid {
     --deck-gap: var(--space-4);
+  }
+}
+
+/* A window too short to spare any height (a phone on its side): the tightest rhythm, so the keys get it. */
+@media (max-height: 500px) {
+  .app-space .app-main {
+    padding-top: var(--space-2);
+    padding-bottom: max(var(--space-2), env(safe-area-inset-bottom));
+  }
+
+  .app-space .deck-full {
+    row-gap: var(--space-2);
+  }
+
+  .app-space .deck-full .deck-grid {
+    --deck-gap: var(--space-2);
   }
 }

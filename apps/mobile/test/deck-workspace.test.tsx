@@ -96,10 +96,11 @@ describe("Deck workspace on wide screens", () => {
 });
 
 describe("Deck workspace on narrow screens", () => {
-  it("keeps the visible heading, status pills and notes", async () => {
+  it("keeps the same compact header: hidden heading, the status as one icon, no notes", async () => {
     await openLocalDeck();
-    expect(screen.getByRole("heading", { level: 2, name: "Deck" })).not.toHaveClass("visually-hidden");
-    expect(screen.getByRole("group", { name: "Deck status" })).toBeInTheDocument();
-    expect(screen.getByText(explanation)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Deck" })).toHaveClass("visually-hidden");
+    expect(screen.queryByRole("group", { name: "Deck status" })).not.toBeInTheDocument();
+    expect(screen.getByText(explanation)).not.toBeVisible();
+    expect(screen.getByRole("button", { name: "Computer not connected. Open Settings" })).toHaveAccessibleDescription(explanation);
   });
 });

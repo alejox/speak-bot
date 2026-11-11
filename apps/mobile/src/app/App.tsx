@@ -12,7 +12,7 @@ import { BoardPlayer } from "../components/BoardPlayer";
 import { GridSizeButton } from "../components/GridSizeButton";
 import { Composer, type ComposerHandle } from "../components/Composer";
 import { ConnectPanel } from "../components/ConnectPanel";
-import { DeckStatus, DeckStatusIndicator } from "../components/DeckStatus";
+import { DeckStatusIndicator } from "../components/DeckStatus";
 import { ActionPickerDialog, KeyEditorDialog } from "../components/KeyEditorDialog";
 import { KeyInspector } from "../components/KeyInspector";
 import { ObsSettings } from "../components/ObsSettings";
@@ -33,7 +33,7 @@ import { useConnection } from "./use-connection";
 import { useSpaceDecks } from "./use-deck";
 import { actionOnlyKey } from "./key-draft";
 import { useLanguagePreference, type LanguagePreference } from "./use-language-preference";
-import { INSPECTOR_QUERY, TAB_BAR_QUERY, useMediaQuery } from "./use-media-query";
+import { INSPECTOR_QUERY, SHORT_SIDEBAR_QUERY, TAB_BAR_QUERY, useMediaQuery } from "./use-media-query";
 import { SECTIONS, spaceOfSection, useNavCollapsed, useSection, type Section } from "./use-section";
 import { useSpeech } from "./use-speech";
 import { useSpeechTarget, type SpeechTarget } from "./use-speech-target";
@@ -118,6 +118,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   // Wide screens edit in a side panel; the + still asks for the action in a modal first.
   const isWide = useMediaQuery(INSPECTOR_QUERY);
   const isTabBar = useMediaQuery(TAB_BAR_QUERY);
+  // A sidebar too short for its labels (a phone on its side) shows as the icon rail; the stored choice stays.
+  const isShortSidebar = useMediaQuery(SHORT_SIDEBAR_QUERY);
   const [pickerSlot, setPickerSlot] = useState<number | null>(null);
   const [inspected, setInspected] = useState<Inspected | null>(null);
   // The slot the player's + targets on the page on screen; the empty inspector adds there too.
@@ -198,10 +200,12 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   // Deck keys only run through the computer app; say so once instead of leaving every key to explain itself.
   const showDeckStatus = space === "deck" && target.detection !== "pending";
   const deckNote: MessageKey | null = !showDeckStatus || target.isRemote ? null : target.isDesktopAvailable ? "deck.computerNotChosen" : "deck.needsComputer";
-  // Wide screens keep a space's workspace to keys and controls: texts stay for screen readers, move into the
-  // Deck indicator, or (Voice) the composer moves to the side panel.
+  // A space shows only keys and controls at every width: its heading stays for screen readers and the Deck
+  // status and notes live in the indicator. Wide screens (the workspace) also dock the side panel, where the
+  // Voice composer moves; below that the composer stays above the keys, with the status line under the header.
   const isWorkspace = isWide && space !== null;
-  const isDeckWorkspace = isWorkspace && space === "deck";
+  const hidesStatus = isWorkspace || space === "deck";
+  const railNav = navCollapsed || isShortSidebar;
   const hasPanel = Boolean(inspection) || reservesPanel;
 
   // Only what is typed here is remembered; phrases on board keys are already one tap away.
@@ -245,7 +249,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
     </>
   );
 
-  const deckIndicator = showDeckStatus && isDeckWorkspace && deck && (
+  const deckIndicator = showDeckStatus && deck && (
     <DeckStatusIndicator
       isComputerConnected={target.isRemote}
       obs={deck.obs}
@@ -258,7 +262,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   return (
     // data-space picks the accent colour: each space has its own, OBS shares the Deck one and the rest the Voice one.
     <div
-      className={["app", navCollapsed ? "app-nav-collapsed" : "", hasPanel ? "app-inspecting" : "", space ? "app-space" : "", isWorkspace ? "app-workspace" : ""]
+      className={["app", railNav ? "app-nav-collapsed" : "", hasPanel ? "app-inspecting" : "", space ? "app-space" : "", isWorkspace ? "app-workspace" : ""]
         .filter(Boolean)
         .join(" ")}
       data-space={space ?? (section === "obs" ? "deck" : "voice")}
@@ -270,7 +274,14 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
         </h1>
       </header>
 
-      <SideNav items={navItems} active={activeNavItem} onSelect={selectNavItem} collapsed={navCollapsed} onCollapsedChange={setNavCollapsed} />
+      <SideNav
+        items={navItems}
+        active={activeNavItem}
+        onSelect={selectNavItem}
+        collapsed={railNav}
+        // A rail forced by the window height is not the user's choice, so it offers no toggle.
+        onCollapsedChange={isShortSidebar ? undefined : setNavCollapsed}
+      />
 
       <main className="app-main">
         {!target.synthesizer.isSupported && (
@@ -279,25 +290,14 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
           </p>
         )}
 
-        <p className={isWorkspace ? "status visually-hidden" : "status"} role="status" aria-live="polite">
+        <p className={hidesStatus ? "status visually-hidden" : "status"} role="status" aria-live="polite">
           {statusText || (target.error ? t(target.error) : "")}
         </p>
 
         {space && deck && (
-          <SectionView key={space} title={t(`nav.${space}`)} focusHeading={navigated} hideTitle={isWorkspace}>
+          <SectionView key={space} title={t(`nav.${space}`)} focusHeading={navigated} hideTitle>
             <>
               {space === "voice" && !isWorkspace && composerAndRecent}
-              {showDeckStatus && !isDeckWorkspace && <DeckStatus isComputerConnected={target.isRemote} obs={deck.obs} />}
-              {deckNote && !isDeckWorkspace && (
-                <div className="deck-note">
-                  <p className="empty">{t(deckNote)}</p>
-                  {deckNote === "deck.computerNotChosen" && (
-                    <button type="button" className="button button-small" onClick={() => select("settings")}>
-                      {t("deck.openSettings")}
-                    </button>
-                  )}
-                </div>
-              )}
               {/* Without a board there is no deck header to hold the indicator, so it gets a row of its own. */}
               {deckIndicator && !board && <div className="deck-header">{deckIndicator}</div>}
               {!deck.boards.isLoaded && <p className="empty">{t("board.loading")}</p>}

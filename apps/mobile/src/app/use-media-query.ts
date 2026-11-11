@@ -19,3 +19,13 @@ export const INSPECTOR_QUERY = "(min-width: 1000px)";
 
 /** Windows this narrow show the menu as a bottom tab bar instead of a sidebar. */
 export const TAB_BAR_QUERY = "(max-width: 719px)";
+
+/**
+ * The tab bar layout held upright (phones, small tablets): the board is shown transposed there, each stored
+ * row as a column. Width decides the layout and orientation the turn, so a narrow landscape window and every
+ * sidebar layout show the board as stored.
+ */
+export const PORTRAIT_BOARD_QUERY = "(max-width: 719px) and (orientation: portrait)";
+
+/** Sidebar layouts too short for a labelled menu (a phone on its side): the sidebar shows as the icon rail. */
+export const SHORT_SIDEBAR_QUERY = "(min-width: 720px) and (max-height: 500px)";

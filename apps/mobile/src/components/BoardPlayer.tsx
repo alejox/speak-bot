@@ -3,7 +3,8 @@ import { MoreHorizontal } from "lucide-react";
 import { useEffect, useId, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import type { BoardNavigation } from "../app/use-boards";
 import { KEY_STATE_LABELS, keyFillColor, keyLabel, keyLook, presentKey, type KeyContext } from "../app/key-presentation";
-import { useMediaQuery } from "../app/use-media-query";
+import { displayedCellIndexes } from "../app/board-display";
+import { PORTRAIT_BOARD_QUERY, useMediaQuery } from "../app/use-media-query";
 import { useT } from "../i18n/I18nProvider";
 import { BoardKey } from "./BoardKey";
 import { KeyMenu } from "./KeyMenu";
@@ -74,6 +75,8 @@ export function BoardPlayer({
   const swallowClick = useRef(false);
   const canDrag = useMediaQuery(FINE_POINTER_QUERY) && onMoveKey !== undefined;
   const canEdit = onEditKey !== undefined;
+  // Phones held upright draw the page transposed (display only); the dock always draws it as stored.
+  const isPortraitBoard = useMediaQuery(PORTRAIT_BOARD_QUERY) && variant === "full";
   // An empty page opened past the last one; it becomes a real page once a key is added there.
   const [newPage, setNewPage] = useState<{ boardId: string; page: number } | null>(null);
 
@@ -106,6 +109,8 @@ export function BoardPlayer({
 
   if (!board || !position) return null;
 
+  const isTransposed = isPortraitBoard && board.columns !== board.rows;
+  const cellIndexes = displayedCellIndexes(board.columns, board.rows, isTransposed);
   const shownPageCount = Math.max(pageCount, page + 1);
   // Past the last page, "next" opens a new one for editors, up to the board limit.
   const opensNewPage = canEdit && page >= shownPageCount - 1 && shownPageCount < MAX_BOARD_PAGES;
@@ -216,14 +221,16 @@ export function BoardPlayer({
         <ol
           className="deck-grid"
           aria-label={t("board.keys", { board: board.name })}
-          style={{ "--grid-columns": board.columns, "--grid-rows": board.rows } as CSSProperties}
+          style={{ "--grid-columns": isTransposed ? board.rows : board.columns, "--grid-rows": isTransposed ? board.columns : board.rows } as CSSProperties}
         >
-          {keys.map((key, index) => {
+          {/* Cells in the order they are drawn, so reading order follows the screen; names keep the real position. */}
+          {cellIndexes.map((index) => {
+            const key = keys[index];
             const slot = page * pageSize + index;
             const dropClass = dropSlot === slot ? "deck-key-drop" : "";
             if (!key) {
               return (
-                <li key={slot}>
+                <li key={slot} data-slot={slot}>
                   {onEditKey && index === plusIndex ? (
                     <button
                       ref={slotRef(slot)}
@@ -254,7 +261,7 @@ export function BoardPlayer({
             const description = reason ?? (speaking ? t("key.speaking") : undefined);
             const descriptionId = `${descriptionPrefix}-${slot}`;
             return (
-              <li key={slot} className={canEdit ? "deck-slot" : undefined}>
+              <li key={slot} data-slot={slot} className={canEdit ? "deck-slot" : undefined}>
                 <BoardKey
                   ref={slotRef(slot)}
                   label={label}
@@ -341,7 +348,7 @@ export function BoardPlayer({
         >
           <span aria-hidden="true">‹</span>
         </button>
-        <span className="deck-page" aria-live="polite">
+        <span className={variant === "full" ? "deck-page visually-hidden" : "deck-page"} aria-live="polite">
           {t("board.page", { page: page + 1, count: shownPageCount })}
         </span>
         <button

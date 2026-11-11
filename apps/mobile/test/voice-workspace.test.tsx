@@ -51,7 +51,7 @@ describe("Voice workspace on narrow screens", () => {
   it("keeps the composer above the keys, with no side panel", async () => {
     renderLocalApp({ boards: boards() });
     await screen.findByRole("button", { name: "Hello" });
-    expect(screen.getByRole("heading", { level: 2, name: "Voice" })).not.toHaveClass("visually-hidden");
+    expect(screen.getByRole("heading", { level: 2, name: "Voice" })).toHaveClass("visually-hidden");
     expect(within(screen.getByRole("main")).getByLabelText("Text to speak")).toBeInTheDocument();
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
   });
