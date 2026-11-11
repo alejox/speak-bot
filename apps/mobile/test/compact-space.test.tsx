@@ -23,6 +23,12 @@ const drawnSlots = () => within(grid()).getAllByRole("listitem").map((cell) => N
 /** A 6 x 4 voice board with keys on slots 0, 1 (first row) and 6 (second row, first column). */
 const sixByFour = (): Board => makeBoard("talk", "Talk", "voice", [speakKey(0, "K0"), speakKey(1, "K1"), speakKey(6, "K6")], { columns: 6, rows: 4 });
 
+/** Phones play with the editing tools put away: bring them out where the Edit keys toggle is offered. */
+async function editKeys(user: { click: (element: Element) => Promise<void> }) {
+  const toggle = screen.queryByRole("button", { name: "Edit keys" });
+  if (toggle) await user.click(toggle);
+}
+
 afterEach(() => {
   delete (window as { matchMedia?: unknown }).matchMedia;
 });
@@ -48,11 +54,12 @@ describe("a space below the inspector width", () => {
 
   it("keeps the Voice composer above the keys, under a hidden heading, with no side panel", async () => {
     setScreen(PHONE_UPRIGHT);
-    renderLocalApp({ boards: boards() });
+    const { user } = renderLocalApp({ boards: boards() });
     await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
     expect(screen.getByRole("heading", { level: 2, name: "Voice" })).toHaveClass("visually-hidden");
     expect(within(screen.getByRole("main")).getByLabelText("Text to speak")).toBeInTheDocument();
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+    await editKeys(user);
     expect(screen.getByText("Page 1 of 1")).toHaveClass("visually-hidden");
     // What the composer says back stays on screen there.
     expect(screen.getAllByRole("status").find((element) => element.classList.contains("status"))).not.toHaveClass("visually-hidden");
@@ -61,7 +68,9 @@ describe("a space below the inspector width", () => {
   it.each([PHONE_UPRIGHT, PHONE_SIDEWAYS, TABLET_UPRIGHT])("still edits a key in the dialog at $width x $height", async (size) => {
     setScreen(size);
     const { user } = renderLocalApp({ boards: boards() });
-    fireEvent.contextMenu(await screen.findByRole("button", { name: "Hi" }));
+    await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
+    await editKeys(user);
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Hi" }));
     await user.click(screen.getByRole("menuitem", { name: "Edit" }));
     expect(screen.getByRole("dialog", { name: "Edit key 1" })).toBeInTheDocument();
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
@@ -108,8 +117,9 @@ describe("the order cells are drawn in", () => {
 describe("a board on a phone held upright", () => {
   it("draws a 6 x 4 page as 4 columns of 6, each stored row as a column", async () => {
     setScreen(PHONE_UPRIGHT);
-    renderLocalApp({ boards: [sixByFour()] });
+    const { user } = renderLocalApp({ boards: [sixByFour()] });
     await screen.findByRole("button", { name: "K0" }, { timeout: 5000 });
+    await editKeys(user);
     expect(grid().style.getPropertyValue("--grid-columns")).toBe("4");
     expect(grid().style.getPropertyValue("--grid-rows")).toBe("6");
     expect(drawnSlots()).toEqual([0, 6, 12, 18, 1, 7, 13, 19, 2, 8, 14, 20, 3, 9, 15, 21, 4, 10, 16, 22, 5, 11, 17, 23]);
@@ -129,6 +139,7 @@ describe("a board on a phone held upright", () => {
     const { user, synthesizer } = renderLocalApp({ boards: [sixByFour()] });
     fireEvent.click(await screen.findByRole("button", { name: "K6" }));
     expect(synthesizer.texts).toEqual(["K6"]);
+    await editKeys(user);
 
     fireEvent.contextMenu(screen.getByRole("button", { name: "K6" }));
     await user.click(screen.getByRole("menuitem", { name: "Edit" }));
@@ -142,8 +153,9 @@ describe("a board on a phone held upright", () => {
 
   it.each([PHONE_SIDEWAYS, TABLET_UPRIGHT, { width: 1280, height: 800 }])("draws the page as stored at $width x $height", async (size) => {
     setScreen(size);
-    renderLocalApp({ boards: [sixByFour()] });
+    const { user } = renderLocalApp({ boards: [sixByFour()] });
     await screen.findByRole("button", { name: "K0" }, { timeout: 5000 });
+    await editKeys(user);
     expect(grid().style.getPropertyValue("--grid-columns")).toBe("6");
     expect(drawnSlots().slice(0, 8)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
   });

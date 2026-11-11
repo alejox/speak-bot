@@ -117,7 +117,10 @@ describe("moving a key by touch", () => {
     setScreen({ width: 390, height: 844 });
     const board: Board = makeBoard("main", "Main", "voice", [speakKey(0, "A")], { columns: 6, rows: 4 });
     const { requests } = renderRemoteApp({ state: desktopState({ boards: [board] }) });
-    const a = await screen.findByRole("button", { name: "A" }, { timeout: 5000 });
+    await screen.findByRole("button", { name: "A" }, { timeout: 5000 });
+    // A phone plays with moving put away: the Edit keys toggle brings it back.
+    fireEvent.click(screen.getByRole("button", { name: "Edit keys" }));
+    const a = screen.getByRole("button", { name: "A" });
     // Drawn second (first row, second column): the first cell of the stored second row.
     const second = within(grid()).getAllByRole("listitem")[1]!;
     expect(second).toHaveAttribute("data-slot", "6");

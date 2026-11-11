@@ -129,8 +129,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const isShortWindow = useMediaQuery(COMPACT_HEIGHT_QUERY);
   const isNarrowWindow = useMediaQuery(COMPACT_WIDTH_QUERY);
   const isPhoneSized = isShortWindow || isNarrowWindow;
-  // On a phone the Deck plays with its editing tools put away; the Edit keys toggle brings them back.
-  const [isEditingDeck, setEditingDeck] = useState(false);
+  // On a phone each space plays with its editing tools put away; its Edit keys toggle brings them back.
+  const [editingSpaces, setEditingSpaces] = useState<Partial<Record<BoardKind, boolean>>>({});
   const [pickerSlot, setPickerSlot] = useState<number | null>(null);
   const [inspected, setInspected] = useState<Inspected | null>(null);
   // The slot the player's + targets on the page on screen; the empty inspector adds there too.
@@ -256,9 +256,13 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const isWorkspace = isWide && space !== null;
   const hidesStatus = isWorkspace || space === "deck";
   const railNav = navCollapsed || isShortSidebar;
-  // The Deck on a phone: only what playing needs. Larger windows keep every editing tool at hand, as before.
-  const isCompactDeck = isPhoneSized && space === "deck";
-  const canEditBoard = !isCompactDeck || isEditingDeck;
+  // A space on a phone: only what playing needs. Larger windows keep every editing tool at hand, as before.
+  const isCompactSpace = isPhoneSized && space !== null;
+  const isEditingSpace = space !== null && editingSpaces[space] === true;
+  const setEditingSpace = (editing: boolean) => {
+    if (space) setEditingSpaces((current) => ({ ...current, [space]: editing }));
+  };
+  const canEditBoard = !isCompactSpace || isEditingSpace;
   const hasPanel = Boolean(inspection) || reservesPanel;
 
   // Typed text waits its turn behind what is being said; keys, quick and recent phrases cut in.
@@ -385,7 +389,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   selectedSlot={inspection?.slot ?? null}
                   onDeleteKey={canEditBoard ? deck.clearKey : undefined}
                   onMoveKey={canEditBoard ? deck.moveKey : undefined}
-                  compact={isCompactDeck}
+                  compact={isCompactSpace}
                   // The same speak path as a phrase key: on the computer when it speaks, else on this device.
                   // Deck boards carry the ad banner in the same row instead; Voice never shows ads.
                   strip={
@@ -412,7 +416,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                         )}
                         {canEditBoard && <GridSizeButton board={board} boards={deck.boards} statusText={statusText} />}
                         {deckIndicator}
-                        {isCompactDeck && <EditKeysToggle isEditing={isEditingDeck} onChange={setEditingDeck} />}
+                        {isCompactSpace && <EditKeysToggle isEditing={isEditingSpace} onChange={setEditingSpace} />}
                       </>
                     )
                   }
