@@ -19,6 +19,9 @@ class FakeClassList {
 
 class FakeSocket {
   static instances: FakeSocket[] = [];
+  static readonly OPEN = 1;
+  readyState = 1;
+  readonly sent: unknown[] = [];
   onopen: (() => void) | null = null;
   onmessage: ((message: { data: string }) => void) | null = null;
   onclose: (() => void) | null = null;
@@ -28,6 +31,33 @@ class FakeSocket {
   emit(event: unknown) {
     this.onmessage?.({ data: JSON.stringify(event) });
   }
+  send(data: string) {
+    this.sent.push(JSON.parse(data));
+  }
+}
+
+/** An <audio> element the test drives: `play()` resolves or rejects, then the test fires playing/ended/error. */
+class FakeAudio {
+  static instances: FakeAudio[] = [];
+  static rejectPlay = false;
+  paused = true;
+  onplaying: (() => void) | null = null;
+  onended: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  constructor(public src: string) {
+    FakeAudio.instances.push(this);
+  }
+  play() {
+    if (FakeAudio.rejectPlay) return Promise.reject(new Error("NotAllowedError"));
+    this.paused = false;
+    return Promise.resolve();
+  }
+  pause() {
+    this.paused = true;
+  }
+  removeAttribute(name: string) {
+    if (name === "src") this.src = "";
+  }
 }
 
 async function loadOverlay(settings: { captionsVisible?: boolean } | Error = { captionsVisible: true }, search = "?hold=1000") {
@@ -36,6 +66,8 @@ async function loadOverlay(settings: { captionsVisible?: boolean } | Error = { c
   if (!script) throw new Error("overlay script not found");
 
   FakeSocket.instances = [];
+  FakeAudio.instances = [];
+  FakeAudio.rejectPlay = false;
   const caption = { textContent: "", classList: new FakeClassList(), style: { setProperty: () => {} } };
   const typing = { classList: new FakeClassList(), style: { setProperty: () => {} } };
   const typingLabel = { textContent: "" };
@@ -51,6 +83,7 @@ async function loadOverlay(settings: { captionsVisible?: boolean } | Error = { c
     document: { getElementById: (id: string) => elements[id], body: { classList: new FakeClassList() } },
     URLSearchParams,
     WebSocket: FakeSocket,
+    Audio: FakeAudio,
     fetch: fetchFn,
     CSS: { supports: () => true },
     JSON,
@@ -174,5 +207,80 @@ describe("overlay script", () => {
     dropped.socket.emit({ type: "composing", composing: true, at: 1 });
     dropped.socket.onclose?.();
     expect(dropped.isTyping()).toBe(false);
+  });
+
+  describe("voice clips (Browser Source with \"Control audio via OBS\")", () => {
+    const clip = (n: number) => ({ type: "voice-clip", id: String(n).repeat(32), url: `/api/voice/clips/${String(n).repeat(32)}.wav`, at: n });
+
+    it("connects as an overlay so the desktop sends it the voice", async () => {
+      const { socket } = await loadOverlay();
+      expect(socket.url).toBe("ws://127.0.0.1:4545/ws?client=overlay");
+    });
+
+    it("plays clips one after another and reports when each starts and ends", async () => {
+      const { socket } = await loadOverlay();
+      socket.emit(clip(1));
+      socket.emit(clip(2));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(FakeAudio.instances.map((audio) => audio.src)).toEqual([clip(1).url]);
+
+      FakeAudio.instances[0]!.onplaying?.();
+      FakeAudio.instances[0]!.onended?.();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(FakeAudio.instances.map((audio) => audio.src)).toEqual([clip(1).url, clip(2).url]);
+      FakeAudio.instances[1]!.onplaying?.();
+
+      expect(socket.sent).toEqual([
+        { type: "clip-started", id: clip(1).id },
+        { type: "clip-ended", id: clip(1).id },
+        { type: "clip-started", id: clip(2).id },
+      ]);
+    });
+
+    it("stops the clip the desktop stops, and drops a stopped one still waiting", async () => {
+      const { socket } = await loadOverlay();
+      socket.emit(clip(1));
+      socket.emit(clip(2));
+      socket.emit(clip(3));
+      await vi.advanceTimersByTimeAsync(0);
+      socket.emit({ type: "voice-clip-stop", id: clip(2).id, at: 4 });
+      socket.emit({ type: "voice-clip-stop", id: clip(1).id, at: 5 });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(FakeAudio.instances[0]!.paused).toBe(true);
+      expect(FakeAudio.instances[0]!.src).toBe("");
+      expect(FakeAudio.instances.map((audio) => audio.src)).toEqual(["", clip(3).url]);
+      expect(socket.sent).toEqual([]);
+    });
+
+    it("reports a clip it cannot play (e.g. autoplay blocked) and goes on with the next", async () => {
+      const { socket } = await loadOverlay();
+      FakeAudio.rejectPlay = true;
+      socket.emit(clip(1));
+      await vi.advanceTimersByTimeAsync(0);
+      FakeAudio.rejectPlay = false;
+      socket.emit(clip(2));
+      await vi.advanceTimersByTimeAsync(0);
+      FakeAudio.instances[1]!.onerror?.();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(socket.sent).toEqual([
+        { type: "clip-failed", id: clip(1).id },
+        { type: "clip-failed", id: clip(2).id },
+      ]);
+    });
+
+    it("ignores malformed clips and stops playing when the connection drops", async () => {
+      const { socket } = await loadOverlay();
+      socket.emit({ type: "voice-clip", id: "x", url: "https://evil.example/a.wav", at: 1 });
+      socket.emit({ type: "voice-clip", id: clip(1).id, url: "https://evil.example/a.wav", at: 1 });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(FakeAudio.instances).toEqual([]);
+
+      socket.emit(clip(1));
+      await vi.advanceTimersByTimeAsync(0);
+      socket.onclose?.();
+      expect(FakeAudio.instances[0]!.paused).toBe(true);
+    });
   });
 });

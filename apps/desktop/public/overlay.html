@@ -204,10 +204,85 @@
           }
         }
 
+        // ---- Voice clips: with "Control audio via OBS" on, OBS mixes them as this source's own channel. ----
+        var socket = null;
+        var clipQueue = [];
+        var playing = null;
+        var CLIP_ID = /^[0-9a-f]{32}$/;
+
+        function report(type, id) {
+          if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: type, id: id }));
+        }
+
+        function silence(clip) {
+          clip.audio.onplaying = clip.audio.onended = clip.audio.onerror = null;
+          clip.audio.pause();
+          clip.audio.removeAttribute("src");
+        }
+
+        function finishClip(clip, type) {
+          if (playing !== clip) return;
+          playing = null;
+          if (type === "clip-failed") silence(clip);
+          report(type, clip.id);
+          playNext();
+        }
+
+        function playNext() {
+          if (playing || clipQueue.length === 0) return;
+          var next = clipQueue.shift();
+          var clip = { id: next.id, audio: new Audio(next.url), started: false };
+          playing = clip;
+          clip.audio.onplaying = function () {
+            if (clip.started || playing !== clip) return;
+            clip.started = true;
+            report("clip-started", clip.id);
+          };
+          clip.audio.onended = function () {
+            finishClip(clip, "clip-ended");
+          };
+          clip.audio.onerror = function () {
+            finishClip(clip, "clip-failed");
+          };
+          var started = clip.audio.play();
+          if (started && typeof started.catch === "function") {
+            started.catch(function () {
+              finishClip(clip, "clip-failed");
+            });
+          }
+        }
+
+        function stopClip(id) {
+          clipQueue = clipQueue.filter(function (waiting) {
+            return waiting.id !== id;
+          });
+          if (playing && playing.id === id) {
+            silence(playing);
+            playing = null;
+            playNext();
+          }
+        }
+
+        function stopAllClips() {
+          clipQueue = [];
+          if (playing) silence(playing);
+          playing = null;
+        }
+
+        function handleClip(event) {
+          if (typeof event.id !== "string" || !CLIP_ID.test(event.id)) return;
+          if (event.type === "voice-clip-stop") return stopClip(event.id);
+          // Only clips of this desktop, from its own clip path.
+          if (event.url !== "/api/voice/clips/" + event.id + ".wav") return;
+          clipQueue.push({ id: event.id, url: event.url });
+          playNext();
+        }
+
         var retryDelay = 500;
         function connect() {
           var protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-          var socket = new WebSocket(protocol + "//" + window.location.host + "/ws");
+          // As an overlay, this page also receives the voice clips and reports their playback.
+          socket = new WebSocket(protocol + "//" + window.location.host + "/ws?client=overlay");
           socket.onopen = function () {
             retryDelay = 500;
             // The visibility may have changed while disconnected.
@@ -224,7 +299,9 @@
           };
           socket.onmessage = function (message) {
             try {
-              handle(JSON.parse(message.data));
+              var event = JSON.parse(message.data);
+              if (event && (event.type === "voice-clip" || event.type === "voice-clip-stop")) handleClip(event);
+              else handle(event);
             } catch (error) {
               // Ignore malformed messages.
             }
@@ -232,6 +309,8 @@
           socket.onclose = function () {
             // Whether someone is still typing is unknown until the desktop says so again.
             setComposing(false);
+            // The desktop already ended these clips when the socket closed.
+            stopAllClips();
             setTimeout(connect, retryDelay);
             retryDelay = Math.min(retryDelay * 2, 10000);
           };
