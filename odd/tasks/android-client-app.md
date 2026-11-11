@@ -28,7 +28,7 @@ A thin native Android shell (Kotlin, plain Views, no Capacitor):
 - [x] T2 Connect screen: QR scan + manual entry, address validation with unit tests. Route: delegated. Commit `65481fb`.
 - [x] T3 Unreachable-desktop screen (retry / change computer) and a way to change computer from the deck. Route: delegated. Commit `82f7de8`.
 - [x] T5 Automatic discovery: the desktop announces itself on the LAN (mDNS/DNS-SD `_speeddeck._tcp` with a stable id), and the Android app finds computers without a QR, lists them on the connect screen, and reconnects to the same computer when its IP changes. Route: delegated. Why: the router changed the Mac's IP (.17 → .19) and the saved address broke the app. Commits `48d2a37` (desktop), `0883d27` (Android).
-- [x] T6 Voice without a computer: the app bundles the mobile web UI and can open it locally (no pairing) for the voice section, speaking through Android's native TextToSpeech (WebView has no speechSynthesis). Route: delegated. Requested by the user 2026-11-11. Commits `4b0b1d2` (web adapter), see Progress for the Android commit.
+- [x] T6 Voice without a computer: the app bundles the mobile web UI and can open it locally (no pairing) for the voice section, speaking through Android's native TextToSpeech (WebView has no speechSynthesis). Route: delegated. Requested by the user 2026-11-11. Commits `4b0b1d2` (web adapter), `9bbf3c3` (Android).
 - [ ] T4 Release build: app icon, versioning, signed AAB from a user-provided keystore (documented, not committed). Route: delegated.
 
 ## Acceptance criteria
