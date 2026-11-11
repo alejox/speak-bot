@@ -147,7 +147,18 @@ export interface LicenseChangedEvent {
   readonly at: number;
 }
 
+/**
+ * Whether an OBS overlay that can play the voice is connected (output "obs" or "both"). While none is, the
+ * desktop speaks on the speakers so the person is never silent, and clients can warn about it.
+ */
+export interface OverlayAudioEvent {
+  readonly type: "overlay-audio";
+  readonly connected: boolean;
+  readonly at: number;
+}
+
 export type ServerEvent =
+  | OverlayAudioEvent
   | MultiActionEvent
   | LicenseChangedEvent
   | SettingsChangedEvent
@@ -173,6 +184,8 @@ export function isServerEvent(value: unknown): value is ServerEvent {
       return event.state === "start" || event.state === "end";
     case "boards-changed":
       return true;
+    case "overlay-audio":
+      return typeof event.connected === "boolean";
     case "speak-error":
       return typeof event.message === "string" && (event.code === undefined || typeof event.code === "string");
     case "caption-clear":
@@ -232,6 +245,63 @@ function isObsSceneSource(value: unknown): boolean {
   if (typeof value !== "object" || value === null) return false;
   const source = value as Record<string, unknown>;
   return typeof source.sceneName === "string" && typeof source.sourceName === "string";
+}
+
+// ---- Voice clips for the OBS overlay ----
+
+/** Where the desktop voice is heard: the computer's speakers, the OBS overlay (its own OBS audio channel), or both. */
+export const VOICE_OUTPUTS = ["speakers", "obs", "both"] as const;
+export type VoiceOutput = (typeof VOICE_OUTPUTS)[number];
+export const DEFAULT_VOICE_OUTPUT: VoiceOutput = "speakers";
+
+export function isVoiceOutput(value: unknown): value is VoiceOutput {
+  return typeof value === "string" && (VOICE_OUTPUTS as readonly string[]).includes(value);
+}
+
+/** The overlay connects to `/ws?client=overlay` to receive voice clips and report their playback. */
+export const OVERLAY_CLIENT_QUERY = "client=overlay";
+
+/** Id of a rendered voice clip: 32 lowercase hex characters, also its file name. */
+export const VOICE_CLIP_ID = /^[0-9a-f]{32}$/;
+
+/** Desktop → overlay (only overlay sockets): play this clip once every earlier one finished. */
+export interface VoiceClipEvent {
+  readonly type: "voice-clip";
+  readonly id: string;
+  /** Same-origin path of the WAV file, valid only while the clip is playing or waiting. */
+  readonly url: string;
+  readonly at: number;
+}
+
+/** Desktop → overlay: stop this clip now (stop, or a newer utterance cut it off). */
+export interface VoiceClipStopEvent {
+  readonly type: "voice-clip-stop";
+  readonly id: string;
+  readonly at: number;
+}
+
+export type OverlayCommand = VoiceClipEvent | VoiceClipStopEvent;
+
+/** Overlay → desktop over the same socket: a clip started, finished, or could not be played. */
+export interface OverlayClipReport {
+  readonly type: "clip-started" | "clip-ended" | "clip-failed";
+  readonly id: string;
+}
+
+export function isOverlayClipReport(value: unknown): value is OverlayClipReport {
+  if (typeof value !== "object" || value === null) return false;
+  const report = value as Record<string, unknown>;
+  return (
+    (report.type === "clip-started" || report.type === "clip-ended" || report.type === "clip-failed") &&
+    typeof report.id === "string" &&
+    VOICE_CLIP_ID.test(report.id)
+  );
+}
+
+/** GET /api/voice/status */
+export interface VoiceOutputStatusResponse {
+  /** True while an OBS overlay that can play the voice is connected. */
+  readonly overlayConnected: boolean;
 }
 
 // ---- HTTP JSON API (prefix `/api`) ----
@@ -398,6 +468,8 @@ export interface DesktopSettings {
   captionsVisible: boolean;
   /** Language of the automatic voice; when absent it follows `language`. */
   voiceLanguage?: UiLanguage;
+  /** Where the voice is heard; absent (older desktops) means the speakers. */
+  voiceOutput?: VoiceOutput;
   /** OBS connection; always sent by the desktop. */
   obs?: ObsSettingsView;
 }

@@ -129,6 +129,7 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
     if (voice) options.voiceId = voice;
     options.rate = overrides.rate ?? saved.rate;
     if (saved.deviceId) options.deviceId = saved.deviceId;
+    if (saved.voiceOutput && saved.voiceOutput !== "speakers") options.output = saved.voiceOutput;
     return options;
   }
 

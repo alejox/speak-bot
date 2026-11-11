@@ -13,6 +13,8 @@ function fakePlatform(supportsDeviceSelection = true): SpeechPlatform {
     capabilities: { platform: "test", engine: "tts", supportsDeviceSelection },
     installHint: "Install tts.",
     buildSpeakCommand: (text, options) => [{ command: "tts", args: [options.voiceId ?? "", options.deviceId ?? "", text] }],
+    buildRenderCommand: (text, _options, file) => [{ command: "render", args: [file, text] }],
+    buildPlayFileCommand: (file) => [{ command: "play", args: [file] }],
     listVoices: async () => [{ id: "v", name: "V", lang: "en-US", isDefault: false }],
     listDevices: async () => [{ id: "d", name: "D" }],
   };

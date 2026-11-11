@@ -86,3 +86,28 @@ describe("voiceLanguageOf", () => {
     expect(voiceLanguageOf({ language: "es", voiceLanguage: "en" })).toBe("en");
   });
 });
+
+describe("voice output", () => {
+  it("knows the three outputs and defaults to the speakers", async () => {
+    const { VOICE_OUTPUTS, DEFAULT_VOICE_OUTPUT, isVoiceOutput } = await import("../src/protocol");
+    expect(VOICE_OUTPUTS).toEqual(["speakers", "obs", "both"]);
+    expect(DEFAULT_VOICE_OUTPUT).toBe("speakers");
+    for (const output of VOICE_OUTPUTS) expect(isVoiceOutput(output)).toBe(true);
+    for (const value of ["", "OBS", "virtual", 1, null, undefined]) expect(isVoiceOutput(value)).toBe(false);
+  });
+
+  it("accepts the overlay-audio event and rejects a malformed one", () => {
+    expect(isServerEvent({ type: "overlay-audio", connected: true, at: 1 })).toBe(true);
+    expect(isServerEvent({ type: "overlay-audio", connected: "yes", at: 1 })).toBe(false);
+  });
+
+  it("reads overlay clip reports and rejects anything else", async () => {
+    const { isOverlayClipReport } = await import("../src/protocol");
+    const id = "0123456789abcdef0123456789abcdef";
+    for (const type of ["clip-started", "clip-ended", "clip-failed"]) expect(isOverlayClipReport({ type, id })).toBe(true);
+    expect(isOverlayClipReport({ type: "clip-ended" })).toBe(false);
+    expect(isOverlayClipReport({ type: "clip-paused", id })).toBe(false);
+    expect(isOverlayClipReport({ type: "clip-ended", id: "../../etc" })).toBe(false);
+    expect(isOverlayClipReport(null)).toBe(false);
+  });
+});

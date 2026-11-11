@@ -1,6 +1,6 @@
 import type { DesktopSettings } from "@speed-deck/core";
 import { randomUUID } from "node:crypto";
-import { homedir, hostname, networkInterfaces } from "node:os";
+import { homedir, hostname, networkInterfaces, tmpdir } from "node:os";
 import { join } from "node:path";
 import { prepareBoards } from "./adapters/board-migration";
 import { migrateLegacyDataDir } from "./adapters/legacy-data-dir";
@@ -22,6 +22,7 @@ import { JsonFileLicenseStore } from "./license/json-file-license-store";
 import { LemonSqueezyLicenseService } from "./license/lemon-squeezy-license-service";
 import { LicenseManager } from "./license/license-manager";
 import { createDesktopServer } from "./server/create-server";
+import { OverlayAudio } from "./server/overlay-audio";
 import { applyObsSettings } from "./server/obs-settings";
 import { connectionInfo } from "./server/network";
 import { listenWithFallback } from "./server/port-fallback";
@@ -85,7 +86,9 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
 
   const repository = new JsonFileBoardRepository(join(config.dataDir, "boards.json"));
   const settings = new JsonFileSettingsStore(join(config.dataDir, "settings.json"), config.defaults);
-  const synthesizer = createSystemSynthesizer();
+  // Voice clips for the OBS overlay live in a temporary folder of their own, removed on close.
+  const overlayAudio = new OverlayAudio({ dir: join(tmpdir(), `speed-deck-clips-${randomUUID()}`), now: () => Date.now() });
+  const synthesizer = createSystemSynthesizer(process.platform, undefined, overlayAudio);
   const boardDeps = { repository, generateId: randomUUID, now: () => Date.now() };
   const obs = new ObsConnectionManager({ createClient: options.createObsClient ?? createObsWebSocketClient, log });
 
@@ -128,6 +131,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     apps: createApplicationLauncher(),
     license,
     ads,
+    overlayAudio,
     onSettingsChanged: (next) => {
       for (const listener of [...settingsListeners]) listener(next);
     },
@@ -185,6 +189,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
         ads.stop();
         await obs.close();
         await server.close();
+        await overlayAudio.close();
       })();
       return closing;
     },

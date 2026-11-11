@@ -10,6 +10,7 @@ import { createApiHandler } from "./api";
 import { EventHub } from "./event-hub";
 import { requestPathname, sendJson } from "./http-utils";
 import type { NetworkInterfaces } from "./network";
+import type { OverlayAudio } from "./overlay-audio";
 import { createRequestGuard } from "./request-guard";
 
 export interface DesktopServerDependencies {
@@ -41,6 +42,8 @@ export interface DesktopServerDependencies {
   license?: LicenseManager;
   /** The cached sponsor banner served at /api/ad. */
   ads?: AdFeed;
+  /** Plays voice clips on the OBS overlays; absent means the voice only goes to the speakers. */
+  overlayAudio?: OverlayAudio;
 }
 
 export interface DesktopServer {
@@ -56,7 +59,8 @@ export interface DesktopServer {
 
 export function createDesktopServer(deps: DesktopServerDependencies): DesktopServer {
   const isAllowedRequest = createRequestGuard({ hostname: deps.hostname ?? osHostname(), allowedHosts: deps.allowedHosts });
-  const hub = new EventHub(isAllowedRequest);
+  const hub = new EventHub(isAllowedRequest, deps.overlayAudio);
+  deps.overlayAudio?.bind((command) => hub.sendToOverlays(command));
   const instanceId = deps.instanceId ?? randomUUID();
   const handleApi = createApiHandler({ ...deps, instanceId, broadcast: (event) => hub.broadcast(event) });
   const now = deps.now;
@@ -67,6 +71,7 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
   });
 
   const stopLicenseEvents = deps.license?.subscribe((license) => hub.broadcast({ type: "license-changed", license, at: now() }));
+  const stopOverlayEvents = deps.overlayAudio?.onConnectedChange((connected) => hub.broadcast({ type: "overlay-audio", connected, at: now() }));
 
   const httpServer = createServer((request, response) => {
     void (async () => {
@@ -109,6 +114,7 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
     close: async () => {
       stopObsEvents?.();
       stopLicenseEvents?.();
+      stopOverlayEvents?.();
       await hub.close();
       httpServer.closeAllConnections();
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));

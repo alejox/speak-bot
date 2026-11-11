@@ -21,6 +21,17 @@ export const linuxEspeakPlatform: SpeechPlatform = {
     ];
   },
 
+  buildRenderCommand(text, options, file) {
+    const args = ["--stdin", "-w", file];
+    if (options.voiceId) args.push("-v", options.voiceId);
+    args.push("-s", String(rateToWordsPerMinute(options.rate)));
+    return [{ command: "espeak-ng", args, input: text }];
+  },
+
+  buildPlayFileCommand(file, options) {
+    return [{ command: "paplay", args: options.deviceId ? [`--device=${options.deviceId}`, file] : [file] }];
+  },
+
   async listVoices(runner) {
     return parseEspeakVoices(await readCommandOutput(runner, { command: "espeak-ng", args: ["--voices"] }));
   },

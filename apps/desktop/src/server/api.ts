@@ -52,7 +52,10 @@ import {
   type ObsInputVolumeResponse,
   type ObsStatusResponse,
   type ServerEvent,
+  type VoiceOutputStatusResponse,
 } from "@speed-deck/core";
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { networkInterfaces as osNetworkInterfaces } from "node:os";
 import { InvalidSettingsError, isValidRate, toPublicSettings, type JsonFileSettingsStore } from "../adapters/json-file-settings-store";
@@ -62,6 +65,7 @@ import type { AdFeed } from "../ads/ad-feed";
 import type { LicenseManager } from "../license/license-manager";
 import { applyObsSettings, ObsDisabledError } from "./obs-settings";
 import { asObject, HttpError, readJsonBody, sendEmpty, sendJson } from "./http-utils";
+import type { OverlayAudio } from "./overlay-audio";
 import { connectionInfo, isLoopbackAddress, type NetworkInterfaces } from "./network";
 
 export interface ApiDependencies {
@@ -88,6 +92,8 @@ export interface ApiDependencies {
   license?: LicenseManager;
   /** The cached sponsor banner; absent means the house banner always shows. */
   ads?: AdFeed;
+  /** Plays voice clips on the OBS overlays; absent means the voice only goes to the speakers. */
+  overlayAudio?: OverlayAudio;
 }
 
 /** The longest license key accepted; Lemon Squeezy keys are UUIDs. */
@@ -325,6 +331,25 @@ export function createApiHandler(deps: ApiDependencies) {
       },
     },
     {
+      /** Whether an OBS overlay can play the voice right now (for output "obs" or "both"). */
+      method: "GET",
+      path: "/api/voice/status",
+      handler: async (_request, response) => {
+        const body: VoiceOutputStatusResponse = { overlayConnected: deps.overlayAudio?.connected ?? false };
+        sendJson(response, 200, body);
+      },
+    },
+    {
+      /** A voice clip for the overlay; its unguessable name works only while the clip plays. */
+      method: "GET",
+      path: "/api/voice/clips/:name",
+      handler: async (_request, response, { name }) => {
+        const file = deps.overlayAudio?.clipFile(name!);
+        if (!file) throw new HttpError(404, "No such voice clip.");
+        await sendClip(response, file);
+      },
+    },
+    {
       method: "GET",
       path: "/api/voices",
       handler: async (_request, response) => sendJson(response, 200, await executor.listVoices()),
@@ -506,6 +531,30 @@ export function createApiHandler(deps: ApiDependencies) {
     }
     return true;
   };
+}
+
+async function sendClip(response: ServerResponse, file: string): Promise<void> {
+  let size: number;
+  try {
+    size = (await stat(file)).size;
+  } catch {
+    throw new HttpError(404, "No such voice clip.");
+  }
+  response.writeHead(200, {
+    "content-type": "audio/wav",
+    "content-length": size,
+    "cache-control": "no-store",
+    "x-content-type-options": "nosniff",
+  });
+  await new Promise<void>((resolve) => {
+    createReadStream(file)
+      .on("error", () => {
+        response.destroy();
+        resolve();
+      })
+      .on("end", resolve)
+      .pipe(response);
+  });
 }
 
 function matchRoute(routes: readonly Route[], method: string, pathname: string): { route: Route; params: Params } | null {

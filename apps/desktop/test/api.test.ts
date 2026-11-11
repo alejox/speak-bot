@@ -159,13 +159,13 @@ describe("desktop HTTP API", () => {
     ]);
     expect(await (await fetch(`${baseUrl}/api/devices`)).json()).toEqual([{ id: "BlackHole 2ch", name: "BlackHole 2ch" }]);
 
-    expect(await (await fetch(`${baseUrl}/api/settings`)).json()).toEqual({ voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true, obs: OBS_OFF });
+    expect(await (await fetch(`${baseUrl}/api/settings`)).json()).toEqual({ voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true, voiceOutput: "speakers", obs: OBS_OFF });
     const updated = await post("/api/settings", { deviceId: "BlackHole 2ch" }, "PUT");
-    expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch", language: "es", captionsVisible: true, obs: OBS_OFF });
+    expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch", language: "es", captionsVisible: true, voiceOutput: "speakers", obs: OBS_OFF });
     expect((await post("/api/settings", { rate: "fast" }, "PUT")).status).toBe(400);
 
     const reopened = new JsonFileSettingsStore(join(dir, "settings.json"), { voiceId: "", rate: 1, deviceId: "", language: "es", captionsVisible: true });
-    expect(await reopened.load()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch", language: "es", captionsVisible: true, obs: OBS_OFF });
+    expect(await reopened.load()).toEqual({ voiceId: "", rate: 1, deviceId: "BlackHole 2ch", language: "es", captionsVisible: true, voiceOutput: "speakers", obs: OBS_OFF });
   });
 
   it("returns 404 JSON for unknown API routes", async () => {
@@ -179,8 +179,8 @@ describe("desktop HTTP API", () => {
     expect((await post("/api/settings", { language: 1 }, "PUT")).status).toBe(400);
 
     const updated = await post("/api/settings", { language: "en", captionsVisible: true }, "PUT");
-    expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true, obs: OBS_OFF });
-    expect(settingsChanges).toEqual([{ voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true, obs: OBS_OFF }]);
+    expect(await updated.json()).toEqual({ voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true, voiceOutput: "speakers", obs: OBS_OFF });
+    expect(settingsChanges).toEqual([{ voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true, voiceOutput: "speakers", obs: OBS_OFF }]);
   });
 
   it("tells every client about settings changes, from the settings API and from actions", async () => {

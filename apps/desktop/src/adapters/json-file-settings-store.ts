@@ -1,4 +1,4 @@
-import { isUiLanguage, type DesktopSettings, type ObsConnectionConfig } from "@speed-deck/core";
+import { DEFAULT_VOICE_OUTPUT, isUiLanguage, isVoiceOutput, type DesktopSettings, type ObsConnectionConfig } from "@speed-deck/core";
 import { readJsonFile, SerialQueue, writeJsonFileAtomic } from "./json-file";
 
 export const MIN_RATE = 0.5;
@@ -42,7 +42,7 @@ export class JsonFileSettingsStore {
     private readonly file: string,
     defaults: SettingsDefaults,
   ) {
-    this.defaults = { ...defaults, obs: { ...(defaults.obs ?? DEFAULT_OBS_CONFIG) } };
+    this.defaults = { ...defaults, voiceOutput: defaults.voiceOutput ?? DEFAULT_VOICE_OUTPUT, obs: { ...(defaults.obs ?? DEFAULT_OBS_CONFIG) } };
   }
 
   /** The settings without secrets. */
@@ -83,6 +83,7 @@ export class JsonFileSettingsStore {
       deviceId: typeof stored.deviceId === "string" ? stored.deviceId : this.defaults.deviceId,
       language: isUiLanguage(stored.language) ? stored.language : this.defaults.language,
       captionsVisible: typeof stored.captionsVisible === "boolean" ? stored.captionsVisible : this.defaults.captionsVisible,
+      voiceOutput: isVoiceOutput(stored.voiceOutput) ? stored.voiceOutput : this.defaults.voiceOutput,
       obs: readObsConfig(stored.obs, this.defaults.obs),
     };
     // Absent until chosen, so the automatic voice keeps following the interface language.
@@ -155,7 +156,7 @@ function parseSettingsPatch(patch: unknown): Partial<Omit<DesktopSettings, "obs"
   if (typeof patch !== "object" || patch === null || Array.isArray(patch)) {
     throw new InvalidSettingsError("Settings must be a JSON object.");
   }
-  const { voiceId, rate, deviceId, language, captionsVisible, voiceLanguage, obs } = patch as Record<string, unknown>;
+  const { voiceId, rate, deviceId, language, captionsVisible, voiceLanguage, voiceOutput, obs } = patch as Record<string, unknown>;
   const changes: Partial<Omit<DesktopSettings, "obs">> & { obs?: Partial<ObsConfig> } = {};
   if (obs !== undefined) changes.obs = parseObsPatch(obs);
   if (voiceId !== undefined) {
@@ -181,6 +182,10 @@ function parseSettingsPatch(patch: unknown): Partial<Omit<DesktopSettings, "obs"
   if (voiceLanguage !== undefined) {
     if (!isUiLanguage(voiceLanguage)) throw new InvalidSettingsError('voiceLanguage must be "es" or "en".');
     changes.voiceLanguage = voiceLanguage;
+  }
+  if (voiceOutput !== undefined) {
+    if (!isVoiceOutput(voiceOutput)) throw new InvalidSettingsError('voiceOutput must be "speakers", "obs" or "both".');
+    changes.voiceOutput = voiceOutput;
   }
   return changes;
 }

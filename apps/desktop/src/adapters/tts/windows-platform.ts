@@ -19,6 +19,21 @@ function Await($operation, [Type]$resultType) {
 [Windows.Media.Devices.MediaDevice, Windows.Media.Devices, ContentType = WindowsRuntime] | Out-Null
 `;
 
+// Plays $player (a WinRT MediaPlayer with its source set) and waits until it finished, at most 5 minutes.
+const PLAY_AND_WAIT = `
+  $player.Play()
+  $session = $player.PlaybackSession
+  $deadline = [DateTime]::UtcNow.AddMinutes(5)
+  Start-Sleep -Milliseconds 200
+  while ([DateTime]::UtcNow -lt $deadline) {
+    $duration = $session.NaturalDuration.TotalMilliseconds
+    if ($duration -gt 0 -and $session.Position.TotalMilliseconds -ge $duration) { break }
+    if ($session.PlaybackState -eq 'Paused' -or $session.PlaybackState -eq 'None') { break }
+    Start-Sleep -Milliseconds 100
+  }
+  $player.Dispose()
+`;
+
 const SPEAK_SCRIPT = `
 $ErrorActionPreference = 'Stop'
 $text = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:SPEED_DECK_TEXT))
@@ -41,17 +56,7 @@ if ($env:SPEED_DECK_DEVICE) {
   $player = New-Object Windows.Media.Playback.MediaPlayer
   $player.AudioDevice = $device
   $player.Source = [Windows.Media.Core.MediaSource]::CreateFromStream($stream, $stream.ContentType)
-  $player.Play()
-  $session = $player.PlaybackSession
-  $deadline = [DateTime]::UtcNow.AddMinutes(5)
-  Start-Sleep -Milliseconds 200
-  while ([DateTime]::UtcNow -lt $deadline) {
-    $duration = $session.NaturalDuration.TotalMilliseconds
-    if ($duration -gt 0 -and $session.Position.TotalMilliseconds -ge $duration) { break }
-    if ($session.PlaybackState -eq 'Paused' -or $session.PlaybackState -eq 'None') { break }
-    Start-Sleep -Milliseconds 100
-  }
-  $player.Dispose()
+${PLAY_AND_WAIT}
 } else {
   Add-Type -AssemblyName System.Speech
   $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
@@ -59,6 +64,38 @@ if ($env:SPEED_DECK_DEVICE) {
   $synth.Rate = [int][Math]::Max(-10, [Math]::Min(10, [Math]::Round([Math]::Log($rate, 2) * 10)))
   $synth.SetOutputToDefaultAudioDevice()
   $synth.Speak($text)
+}
+`;
+
+// Renders the text to a WAV file at SPEED_DECK_FILE with System.Speech (same voice and rate as speaking).
+const RENDER_SCRIPT = `
+$ErrorActionPreference = 'Stop'
+$text = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:SPEED_DECK_TEXT))
+$rate = [double]::Parse($env:SPEED_DECK_RATE, [Globalization.CultureInfo]::InvariantCulture)
+Add-Type -AssemblyName System.Speech
+$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
+if ($env:SPEED_DECK_VOICE) { $synth.SelectVoice($env:SPEED_DECK_VOICE) }
+$synth.Rate = [int][Math]::Max(-10, [Math]::Min(10, [Math]::Round([Math]::Log($rate, 2) * 10)))
+$synth.SetOutputToWaveFile($env:SPEED_DECK_FILE)
+$synth.Speak($text)
+$synth.Dispose()
+`;
+
+// Plays the WAV file at SPEED_DECK_FILE on SPEED_DECK_DEVICE (WinRT), or on the default device.
+const PLAY_FILE_SCRIPT = `
+$ErrorActionPreference = 'Stop'
+if ($env:SPEED_DECK_DEVICE) {
+  ${AWAIT_HELPER}
+  [Windows.Media.Playback.MediaPlayer, Windows.Media.Playback, ContentType = WindowsRuntime] | Out-Null
+  [Windows.Media.Core.MediaSource, Windows.Media.Core, ContentType = WindowsRuntime] | Out-Null
+  $device = Await ([Windows.Devices.Enumeration.DeviceInformation]::CreateFromIdAsync($env:SPEED_DECK_DEVICE)) ([Windows.Devices.Enumeration.DeviceInformation])
+  $player = New-Object Windows.Media.Playback.MediaPlayer
+  $player.AudioDevice = $device
+  $player.Source = [Windows.Media.Core.MediaSource]::CreateFromUri([Uri]::new($env:SPEED_DECK_FILE))
+  ${PLAY_AND_WAIT}
+} else {
+  $sound = New-Object System.Media.SoundPlayer $env:SPEED_DECK_FILE
+  $sound.PlaySync()
 }
 `;
 
@@ -108,6 +145,21 @@ export const windowsSpeechPlatform: SpeechPlatform = {
         SPEED_DECK_DEVICE: options.deviceId ?? "",
       }),
     ];
+  },
+
+  buildRenderCommand(text, options, file) {
+    return [
+      powershell(RENDER_SCRIPT, {
+        SPEED_DECK_TEXT: Buffer.from(text, "utf8").toString("base64"),
+        SPEED_DECK_VOICE: options.voiceId ?? "",
+        SPEED_DECK_RATE: String(options.rate ?? 1),
+        SPEED_DECK_FILE: file,
+      }),
+    ];
+  },
+
+  buildPlayFileCommand(file, options) {
+    return [powershell(PLAY_FILE_SCRIPT, { SPEED_DECK_FILE: file, SPEED_DECK_DEVICE: options.deviceId ?? "" })];
   },
 
   async listVoices(runner): Promise<Voice[]> {
