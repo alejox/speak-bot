@@ -32,6 +32,8 @@ export type Action =
   | { readonly type: "obs.toggleStream" }
   | { readonly type: "obs.toggleRecord" }
   | { readonly type: "obs.toggleSourceVisibility"; readonly sceneName: string; readonly sourceName: string }
+  /** A slider for the volume of one OBS input; its key may span several cells (see `Key.span`). */
+  | { readonly type: "obs.inputVolume"; readonly inputName: string }
   /** `appId` is one of the ids the desktop lists (GET /api/applications); the desktop opens nothing else. */
   | { readonly type: "system.openApp"; readonly appId: string };
 
@@ -69,6 +71,8 @@ export interface ActionDefinition {
   readonly requiresDesktop: boolean;
   /** Needs a connected OBS. */
   readonly requiresObs: boolean;
+  /** Its key may span more than one cell (see `Key.span`). */
+  readonly canSpan: boolean;
   /** Icon id used when a key does not choose one (see `KEY_ICON_IDS`). */
   readonly defaultIcon: string;
   /** i18n key of the action name, as the action picker and editor show it. */
@@ -90,7 +94,7 @@ function define(
   type: ActionType,
   category: ActionCategory,
   defaultIcon: string,
-  options: { params?: ActionParamDefinition[]; runsOn?: "client" | "server"; requiresDesktop?: boolean; requiresObs?: boolean } = {},
+  options: { params?: ActionParamDefinition[]; runsOn?: "client" | "server"; requiresDesktop?: boolean; requiresObs?: boolean; canSpan?: boolean } = {},
 ): ActionDefinition {
   const requiresObs = options.requiresObs ?? false;
   return {
@@ -100,6 +104,7 @@ function define(
     runsOn: options.runsOn ?? "server",
     requiresDesktop: options.requiresDesktop ?? requiresObs,
     requiresObs,
+    canSpan: options.canSpan ?? false,
     defaultIcon,
     labelKey: `action.${type}`,
     keyLabelKey: `action.${type}.key`,
@@ -108,6 +113,7 @@ function define(
 }
 
 const sceneParam = textParam("sceneName", "scene", MAX_OBS_NAME_LENGTH);
+const inputParam = textParam("inputName", "input", MAX_OBS_NAME_LENGTH);
 
 /** Metadata for every action type, in library order. */
 export const ACTION_REGISTRY: { readonly [T in ActionType]: ActionDefinition } = {
@@ -128,16 +134,14 @@ export const ACTION_REGISTRY: { readonly [T in ActionType]: ActionDefinition } =
     params: [textParam("boardId", "board", MAX_BOARD_ID_LENGTH)],
   }),
   "obs.switchScene": define("obs.switchScene", "obs", "scene", { requiresObs: true, params: [sceneParam] }),
-  "obs.toggleMute": define("obs.toggleMute", "obs", "mic", {
-    requiresObs: true,
-    params: [textParam("inputName", "input", MAX_OBS_NAME_LENGTH)],
-  }),
+  "obs.toggleMute": define("obs.toggleMute", "obs", "mic", { requiresObs: true, params: [inputParam] }),
   "obs.toggleStream": define("obs.toggleStream", "obs", "broadcast", { requiresObs: true }),
   "obs.toggleRecord": define("obs.toggleRecord", "obs", "record", { requiresObs: true }),
   "obs.toggleSourceVisibility": define("obs.toggleSourceVisibility", "obs", "eye", {
     requiresObs: true,
     params: [sceneParam, textParam("sourceName", "source", MAX_OBS_NAME_LENGTH)],
   }),
+  "obs.inputVolume": define("obs.inputVolume", "obs", "music", { requiresObs: true, canSpan: true, params: [inputParam] }),
   "system.openApp": define("system.openApp", "system", "star", {
     requiresDesktop: true,
     params: [textParam("appId", "application", MAX_APPLICATION_ID_LENGTH)],

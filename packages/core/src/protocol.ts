@@ -3,7 +3,7 @@
  * Pure types and tiny guards only: no runtime dependencies.
  */
 import type { Action } from "./domain/actions";
-import type { Board, BoardKind, Key } from "./domain/board";
+import type { Board, BoardKind, Key, KeySpan } from "./domain/board";
 import type { Application } from "./ports/application-launcher";
 import type { ObsConnectionStatus, ObsErrorCode, ObsInput, ObsSceneItem, ObsState } from "./ports/obs-controller";
 import type { SpeakMode, Voice } from "./ports/speech-synthesizer";
@@ -194,7 +194,7 @@ export interface CreateBoardRequest extends BoardNameRequest {
 
 /**
  * PUT /api/boards/:id/keys/:slot → Key. A slot that already holds a key → 409 "slot-occupied"
- * unless `replace` is true. DELETE /api/boards/:id/keys/:slot → 204 (an empty slot is fine).
+ * unless `replace` is true; a key whose cells (`span`) cross the page or meet another key → 409 "no-room". DELETE /api/boards/:id/keys/:slot → 204 (an empty slot is fine).
  */
 export interface SetKeyRequest {
   label?: string;
@@ -204,11 +204,16 @@ export interface SetKeyRequest {
   color?: string;
   /** `#rrggbb` shown while the key's toggle is on; empty for none (then `color`). */
   activeColor?: string;
+  /** Cells the key covers (only actions with `canSpan`); 1 × 1 when left out. */
+  span?: KeySpan;
   action: Action;
   replace?: boolean;
 }
 
-/** POST /api/boards/:id/keys/move → Board. A key already at `to` is swapped to `from`. */
+/**
+ * POST /api/boards/:id/keys/move → Board. A 1 × 1 key already at `to` is swapped to `from`; no room
+ * for the moved key's whole block → 409 "no-room".
+ */
 export interface MoveKeyRequest {
   from: number;
   to: number;
@@ -340,6 +345,7 @@ export function voiceLanguageOf(settings: { language: UiLanguage; voiceLanguage?
 /** Machine-readable reasons a request failed, so clients can explain them in their own language. */
 export type ApiErrorCode =
   | "slot-occupied"
+  | "no-room"
   | "nothing-to-repeat"
   | "board-not-found"
   | "key-not-found"

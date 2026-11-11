@@ -78,8 +78,15 @@ export {
   type BoardKind,
   type Key,
   type KeyIconId,
+  keySpanOf,
+  blockSlots,
+  MAX_KEY_SPAN_COLUMNS,
+  MAX_KEY_SPAN_ROWS,
+  type KeySpan,
 } from "./domain/board";
 export { BoardGridFullError, reflowBoard } from "./domain/board-grid";
+export { cellOwners, coveredSlots, firstFreeSlotOnPage, NoRoomForKeyError, withKeySpan } from "./domain/key-span";
+export { faderPositionToMultiplier, multiplierToFaderPosition } from "./domain/obs-volume";
 export {
   boardPageCount,
   contrastTextColor,

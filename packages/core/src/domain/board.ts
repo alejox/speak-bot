@@ -123,7 +123,66 @@ export interface Key {
   readonly color?: string;
   /** Background color while the key's toggle is on, as `#rrggbb` (lowercase); `color` is used when absent. */
   readonly activeColor?: string;
+  /**
+   * Cells the key covers from its slot (its top-left cell) to the right and down, on the same page.
+   * Absent for 1 × 1, the only size most actions allow (see `ActionDefinition.canSpan`).
+   */
+  readonly span?: KeySpan;
   readonly action: Action;
+}
+
+/** Rows and columns of cells a key covers. */
+export interface KeySpan {
+  readonly rows: number;
+  readonly columns: number;
+}
+
+export const MAX_KEY_SPAN_ROWS = 3;
+export const MAX_KEY_SPAN_COLUMNS = 2;
+const SINGLE_CELL: KeySpan = { rows: 1, columns: 1 };
+
+/** The cells a key covers; 1 × 1 when it has no span. */
+export function keySpanOf(key: Pick<Key, "span">): KeySpan {
+  return key.span ?? SINGLE_CELL;
+}
+
+function isSingleCell(span: KeySpan): boolean {
+  return span.rows === 1 && span.columns === 1;
+}
+
+/**
+ * The slots a block of `span` at `slot` covers on `grid`, top-left first, or null when it does not
+ * fit inside that slot's page (it would cross the right or bottom edge).
+ */
+export function blockSlots(slot: number, span: KeySpan, grid: BoardGrid): number[] | null {
+  const size = keysPerPage(grid);
+  const index = slot % size;
+  const row = Math.floor(index / grid.columns);
+  const column = index % grid.columns;
+  if (row + span.rows > grid.rows || column + span.columns > grid.columns) return null;
+  const slots: number[] = [];
+  for (let r = 0; r < span.rows; r += 1) {
+    for (let c = 0; c < span.columns; c += 1) slots.push(slot + r * grid.columns + c);
+  }
+  return slots;
+}
+
+/**
+ * Stored keys with every span made safe for `grid`: spans are clamped to the grid, and a block that
+ * crosses its page or covers another key's slot or another block falls back to 1 × 1 (earlier slots
+ * win). No key moves or is dropped. `keys` hold unique slots.
+ */
+function fitStoredKeySpans(keys: readonly Key[], grid: BoardGrid): Key[] {
+  const used = new Set(keys.map((key) => key.slot));
+  return sortKeys(keys).map((key) => {
+    if (!key.span) return key;
+    const span = { rows: Math.min(key.span.rows, grid.rows), columns: Math.min(key.span.columns, grid.columns) };
+    const { span: _stored, action, ...rest } = key;
+    const cells = isSingleCell(span) ? null : blockSlots(key.slot, span, grid);
+    if (!cells || cells.slice(1).some((cell) => used.has(cell))) return { ...rest, action };
+    for (const cell of cells) used.add(cell);
+    return { ...rest, span, action };
+  });
 }
 
 /**
@@ -232,9 +291,12 @@ export function assertKeySlot(slot: unknown): asserts slot is number {
  */
 export function createKey(input: unknown): Key {
   if (typeof input !== "object" || input === null || Array.isArray(input)) throw new InvalidBoardError("key must be an object.");
-  const { slot, label, icon, color, activeColor, action } = input as Record<string, unknown>;
+  const { slot, label, icon, color, activeColor, span, action } = input as Record<string, unknown>;
   assertKeySlot(slot);
-  const key: { slot: number; label?: string; icon?: string; color?: string; activeColor?: string; action: Action } = { slot, action: parseAction(action) };
+  const key: { slot: number; label?: string; icon?: string; color?: string; activeColor?: string; span?: KeySpan; action: Action } = {
+    slot,
+    action: parseAction(action),
+  };
 
   if (label !== undefined) {
     if (typeof label !== "string") throw new InvalidBoardError("label must be a string.");
@@ -254,9 +316,25 @@ export function createKey(input: unknown): Key {
     if (!isHexColor(activeColor)) throw new InvalidBoardError("activeColor must be a hex color like #1a2b3c.");
     key.activeColor = activeColor.toLowerCase();
   }
+  if (span !== undefined) {
+    const parsed = parseKeySpan(span);
+    if (!isSingleCell(parsed)) {
+      if (!ACTION_REGISTRY[key.action.type].canSpan) throw new InvalidBoardError(`A key with the action ${key.action.type} covers one cell only.`);
+      key.span = parsed;
+    }
+  }
   // Fixed property order keeps stored files and responses stable.
   const { action: parsed, ...rest } = key;
   return { ...rest, action: parsed };
+}
+
+function parseKeySpan(input: unknown): KeySpan {
+  if (typeof input !== "object" || input === null) throw new InvalidBoardError("span must be an object.");
+  const { rows, columns } = input as Record<string, unknown>;
+  if (!isIntegerIn(rows, 1, MAX_KEY_SPAN_ROWS) || !isIntegerIn(columns, 1, MAX_KEY_SPAN_COLUMNS)) {
+    throw new InvalidBoardError(`span must have 1 to ${MAX_KEY_SPAN_ROWS} rows and 1 to ${MAX_KEY_SPAN_COLUMNS} columns.`);
+  }
+  return { rows, columns };
 }
 
 export function parseBoardName(name: unknown): string {
@@ -304,7 +382,8 @@ interface StoredBoard {
  * does not allow is split in two (see `boardsOfStoredBoard`), so no valid key is ever lost. Caption
  * keys stored on deck boards are read as they are, so loading never fails before
  * `moveCaptionKeysToVoice` moves them. Every board takes the first board's grid (its stored one when
- * valid, else 5 × 3), since all boards share one. Reading the result again changes nothing.
+ * valid, else 5 × 3), since all boards share one; a key span that does not fit falls back to 1 × 1.
+ * Reading the result again changes nothing.
  */
 export function readStoredBoards(value: unknown): Board[] {
   if (!Array.isArray(value)) return [];
@@ -320,7 +399,7 @@ export function readStoredBoards(value: unknown): Board[] {
   const grid = stored[0]?.grid ?? DEFAULT_BOARD_GRID;
   const boards: Board[] = [];
   for (const board of stored) {
-    const read = boardsOfStoredBoard({ ...board, grid }, ids);
+    const read = boardsOfStoredBoard({ ...board, grid, keys: fitStoredKeySpans(board.keys, grid) }, ids);
     // A split board is kept whole or not at all, so it is never stored half migrated.
     if (boards.length + read.length > MAX_STORED_BOARDS) break;
     boards.push(...read);

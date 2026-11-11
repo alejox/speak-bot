@@ -229,6 +229,8 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
       case "nav.prevPage":
       case "nav.goToPage":
       case "nav.goToBoard":
+      // A volume key is a slider: the client sets the volume through the OBS volume route, not by pressing it.
+      case "obs.inputVolume":
         throw new ClientActionError(action.type);
       case "obs.switchScene":
         await requireObs().switchScene(action.sceneName);

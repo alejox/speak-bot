@@ -18,6 +18,7 @@ import {
   type Key,
 } from "../domain/board";
 import { reflowBoard } from "../domain/board-grid";
+import { moveKeyBlock, placeKey } from "../domain/key-span";
 import { moveCaptionKeysToVoice, type CaptionMigrationReport } from "../domain/caption-migration";
 import { boardFromPhrases, buildDefaultBoard, buildDefaultDeckBoard, DEFAULT_BOARD_ID, DEFAULT_DECK_BOARD_ID } from "../domain/default-board";
 import { SlotOccupiedError, type Phrase } from "../domain/phrase";
@@ -94,14 +95,15 @@ export async function deleteBoard(repository: BoardRepository, id: string): Prom
 /**
  * Puts a key (`slot`, label, icon, color, action; validated) on a board. An action the board's kind
  * does not allow rejects with `InvalidBoardError`. A slot that already holds a key rejects with
- * `SlotOccupiedError` unless `replace` is true.
+ * `SlotOccupiedError` unless `replace` is true. A key whose cells (see `Key.span`) cross the page edge
+ * or meet another key or a cell another key covers rejects with `NoRoomForKeyError`.
  */
 export async function setKey(repository: BoardRepository, boardId: string, input: unknown, { replace = false } = {}): Promise<Key> {
   const key = createKey(input);
   await changeBoard(repository, boardId, (board) => {
     assertActionAllowedOnBoard(board.kind, key.action.type);
     if (!replace && board.keys.some((other) => other.slot === key.slot)) throw new SlotOccupiedError(key.slot);
-    return { ...board, keys: [...board.keys.filter((other) => other.slot !== key.slot), key] };
+    return { ...board, keys: placeKey(board, key, { replacing: replace }) };
   });
   return key;
 }
@@ -112,7 +114,10 @@ export async function clearKey(repository: BoardRepository, boardId: string, slo
   await changeBoard(repository, boardId, (board) => ({ ...board, keys: board.keys.filter((key) => key.slot !== slot) }));
 }
 
-/** Moves the key at `from` to `to`; a key already at `to` takes its place at `from`. */
+/**
+ * Moves the key at `from` to `to`; a 1 × 1 key already at `to` takes its place at `from`. A move
+ * without room for the key's whole block rejects with `NoRoomForKeyError` (see `moveKeyBlock`).
+ */
 export async function moveKey(repository: BoardRepository, boardId: string, from: number, to: number): Promise<Board> {
   assertKeySlot(from);
   assertKeySlot(to);
@@ -120,12 +125,7 @@ export async function moveKey(repository: BoardRepository, boardId: string, from
     const moving = board.keys.find((key) => key.slot === from);
     if (!moving) throw new KeyNotFoundError(from);
     if (from === to) return board;
-    const keys = board.keys.map((key) => {
-      if (key.slot === from) return { ...key, slot: to };
-      if (key.slot === to) return { ...key, slot: from };
-      return key;
-    });
-    return { ...board, keys };
+    return { ...board, keys: moveKeyBlock(board, from, to) };
   });
 }
 
