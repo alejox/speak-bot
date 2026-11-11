@@ -5,11 +5,17 @@
  * window to the bottom, and in the Deck the key inspector docks to the right edge the same way.
  */
 
-/* The shell fills the window at every width; only the main area (and the inspector) scroll inside it. */
+/*
+ * The shell fills the window at every width; only the main area, the inspector and the recent phrases
+ * scroll inside it. The root is clipped, not hidden: a hidden box can still be scrolled by focus or script,
+ * which shifted the whole shell up and left a gap under it. Each scrolling panel is positioned, so
+ * absolutely positioned content (visually hidden inputs) stays inside it instead of stretching the page.
+ */
 html,
 body {
   height: 100%;
   overflow: hidden;
+  overflow: clip;
 }
 
 .app {
@@ -38,6 +44,7 @@ body {
 
 .app-main {
   grid-area: main;
+  position: relative;
   min-height: 0;
   overflow-y: auto;
   width: 100%;

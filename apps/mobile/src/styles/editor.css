@@ -351,6 +351,11 @@
   flex-direction: column;
   align-items: stretch;
   gap: var(--space-3);
+  /*
+   * The containing block of its visually hidden inputs (the colour and icon radios): without it they hang
+   * off the viewport, stretch the document, and focusing one scrolls the whole shell.
+   */
+  position: relative;
   overflow-y: auto;
   padding: var(--space-6) var(--space-5);
   background: var(--color-surface);

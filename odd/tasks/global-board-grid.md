@@ -21,7 +21,7 @@ The user wants more keys per page ("agregar más cuadros a la cuadrícula"). Use
 - [x] T2 — Desktop: `PUT /api/boards/grid` and repository behavior; tests. Route: delegated (same writer). Done in T2 commit (see Progress) — RED: 3 API tests failing (grid route, 409 grid-full, JSON content type); GREEN: desktop 160/160, typecheck clean. Adds `ApiErrorCode` "grid-full".
 - [x] T3 — Mobile: grid icon + modal next to the board pill, deck hook / local and remote stores, BoardPlayer + CSS driven by the board's grid, en/es strings; tests. Route: delegated (same writer). Done in the T3 commit (see Progress) — RED: new `apps/mobile/test/board-grid.test.tsx` 4/4 failing; GREEN: mobile 285/285 + 4 grid tests, typecheck clean. Fit-to-screen on phones is CSS only (jsdom cannot measure layout): covered by a structural assertion on `--grid-columns`/`--grid-rows` and a manual check.
 
-- [ ] T4 — App shell never scrolls the document: scroll containers become the containing block of hidden absolutely positioned elements, `overflow: clip` on html/body at every width; regression test. Reason: user request 2026-11-11. Route: delegated (same writer).
+- [x] T4 — App shell never scrolls the document: scroll containers become the containing block of hidden absolutely positioned elements, `overflow: clip` on html/body at every width; regression test. Reason: user request 2026-11-11. Route: delegated (same writer). Hypothesis confirmed in the CSS: the colour/icon radios are `.visually-hidden` (`position: absolute`) inside `.inspector`, which was not positioned, so their containing block was the viewport. Fix: `position: relative` on every scroll container (`.app-main`, `.inspector`, `.recent-list`), `overflow: clip` (fallback `hidden`) on html/body at every width, shell `100dvh` at every width (from T3). RED: new `apps/mobile/test/shell-overflow.test.ts` (CSS-structure assertion, jsdom cannot measure layout) 2/2 failing; GREEN: mobile 287/287. Manual check still pending: packaged app, inspector open, focus last field and a swatch, shell must not shift.
 - [ ] T5 — Two key colors: optional `activeColor` used when a stateful key is on; core validation and persistence, desktop API, editor with "Color when off" / "Color when on" for stateful actions only; tests. Reason: user request 2026-11-11. Route: delegated (same writer).
 - [ ] T6 — Confirm before starting a recording or a stream from a key or the inspector's Test button (mobile UI only); tests. Reason: user request 2026-11-11. Route: delegated (same writer).
 
@@ -35,4 +35,4 @@ Strategy: ask-on-risk. Forecast ≈ 600–800 authored lines across three work-u
 
 ## Progress
 - Prior unrelated UI fixes committed as ec2d106.
-- T1 5041fcb, T2 1cea157.
+- T1 5041fcb, T2 1cea157, T3 05d1f00.
