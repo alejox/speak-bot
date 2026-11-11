@@ -40,22 +40,27 @@ export interface SpeechTargetOptions {
 
 export interface SpeechTarget {
   detection: DesktopDetection;
-  /** True when speech, boards and settings come from the desktop. */
-  isRemote: boolean;
+  /**
+   * True when a desktop answered: its boards, key actions, OBS, captions and other desktop settings are
+   * used, whichever "Speak on" target is chosen.
+   */
+  isConnected: boolean;
+  /** True when speech (and its voice, rate, voice language and output device) runs on the desktop. */
+  speaksOnComputer: boolean;
   /** True when a desktop server answered, whichever target is chosen. */
   isDesktopAvailable: boolean;
   synthesizer: AppSpeechSynthesizer;
-  /** The boards of the desktop in Computer mode, otherwise of this device. */
+  /** The boards of the desktop when connected, otherwise of this device. */
   boards: BoardStore;
-  /** Runs voice, captions and OBS actions on the desktop; null when speaking on this device. */
+  /** Runs actions on the desktop; null without one. Voice actions run here unless `speaksOnComputer`. */
   executeAction: ((action: Action, key?: KeyRef) => Promise<ExecuteActionResult>) | null;
   /** A multi-action started or ended on the desktop (from any device); never fires on this device. */
   onMultiActionEvent: (listener: (event: MultiActionEvent) => void) => () => void;
-  /** Lists the applications of the computer for "open application" keys; null when speaking on this device. */
+  /** Lists the applications of the computer for "open application" keys; null without a desktop. */
   listApplications: (() => Promise<Application[]>) | null;
   /** Tells the desktop whether someone is typing something to say; null when speaking on this device. */
   reportComposing: ((composing: boolean) => void) | null;
-  /** OBS through the desktop; null when speaking on this device. */
+  /** OBS through the desktop; null without one. */
   obs: ObsServices | null;
   /** The desktop started or stopped speaking (from any device); never fires on this device. */
   onSpeechEvent: (listener: (event: SpeakingEvent | SpeakErrorEvent) => void) => () => void;
@@ -68,19 +73,19 @@ export interface SpeechTarget {
   speakOn: { value: SpeakTarget; onChange: (target: SpeakTarget) => void } | null;
   /** Null unless speaking on a desktop that can route audio to a chosen device. */
   outputDevice: { devices: AudioDevice[]; selectedId: string; onChange: (deviceId: string) => void } | null;
-  /** Interface language saved on the desktop; null unless speaking on the desktop and loaded. */
+  /** Interface language saved on the desktop; null unless connected and loaded. */
   desktopLanguage: UiLanguage | null;
-  /** Saves the interface language on the desktop (no-op unless speaking on the desktop). */
+  /** Saves the interface language on the desktop (no-op unless connected). */
   saveDesktopLanguage: (language: UiLanguage) => void;
   /** Merges settings a desktop action reported (e.g. the new voice language) without saving them again. */
   noteDesktopSettings: (patch: Partial<DesktopSettings>) => void;
-  /** OBS connection settings saved on the desktop; null unless speaking on the desktop and loaded. */
+  /** OBS connection settings saved on the desktop; null unless connected and loaded. */
   obsSettings: ObsSettingsView | null;
   /** Saves OBS settings on the desktop (only allowed from the computer itself). */
   saveObsSettings: (patch: ObsSettingsPatch) => Promise<DesktopSettings>;
   /** True when this page is open on the computer that runs the desktop app. */
   isOnComputer: boolean;
-  /** Whether OBS captions are shown; null unless speaking on the desktop and loaded. */
+  /** Whether OBS captions are shown; null unless connected and loaded. */
   captionsVisible: boolean | null;
   setCaptionsVisible: (visible: boolean) => void;
   /** Language of the automatic voice, or null to follow the interface language of this device. */
@@ -157,10 +162,13 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
     };
   }, [desktop]);
 
-  const isRemote = desktop !== undefined && capabilities !== null && (forceComputer || target === "computer");
-  const remote = isRemote ? desktop : undefined;
-  const supportsDevices = isRemote && capabilities?.supportsDeviceSelection === true;
-  const synthesizer = remote?.synthesizer ?? services.synthesizer;
+  // The deck follows the computer whenever it answered; "Speak on" only moves speech and its settings.
+  const isConnected = desktop !== undefined && capabilities !== null;
+  const speaksOnComputer = isConnected && (forceComputer || target === "computer");
+  const remote = isConnected ? desktop : undefined;
+  const speechRemote = speaksOnComputer ? desktop : undefined;
+  const supportsDevices = speaksOnComputer && capabilities?.supportsDeviceSelection === true;
+  const synthesizer = speechRemote?.synthesizer ?? services.synthesizer;
 
   useEffect(() => {
     if (!remote) return;
@@ -188,16 +196,16 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
   }, [remote]);
 
   useEffect(() => {
-    if (!remote || !supportsDevices) return;
+    if (!speechRemote || !supportsDevices) return;
     let active = true;
-    remote.listDevices().then(
+    speechRemote.listDevices().then(
       (loaded) => active && setDevices(loaded),
       () => active && setDevices([]),
     );
     return () => {
       active = false;
     };
-  }, [remote, supportsDevices]);
+  }, [speechRemote, supportsDevices]);
 
   useEffect(() => {
     let active = true;
@@ -226,7 +234,7 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
     [remote],
   );
 
-  const settings: SpeechSettings = isRemote
+  const settings: SpeechSettings = speaksOnComputer
     ? { voiceId: desktopSettings?.voiceId ?? "", rate: desktopSettings?.rate ?? 1 }
     : localSettings;
 
@@ -236,7 +244,7 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
   };
 
   const updateSettings = (next: SpeechSettings) => {
-    if (isRemote) {
+    if (speaksOnComputer) {
       const patch: Partial<DesktopSettings> = {};
       if (next.voiceId !== settings.voiceId) patch.voiceId = next.voiceId;
       if (next.rate !== settings.rate) patch.rate = next.rate;
@@ -250,16 +258,18 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
 
   return {
     detection,
-    isRemote,
-    isDesktopAvailable: desktop !== undefined && capabilities !== null,
+    isConnected,
+    speaksOnComputer,
+    isDesktopAvailable: isConnected,
     synthesizer,
     // While still looking, no boards: the phone's own would flash (and be created) before the desktop's.
     boards: remote?.boards ?? (detection === "pending" ? pendingBoardStore : services.boards),
     executeAction: remote ? remote.executeAction : null,
-    reportComposing: remote ? remote.reportComposing : null,
+    // Typing shows on the computer only when it will say the text.
+    reportComposing: speechRemote ? speechRemote.reportComposing : null,
     listApplications: remote ? remote.listApplications : null,
     obs: remote ? remote.obs : null,
-    onSpeechEvent: remote ? remote.onSpeechEvent : noSubscription,
+    onSpeechEvent: speechRemote ? speechRemote.onSpeechEvent : noSubscription,
     onMultiActionEvent: remote ? remote.onMultiActionEvent : noSubscription,
     settings,
     updateSettings,
@@ -282,10 +292,10 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
           onChange: (deviceId) => saveDesktopSettings({ deviceId }),
         }
       : null,
-    desktopLanguage: isRemote && isUiLanguage(desktopSettings?.language) ? desktopSettings.language : null,
+    desktopLanguage: isConnected && isUiLanguage(desktopSettings?.language) ? desktopSettings.language : null,
     saveDesktopLanguage: (language) => saveDesktopSettings({ language }),
     noteDesktopSettings: (patch) => setDesktopSettings((current) => (current ? { ...current, ...patch } : current)),
-    obsSettings: isRemote && desktopSettings?.obs ? desktopSettings.obs : null,
+    obsSettings: isConnected && desktopSettings?.obs ? desktopSettings.obs : null,
     saveObsSettings: remote
       ? async (obs) => {
           const updated = await remote.saveSettings({ obs });
@@ -294,15 +304,15 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
         }
       : noDesktop,
     isOnComputer: desktop?.connection !== undefined,
-    captionsVisible: isRemote && typeof desktopSettings?.captionsVisible === "boolean" ? desktopSettings.captionsVisible : null,
+    captionsVisible: isConnected && typeof desktopSettings?.captionsVisible === "boolean" ? desktopSettings.captionsVisible : null,
     setCaptionsVisible: (captionsVisible) => saveDesktopSettings({ captionsVisible }),
-    voiceLanguage: isRemote
+    voiceLanguage: speaksOnComputer
       ? desktopSettings
         ? voiceLanguageOf(desktopSettings)
         : null
       : (localSettings.voiceLanguage ?? null),
     setVoiceLanguage: (voiceLanguage) => {
-      if (isRemote) saveDesktopSettings({ voiceLanguage, voiceId: "" });
+      if (speaksOnComputer) saveDesktopSettings({ voiceLanguage, voiceId: "" });
       else saveLocalSettings({ ...localSettings, voiceLanguage, voiceId: "" });
     },
     error,

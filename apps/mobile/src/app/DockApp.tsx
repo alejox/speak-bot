@@ -27,7 +27,7 @@ export function DockApp({ services }: { services: AppServices }) {
   return (
     <I18nProvider language={language}>
       <div className="dock">
-        {target.detection === "found" && target.isRemote ? <DockContent target={target} /> : <DockUnavailable target={target} />}
+        {target.detection === "found" && target.isConnected ? <DockContent target={target} /> : <DockUnavailable target={target} />}
       </div>
     </I18nProvider>
   );

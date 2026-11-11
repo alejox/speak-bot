@@ -37,12 +37,14 @@ describe("Deck status", () => {
     expect(screen.queryByRole("button", { name: "Open Settings" })).not.toBeInTheDocument();
   });
 
-  it("leads to Settings when the computer app is there but this device was chosen", async () => {
-    const { user } = renderRemoteApp({ storedTarget: "device" });
-    await screen.findByRole("button", { name: "Local phrase" });
+  it("stays connected to the computer when this device was chosen to speak", async () => {
+    const state = desktopState({ boards: boards() });
+    state.obs = { enabled: true, status: "connected", state: idle };
+    const { user } = renderRemoteApp({ state, storedTarget: "device" });
+    await screen.findByRole("button", { name: "Hi" });
     await goTo(user, "Deck");
-    await user.click(await screen.findByRole("button", { name: "Computer not connected. Open Settings" }));
-    expect(screen.getByRole("heading", { level: 2, name: "Settings" })).toBeInTheDocument();
+    await waitFor(() => expect(indicator("OBS connected")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /^Computer not connected/ })).not.toBeInTheDocument();
   });
 
   it("is not shown in the Voice space", async () => {

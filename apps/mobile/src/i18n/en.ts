@@ -17,8 +17,6 @@ export const en = {
 
   "space.empty": "There are no boards here yet.",
   "deck.needsComputer": "Deck keys control OBS through the Speed Deck computer app. Open Speed Deck from that app to use them.",
-  "deck.computerNotChosen":
-    "Deck keys control OBS through the Speed Deck computer app. To use them, choose “Computer” under “Speak on” in Settings.",
 
   "deck.openSettings": "Open Settings",
   "deck.openObs": "Open OBS",

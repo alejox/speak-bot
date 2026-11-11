@@ -8,13 +8,13 @@ const boards = [makeBoard("main", "Main", "voice"), makeBoard("games", "Games", 
 const LIVE = { currentScene: "Main", mutedInputs: ["Mic"], streaming: true, recording: false };
 
 const remote: KeyContext = {
-  isRemote: true,
+  isConnected: true,
   obs: { enabled: true, status: "connected", state: LIVE },
   captionsVisible: false,
   voiceLanguage: "es",
   boards,
 };
-const local: KeyContext = { ...remote, isRemote: false, obs: null, captionsVisible: null };
+const local: KeyContext = { ...remote, isConnected: false, obs: null, captionsVisible: null };
 
 const key = (action: Action, label?: string): Key => ({ slot: 0, ...(label ? { label } : {}), action });
 

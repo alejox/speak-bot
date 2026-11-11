@@ -41,13 +41,14 @@ describe("Deck workspace on wide screens", () => {
     expect(indicator).toHaveAttribute("title", expect.stringMatching(explanation));
   });
 
-  it("leads to Settings from the indicator when this device was chosen instead of the computer", async () => {
-    const { user } = renderRemoteApp({ storedTarget: "device" });
-    await screen.findByRole("button", { name: "Local phrase" });
+  it("keeps the computer connected on the indicator when this device speaks", async () => {
+    const state = desktopState({ boards: boards() });
+    state.obs = { enabled: true, status: "connected", state: idle };
+    const { user } = renderRemoteApp({ state, storedTarget: "device" });
+    await screen.findByRole("button", { name: "Hi" });
     await goTo(user, "Deck");
-    expect(screen.queryByRole("button", { name: "Open Settings" })).not.toBeInTheDocument();
-    await user.click(await screen.findByRole("button", { name: "Computer not connected. Open Settings" }));
-    expect(screen.getByRole("heading", { level: 2, name: "Settings" })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: "OBS connected" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Computer not connected/ })).not.toBeInTheDocument();
   });
 
   it("names OBS, live and recording on the indicator when the computer runs the keys", async () => {

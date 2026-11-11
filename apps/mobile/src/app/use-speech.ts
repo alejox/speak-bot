@@ -7,7 +7,7 @@ import type { Message } from "../i18n/messages";
 import type { SpeechTarget } from "./use-speech-target";
 
 export interface Speech {
-  /** Speaking here, or (in Computer mode) the desktop is speaking, whoever asked it to. */
+  /** Speaking here, or (when speaking on the computer) the desktop is speaking, whoever asked it to. */
   isSpeaking: boolean;
   /** Says `text` at once, cutting off what is being said and emptying the queue; with "queue" it waits its turn instead. */
   speak: (text: string, mode?: SpeakMode) => void;
@@ -19,7 +19,7 @@ export interface Speech {
 
 /** Speaking and stopping on the current target, reporting failures as localized messages. */
 export function useSpeech(
-  target: Pick<SpeechTarget, "synthesizer" | "settings" | "isRemote" | "voices" | "voiceLanguage" | "onSpeechEvent">,
+  target: Pick<SpeechTarget, "synthesizer" | "settings" | "speaksOnComputer" | "voices" | "voiceLanguage" | "onSpeechEvent">,
   language: UiLanguage,
   report: (message: Message | null) => void,
 ): Speech {
@@ -49,7 +49,7 @@ export function useSpeech(
 
   // The desktop picks its own voice for the language; on this device it is picked here.
   const voiceLanguage = target.voiceLanguage ?? language;
-  const voiceId = settings.voiceId || (target.isRemote ? undefined : pickVoiceForLanguage(target.voices, voiceLanguage)?.id);
+  const voiceId = settings.voiceId || (target.speaksOnComputer ? undefined : pickVoiceForLanguage(target.voices, voiceLanguage)?.id);
 
   // Must not await before speakText: mobile browsers only allow speech inside the tap handler.
   const speak = (text: string, mode: SpeakMode = "interrupt") => {

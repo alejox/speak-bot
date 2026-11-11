@@ -40,8 +40,8 @@ function useDeckState(target: SpeechTarget, language: UiLanguage, report: (messa
   const voiceLanguage = target.voiceLanguage ?? language;
   const runningKeys = useRunningKeys(target, report);
   const context = useMemo<KeyContext>(
-    () => ({ isRemote: target.isRemote, obs, captionsVisible: target.captionsVisible, voiceLanguage, boards: boards.boards, runningKeys }),
-    [target.isRemote, obs, target.captionsVisible, voiceLanguage, boards.boards, runningKeys],
+    () => ({ isConnected: target.isConnected, obs, captionsVisible: target.captionsVisible, voiceLanguage, boards: boards.boards, runningKeys }),
+    [target.isConnected, obs, target.captionsVisible, voiceLanguage, boards.boards, runningKeys],
   );
   return { boards, obs, context, voiceLanguage };
 }

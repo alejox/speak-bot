@@ -4,12 +4,12 @@ import { describeRequestError } from "./describe-error";
 import type { Speech } from "./use-speech";
 import type { SpeechTarget } from "./use-speech-target";
 
-type RunnerTarget = Pick<SpeechTarget, "executeAction" | "noteDesktopSettings" | "setVoiceLanguage">;
+type RunnerTarget = Pick<SpeechTarget, "executeAction" | "speaksOnComputer" | "noteDesktopSettings" | "setVoiceLanguage">;
 
 export interface KeyRunnerOptions {
   target: RunnerTarget;
   speech: Pick<Speech, "speak" | "stop" | "repeat">;
-  /** The voice language in use right now (for the language key in phone-only mode). */
+  /** The voice language in use right now (for the language key when this device speaks). */
   voiceLanguage: UiLanguage;
   navigate: (action: NavigationAction) => void;
   report: (message: Message | null) => void;
@@ -19,8 +19,9 @@ export interface KeyRunnerOptions {
 export type KeyRun = (action: Action, key?: KeyRef) => void;
 
 /**
- * Runs a key's action where it belongs: navigation in this client; voice on this device in phone-only
- * mode; everything else on the desktop. Local speech starts synchronously, inside the tap (iOS rule).
+ * Runs a key's action where it belongs: navigation in this client; voice actions where speech is (this
+ * device unless speaking on the computer); everything else on the desktop. Local speech starts
+ * synchronously, inside the tap (iOS rule).
  */
 export function createKeyRunner({ target, speech, voiceLanguage, navigate, report }: KeyRunnerOptions): KeyRun {
   const nextLanguage: UiLanguage = voiceLanguage === "es" ? "en" : "es";
@@ -30,7 +31,7 @@ export function createKeyRunner({ target, speech, voiceLanguage, navigate, repor
       return;
     }
     const { executeAction } = target;
-    if (!executeAction) {
+    if (!executeAction || (!target.speaksOnComputer && ACTION_REGISTRY[action.type].category === "voice")) {
       runOnDevice(action);
       return;
     }

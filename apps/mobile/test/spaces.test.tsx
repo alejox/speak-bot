@@ -158,10 +158,12 @@ describe("Deck space without the computer app", () => {
     expect(screen.queryByText(explanation)).not.toBeInTheDocument();
   });
 
-  it("points to the “Speak on” setting when the computer app is there but this device was chosen", async () => {
-    const { user } = renderRemoteApp({ storedTarget: "device" });
-    await screen.findByRole("button", { name: "Local phrase" });
+  it("says nothing when this device speaks but the computer app still runs the keys", async () => {
+    const { user } = renderRemoteApp({ state: desktopState({ boards: mixedBoards() }), storedTarget: "device" });
+    await screen.findByRole("button", { name: "Hi" });
     await goTo(user, "Deck");
-    expect(await screen.findByText(/choose “Computer” under “Speak on” in Settings/)).toBeInTheDocument();
+    const key = await screen.findByRole("button", { name: "Main" });
+    expect(key).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByText(explanation)).not.toBeInTheDocument();
   });
 });

@@ -182,17 +182,41 @@ describe("App in Computer mode", () => {
     expect(screen.queryByRole("combobox", { name: "Output device" })).not.toBeInTheDocument();
   });
 
-  it("switches back to this device, with this device's boards, and persists the choice", async () => {
-    const { local, user, getTarget, requests } = renderRemoteApp();
+  it("speaks on this device when chosen, keeping the computer's boards and deck, and persists the choice", async () => {
+    const state = desktopState({
+      boards: [
+        boardOf("main", "Main", [speakKey(0, "Hello"), { slot: 1, action: { type: "voice.repeat" } }]),
+        boardOf("show", "Show", [{ slot: 0, action: { type: "obs.switchScene", sceneName: "BRB" } }], "deck"),
+      ],
+    });
+    const { local, user, getTarget, requests } = renderRemoteApp({ state });
     await screen.findByRole("button", { name: "Hello" });
     await goTo(user, "Settings");
     await user.selectOptions(await screen.findByRole("combobox", { name: "Speak on" }), "device");
     expect(getTarget()).toBe("device");
     expect(screen.queryByRole("combobox", { name: "Output device" })).not.toBeInTheDocument();
+
+    // The computer's boards stay; speech moves to this device.
     await goTo(user, "Voice");
-    await user.click(await screen.findByRole("button", { name: "Local phrase" }));
-    expect(local.texts).toEqual(["Local phrase"]);
+    await user.click(await screen.findByRole("button", { name: "Hello" }));
+    expect(screen.queryByRole("button", { name: "Local phrase" })).not.toBeInTheDocument();
+    expect(local.texts).toEqual(["Hello"]);
+    await user.click(screen.getByRole("button", { name: "Repeat" }));
+    expect(local.texts).toEqual(["Hello", "Hello"]);
+    await user.type(screen.getByLabelText("Text to speak"), "Typed here");
+    await user.click(screen.getByRole("button", { name: "Speak" }));
+    expect(local.texts).toEqual(["Hello", "Hello", "Typed here"]);
     expect(executed(requests)).toEqual([]);
+    expect(requests.filter((request) => request.url === "/api/speak")).toEqual([]);
+
+    // Deck keys still run on the computer, which stays connected.
+    await goTo(user, "Deck");
+    expect(await screen.findByRole("img", { name: "OBS connected" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Computer not connected/ })).not.toBeInTheDocument();
+    const scene = await screen.findByRole("button", { name: "BRB" });
+    await waitFor(() => expect(scene).not.toHaveAttribute("aria-disabled", "true"));
+    await user.click(scene);
+    await waitFor(() => expect(executed(requests)).toEqual([{ type: "obs.switchScene", sceneName: "BRB" }]));
   });
 
   it("stays local and hides the setting when no desktop answers", async () => {

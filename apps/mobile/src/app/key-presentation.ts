@@ -12,8 +12,8 @@ export interface ObsLive {
 
 /** What a key needs to know to show its state. */
 export interface KeyContext {
-  /** Speaking and running keys on the desktop (Computer mode). */
-  isRemote: boolean;
+  /** Running keys on the desktop (connected to the computer, whichever device speaks). */
+  isConnected: boolean;
   /** Null in phone-only mode or before the desktop answered. */
   obs: ObsLive | null;
   captionsVisible: boolean | null;
@@ -50,7 +50,7 @@ export interface KeyPresentation {
 /** The live state of a key: pressed, disabled (and why) and any extra detail. `key` is where it sits, for a running multi-action. */
 export function presentKey(action: Action, context: KeyContext, key?: KeyRef): KeyPresentation {
   const definition = ACTION_REGISTRY[action.type];
-  if (definition.requiresDesktop && !context.isRemote) return { disabledReason: "key.needsComputer" };
+  if (definition.requiresDesktop && !context.isConnected) return { disabledReason: "key.needsComputer" };
   if (definition.requiresObs) {
     const { obs } = context;
     if (obs && !obs.enabled) return { disabledReason: "key.obsDisabled" };

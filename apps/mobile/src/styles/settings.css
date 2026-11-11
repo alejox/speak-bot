@@ -89,10 +89,6 @@
   gap: var(--space-3);
 }
 
-.obs-open-settings {
-  margin-top: var(--space-3);
-}
-
 .obs-actions {
   margin-top: var(--space-1);
 }

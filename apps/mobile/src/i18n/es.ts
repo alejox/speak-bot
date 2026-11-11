@@ -20,8 +20,6 @@ export const es: Messages = {
   "space.empty": "Aún no hay tableros aquí.",
   "deck.needsComputer":
     "Las teclas del Deck controlan OBS mediante la app de Speed Deck para computadora. Abre Speed Deck desde esa app para usarlas.",
-  "deck.computerNotChosen":
-    "Las teclas del Deck controlan OBS mediante la app de Speed Deck para computadora. Para usarlas, elige «Computadora» en «Hablar en», dentro de Ajustes.",
 
   "deck.openSettings": "Abrir Ajustes",
   "deck.openObs": "Abrir OBS",

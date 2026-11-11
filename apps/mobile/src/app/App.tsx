@@ -180,7 +180,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const showsObsSection = target.isOnComputer;
   const section: Section = (storedSection === "connect" && !connection) || (storedSection === "obs" && !showsObsSection) ? "deck" : storedSection;
   // OBS is reached through the computer app only; the menu item shows and says whether it is connected.
-  const obsStatusTone = obsTone(target.isRemote, spaces.deck.obs);
+  const obsStatusTone = obsTone(target.isConnected, spaces.deck.obs);
   // Each deck board is a menu item of its own (the Deck section on that board). The phone tab bar has no
   // room for them, so it keeps one Deck tab and leaves switching boards to the board pill.
   const deckBoards = isTabBar ? [] : spaces.deck.spaceBoards;
@@ -243,7 +243,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   };
   // Deck keys only run through the computer app; say so once instead of leaving every key to explain itself.
   const showDeckStatus = space === "deck" && target.detection !== "pending";
-  const deckNote: MessageKey | null = !showDeckStatus || target.isRemote ? null : target.isDesktopAvailable ? "deck.computerNotChosen" : "deck.needsComputer";
+  const deckNote: MessageKey | null = !showDeckStatus || target.isConnected ? null : "deck.needsComputer";
   // A space shows only keys and controls at every width: its heading stays for screen readers and the Deck
   // status and notes live in the indicator. Wide screens (the workspace) also dock the side panel, where the
   // Voice composer moves; below that the composer stays above the keys, with the status line under the header.
@@ -297,7 +297,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
 
   const deckIndicator = showDeckStatus && deck && (
     <DeckStatusIndicator
-      isComputerConnected={target.isRemote}
+      isComputerConnected={target.isConnected}
       obs={deck.obs}
       note={deckNote ? t(deckNote) : undefined}
       onOpenSettings={() => select("settings")}
@@ -437,15 +437,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   }}
                 />
               ) : (
-                <>
-                  <p className="field-hint">{t("obs.needsComputer")}</p>
-                  {/* The computer is there but this device speaks itself: choosing the computer is in Settings. */}
-                  {target.isDesktopAvailable && !target.isRemote && (
-                    <button type="button" className="button button-small obs-open-settings" onClick={() => select("settings")}>
-                      {t("deck.openSettings")}
-                    </button>
-                  )}
-                </>
+                <p className="field-hint">{t("obs.needsComputer")}</p>
               )}
             </div>
           </SectionView>
