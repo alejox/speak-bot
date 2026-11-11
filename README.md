@@ -138,8 +138,12 @@ Customize it with query parameters:
 | `hold`     | ms the caption stays visible  | `hold=6000`                  |
 | `color`    | text color                    | `color=%23ffffff`            |
 | `bg`       | caption box background        | `bg=rgba(0,0,0,0.6)`         |
+| `typing`   | `0` hides the typing sign     | `typing=0`                   |
+| `lang`     | `es`, `en` (typing sign)      | `lang=en`                    |
 
 Example: `http://localhost:4545/overlay?size=56&position=bottom&hold=5000`
+
+While you type something to say with the computer as the speak target, the overlay shows **Escribiendo…** (`lang=en`: **Typing…**) in the caption's place, so the audience knows an answer is coming; the caption replaces it when the text is spoken. Only the fact that you are typing is sent, never the text.
 
 For the voice itself in OBS, capture the output device you route Speed Deck to (see below), or use desktop audio capture.
 

@@ -30,13 +30,16 @@ class FakeSocket {
   }
 }
 
-async function loadOverlay(settings: { captionsVisible?: boolean } | Error = { captionsVisible: true }) {
+async function loadOverlay(settings: { captionsVisible?: boolean } | Error = { captionsVisible: true }, search = "?hold=1000") {
   const html = await readFile(OVERLAY_FILE, "utf8");
   const script = /<script>([\s\S]*?)<\/script>/.exec(html)?.[1];
   if (!script) throw new Error("overlay script not found");
 
   FakeSocket.instances = [];
   const caption = { textContent: "", classList: new FakeClassList(), style: { setProperty: () => {} } };
+  const typing = { classList: new FakeClassList(), style: { setProperty: () => {} } };
+  const typingLabel = { textContent: "" };
+  const elements: Record<string, unknown> = { caption, typing, "typing-label": typingLabel };
   const fetchCalls: string[] = [];
   const fetchFn = async (url: string) => {
     fetchCalls.push(url);
@@ -44,8 +47,8 @@ async function loadOverlay(settings: { captionsVisible?: boolean } | Error = { c
     return { ok: true, json: async () => settings };
   };
   runInNewContext(script, {
-    window: { location: { protocol: "http:", host: "127.0.0.1:4545", search: "?hold=1000" } },
-    document: { getElementById: () => caption, body: { classList: new FakeClassList() } },
+    window: { location: { protocol: "http:", host: "127.0.0.1:4545", search } },
+    document: { getElementById: (id: string) => elements[id], body: { classList: new FakeClassList() } },
     URLSearchParams,
     WebSocket: FakeSocket,
     fetch: fetchFn,
@@ -60,7 +63,14 @@ async function loadOverlay(settings: { captionsVisible?: boolean } | Error = { c
   socket.onopen?.();
   // Let the settings request settle.
   await vi.advanceTimersByTimeAsync(0);
-  return { caption, socket, fetchCalls, isShown: () => caption.classList.contains("visible") };
+  return {
+    caption,
+    socket,
+    fetchCalls,
+    typingLabel,
+    isShown: () => caption.classList.contains("visible"),
+    isTyping: () => typing.classList.contains("visible"),
+  };
 }
 
 describe("overlay script", () => {
@@ -121,5 +131,48 @@ describe("overlay script", () => {
 
     socket.emit({ type: "caption", text: "Still here", at: 1 });
     expect(isShown()).toBe(true);
+  });
+
+  it("shows the typing sign while someone composes, in Spanish unless asked otherwise", async () => {
+    const { socket, isTyping, typingLabel } = await loadOverlay();
+    expect(typingLabel.textContent).toBe("Escribiendo");
+    expect(isTyping()).toBe(false);
+    socket.emit({ type: "composing", composing: true, at: 1 });
+    expect(isTyping()).toBe(true);
+    socket.emit({ type: "composing", composing: false, at: 2 });
+    expect(isTyping()).toBe(false);
+
+    const english = await loadOverlay({ captionsVisible: true }, "?lang=en");
+    expect(english.typingLabel.textContent).toBe("Typing");
+  });
+
+  it("gives the place to a caption, and takes it back when the caption leaves while still composing", async () => {
+    const { socket, isShown, isTyping } = await loadOverlay();
+    socket.emit({ type: "composing", composing: true, at: 1 });
+    socket.emit({ type: "caption", text: "Hola", at: 2 });
+    expect(isShown()).toBe(true);
+    expect(isTyping()).toBe(false);
+
+    socket.emit({ type: "speaking", state: "end", at: 3 });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(isShown()).toBe(false);
+    expect(isTyping()).toBe(true);
+  });
+
+  it("never shows the typing sign with typing=0, while captions are hidden, or after the connection drops", async () => {
+    const off = await loadOverlay({ captionsVisible: true }, "?typing=0");
+    off.socket.emit({ type: "composing", composing: true, at: 1 });
+    expect(off.isTyping()).toBe(false);
+
+    const hidden = await loadOverlay({ captionsVisible: false });
+    hidden.socket.emit({ type: "composing", composing: true, at: 1 });
+    expect(hidden.isTyping()).toBe(false);
+    hidden.socket.emit({ type: "captions-visibility", visible: true, at: 2 });
+    expect(hidden.isTyping()).toBe(true);
+
+    const dropped = await loadOverlay();
+    dropped.socket.emit({ type: "composing", composing: true, at: 1 });
+    dropped.socket.onclose?.();
+    expect(dropped.isTyping()).toBe(false);
   });
 });

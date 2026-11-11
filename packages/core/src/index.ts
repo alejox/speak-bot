@@ -151,6 +151,7 @@ export {
 } from "./use-cases/phrases";
 export { languageOfTag, pickVoiceForLanguage } from "./voices";
 export {
+  COMPOSING_TIMEOUT_MS,
   DEFAULT_UI_LANGUAGE,
   DESKTOP_SERVER_NAME,
   isServerEvent,
@@ -163,6 +164,8 @@ export {
   type CaptionClearEvent,
   type CaptionEvent,
   type CaptionsVisibilityEvent,
+  type ComposingEvent,
+  type ComposingRequest,
   type DesktopSettings,
   type DesktopSettingsPatch,
   type ObsInputsResponse,

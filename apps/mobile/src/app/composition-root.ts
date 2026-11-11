@@ -65,6 +65,8 @@ export interface DesktopServices {
   boards: BoardStore;
   /** Runs a voice, captions or OBS action on the desktop. */
   executeAction(action: Action): Promise<ExecuteActionResult>;
+  /** Tells the desktop whether someone is typing something to say (never what); failures are ignored. */
+  reportComposing(composing: boolean): void;
   obs: ObsServices;
   listDevices(): Promise<AudioDevice[]>;
   loadSettings(): Promise<DesktopSettings>;
@@ -118,6 +120,7 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
     synthesizer: new RemoteSpeechSynthesizer(api, events),
     boards: createRemoteBoardStore(api, events),
     executeAction: (action) => api.executeAction(action),
+    reportComposing: (composing) => void api.setComposing(composing).catch(() => {}),
     obs: {
       loadStatus: () => api.loadObsStatus(),
       listScenes: () => api.listObsScenes(),

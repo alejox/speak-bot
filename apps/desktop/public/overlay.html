@@ -11,6 +11,8 @@
         hold      ms the caption stays after speech ends (default 4000)
         color     text color (default #ffffff)
         bg        caption box background (default rgba(0, 0, 0, 0.6))
+        typing    0 hides the "typing" sign shown while someone writes what to say (default on)
+        lang      es | en, the language of the typing sign (default es)
       Example: /overlay?size=56&position=top&hold=6000&color=%23ffeb3b
     -->
     <style>
@@ -40,7 +42,17 @@
       body.position-center {
         align-items: center;
       }
-      #caption {
+      /* The caption and the typing sign share one place: only one of them shows at a time. */
+      #stage {
+        display: grid;
+        justify-items: center;
+        align-items: end;
+      }
+      #stage > * {
+        grid-area: 1 / 1;
+      }
+      #caption,
+      #typing {
         max-width: 90vw;
         padding: 0.3em 0.6em;
         border-radius: 0.3em;
@@ -56,18 +68,50 @@
         opacity: 0;
         transition: opacity 400ms ease;
       }
-      #caption.visible {
+      #caption.visible,
+      #typing.visible {
         opacity: 1;
+      }
+      /* Three dots that light up one after another. */
+      #typing .dot {
+        animation: typing-dot 1.2s infinite both;
+      }
+      #typing .dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      #typing .dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      @keyframes typing-dot {
+        0%,
+        60%,
+        100% {
+          opacity: 0.25;
+        }
+        30% {
+          opacity: 1;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #typing .dot {
+          animation: none;
+        }
       }
     </style>
   </head>
   <body>
-    <div id="caption" role="status" aria-live="polite"></div>
+    <div id="stage">
+      <div id="caption" role="status" aria-live="polite"></div>
+      <div id="typing" aria-hidden="true">
+        <span id="typing-label"></span><span class="dots"><span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></span>
+      </div>
+    </div>
     <script>
       (function () {
         "use strict";
         var params = new URLSearchParams(window.location.search);
         var caption = document.getElementById("caption");
+        var typing = document.getElementById("typing");
 
         function numberParam(name, fallback, min, max) {
           var value = Number(params.get(name));
@@ -80,33 +124,60 @@
         var color = params.get("color");
         var bg = params.get("bg");
 
+        // The typing sign: on unless typing=0, in Spanish unless lang=en. Only a flag arrives, never the text.
+        var typingEnabled = params.get("typing") !== "0";
+        document.getElementById("typing-label").textContent = params.get("lang") === "en" ? "Typing" : "Escribiendo";
+        var composing = false;
+
         caption.style.setProperty("--caption-size", size + "px");
+        typing.style.setProperty("--caption-size", size + "px");
         // Custom properties accept almost any value (even url(...)), so only real colors are applied.
         function isColor(value) {
           return typeof CSS !== "undefined" && CSS.supports("color", value);
         }
-        if (color && isColor(color)) caption.style.setProperty("--caption-color", color);
-        if (bg && isColor(bg)) caption.style.setProperty("--caption-bg", bg);
+        if (color && isColor(color)) {
+          caption.style.setProperty("--caption-color", color);
+          typing.style.setProperty("--caption-color", color);
+        }
+        if (bg && isColor(bg)) {
+          caption.style.setProperty("--caption-bg", bg);
+          typing.style.setProperty("--caption-bg", bg);
+        }
         if (position === "top" || position === "center") document.body.classList.add("position-" + position);
 
         var hideTimer = null;
         // Turned off from the app ("Hide captions"); while off, captions are ignored.
         var captionsVisible = true;
 
+        // The typing sign takes the caption's place only while no caption shows.
+        function showTyping() {
+          var show = typingEnabled && composing && captionsVisible && !caption.classList.contains("visible");
+          if (show) typing.classList.add("visible");
+          else typing.classList.remove("visible");
+        }
+
+        function setComposing(value) {
+          composing = value;
+          showTyping();
+        }
+
         function hideNow() {
           clearTimeout(hideTimer);
           caption.classList.remove("visible");
+          showTyping();
         }
 
         function setCaptionsVisible(visible) {
           captionsVisible = visible;
           if (!visible) hideNow();
+          else showTyping();
         }
 
         function scheduleHide() {
           clearTimeout(hideTimer);
           hideTimer = setTimeout(function () {
             caption.classList.remove("visible");
+            showTyping();
           }, hold);
         }
 
@@ -116,11 +187,14 @@
             hideNow();
           } else if (event.type === "captions-visibility" && typeof event.visible === "boolean") {
             setCaptionsVisible(event.visible);
+          } else if (event.type === "composing" && typeof event.composing === "boolean") {
+            setComposing(event.composing);
           } else if (!captionsVisible) {
             return;
           } else if (event.type === "caption" && typeof event.text === "string") {
             caption.textContent = event.text;
             caption.classList.add("visible");
+            showTyping();
             // Fallback in case the "end" event never arrives.
             scheduleHide();
           } else if (event.type === "speaking" && event.state === "start") {
@@ -156,6 +230,8 @@
             }
           };
           socket.onclose = function () {
+            // Whether someone is still typing is unknown until the desktop says so again.
+            setComposing(false);
             setTimeout(connect, retryDelay);
             retryDelay = Math.min(retryDelay * 2, 10000);
           };

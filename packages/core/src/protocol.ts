@@ -90,8 +90,22 @@ export interface SettingsChangedEvent {
   readonly at: number;
 }
 
+/**
+ * Someone is typing something to say (PUT /api/composing), so the overlay can show a typing sign.
+ * A flag only: the text being typed never leaves the device before it is spoken.
+ */
+export interface ComposingEvent {
+  readonly type: "composing";
+  readonly composing: boolean;
+  readonly at: number;
+}
+
+/** The desktop turns the composing flag off by itself this long after the last PUT /api/composing. */
+export const COMPOSING_TIMEOUT_MS = 10_000;
+
 export type ServerEvent =
   | SettingsChangedEvent
+  | ComposingEvent
   | CaptionEvent
   | SpeakingEvent
   | BoardsChangedEvent
@@ -118,6 +132,8 @@ export function isServerEvent(value: unknown): value is ServerEvent {
       return true;
     case "captions-visibility":
       return typeof event.visible === "boolean";
+    case "composing":
+      return typeof event.composing === "boolean";
     case "obs-status":
       return typeof event.status === "string" && (event.code === undefined || typeof event.code === "string");
     case "obs-state":
@@ -231,6 +247,14 @@ export interface SpeakRequest {
   voiceId?: string;
   /** Speaking rate multiplier, 1 is normal speed. */
   rate?: number;
+}
+
+/**
+ * PUT /api/composing → 200 `{ ok: true }`. True while text is being typed to speak on the desktop; send it
+ * again within `COMPOSING_TIMEOUT_MS` to keep it on. Only the flag is read: never send the text.
+ */
+export interface ComposingRequest {
+  composing: boolean;
 }
 
 /** GET /api/voices */

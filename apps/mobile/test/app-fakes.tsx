@@ -203,6 +203,8 @@ export function desktopRoute(state: DesktopState) {
       }
       case "POST /api/speak":
         return { status: 202, body: { ok: true } };
+      case "PUT /api/composing":
+        return { body: { ok: true } };
       case "POST /api/stop":
         return { body: { ok: true } };
       case "POST /api/actions/execute": {

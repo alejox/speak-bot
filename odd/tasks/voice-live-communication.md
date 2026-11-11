@@ -1,0 +1,28 @@
+# Voice: live communication
+
+## Objective
+Make the Voice module work better for people who cannot speak, on a stream and in daily life: the audience sees that an answer is being typed, the commonest answers are always in the same place, and typed sentences are said one after another instead of cutting each other off.
+
+## Problem / why
+User-approved tasks (2026-11-11). While the person types, the audience sees silence. Short answers ("yes", "no") move with the page and the board. A sentence typed while another is still being said cuts it off.
+
+## Tasks
+- [x] V1 — "Typing…" indicator on the stream overlay. Route: delegated (one writer; core protocol, desktop API and overlay, mobile composer). Clients only listen on the WebSocket (`EventHub` ignores incoming messages), so the flag goes over HTTP: `PUT /api/composing {composing}` → `composing` event (boolean only), broadcast on changes, expiring on the desktop after `COMPOSING_TIMEOUT_MS` (10 s) without a refresh and turned off when an utterance starts. Mobile: `useComposingSignal` inside `Composer`, fed by `target.reportComposing` (null unless the computer speaks, so phone-only sends nothing): on when the text becomes non-empty, off when it is emptied (also by the clear button), spoken, the composer unmounts or after 8 s idle. Interpretation: "state changes only" would let the desktop expire the flag after 10 s of continuous typing, so while keystrokes go on the client also re-sends `true` at most every 5 s. Overlay: `#typing` ("Escribiendo" / "Typing" plus three animated dots) shares the caption's place and style, shows only while composing, captions are on and no caption shows; `typing=0` hides it; no overlay language mechanism existed, so `lang` (default es) picks the text. RED: desktop 9 failing (API 3, executor expiry 3, overlay script 3), mobile `composing-signal.test.tsx` failing to load; GREEN: core 156, desktop 170, mobile 328. Manual: the look of the sign and its dots in a real OBS Browser Source.
+- [ ] V2 — Quick phrases strip (Yes / No / Wait / Thanks), always in the same place above the keys of every Voice board and page. Route: delegated (same writer).
+- [ ] V3 — Queue mode for typed text; keys, quick phrases, recent phrases and repeat keep interrupting; Stop clears the queue. Route: delegated (same writer).
+
+## Constraints
+- The text being typed never leaves the device before it is spoken: `composing` carries a boolean only.
+- Phone-only mode (no computer) sends nothing.
+- The grid must still fit without scrolling with the strip in place.
+
+## Acceptance
+- With the computer as speak target, typing in the composer shows "Escribiendo…" / "Typing…" on the overlay until the text is spoken, emptied or left alone; a caption replaces it; `typing=0` hides it.
+- Four quick phrases sit above the keys of every Voice board and page and speak at one tap.
+- Typed sentences are spoken in order; a key, a quick phrase, a recent phrase or repeat interrupts and empties the queue; Stop empties it.
+- `npm run typecheck` and `npm test` pass.
+
+## Known limits
+- The four quick phrases are fixed in this version (not editable).
+
+## Progress

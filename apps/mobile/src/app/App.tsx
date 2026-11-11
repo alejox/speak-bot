@@ -244,6 +244,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
         onSpeak={speakComposerText}
         onStop={speech.stop}
         onSave={() => void saveTextAsKey()}
+        onComposing={target.reportComposing}
       />
       <RecentPhrases phrases={recentPhrases} onSpeak={speech.speak} onClear={clearRecentPhrases} />
     </>

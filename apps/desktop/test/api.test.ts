@@ -293,6 +293,33 @@ describe("desktop HTTP API", () => {
     expect(events[2]).toMatchObject({ type: "speak-error", code: "engine-unavailable" });
     client.close();
   });
+
+  it("tells the overlay that someone is typing, as a flag only, and only when it changes", async () => {
+    const client = await connect();
+    expect((await post("/api/composing", { composing: true, text: "secret draft" }, "PUT")).status).toBe(200);
+    expect((await post("/api/composing", { composing: true }, "PUT")).status).toBe(200);
+    expect((await post("/api/composing", { composing: false }, "PUT")).status).toBe(200);
+    expect(await client.next(2)).toEqual([
+      { type: "composing", composing: true, at: 1000 },
+      { type: "composing", composing: false, at: 1000 },
+    ]);
+    expect(JSON.stringify(client.events)).not.toContain("secret");
+    client.close();
+  });
+
+  it("stops the typing sign when an utterance starts", async () => {
+    const client = await connect();
+    await post("/api/composing", { composing: true }, "PUT");
+    await post("/api/speak", { text: "Hola" });
+    expect((await client.next(4)).map((event) => event.type)).toEqual(["composing", "composing", "caption", "speaking"]);
+    expect(client.events[1]).toEqual({ type: "composing", composing: false, at: 1000 });
+    client.close();
+  });
+
+  it("rejects a composing request without a boolean", async () => {
+    expect((await post("/api/composing", { composing: "yes" }, "PUT")).status).toBe(400);
+    expect((await post("/api/composing", {}, "PUT")).status).toBe(400);
+  });
 });
 
 // Keep SpeakOptions referenced so the fake stays aligned with the core port.

@@ -1,4 +1,5 @@
 import {
+  COMPOSING_TIMEOUT_MS,
   ObsUnavailableError,
   pickVoiceForLanguage,
   voiceLanguageOf,
@@ -66,6 +67,22 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
   // Listing system voices spawns a process, so a non-empty list is kept for the server's lifetime.
   let cachedVoices: Promise<Voice[]> | undefined;
 
+  // Someone is typing something to say; turned off here when the client stops refreshing it.
+  let composingTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** Notes whether someone is typing (never what); clients hear about it only when it changes. */
+  function setComposing(composing: boolean): void {
+    const wasComposing = composingTimer !== undefined;
+    clearTimeout(composingTimer);
+    composingTimer = undefined;
+    if (composing) {
+      composingTimer = setTimeout(() => setComposing(false), COMPOSING_TIMEOUT_MS);
+      // The flag must not keep the process alive.
+      composingTimer.unref?.();
+    }
+    if (composing !== wasComposing) broadcast({ type: "composing", composing, at: now() });
+  }
+
   const listVoices = (): Promise<Voice[]> => {
     cachedVoices ??= synthesizer.listVoices().then((voices) => {
       if (voices.length === 0) cachedVoices = undefined;
@@ -93,6 +110,8 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
     const options = await speakOptions(overrides);
     const current = ++speechRequest;
     lastSpokenText = text;
+    // What was being typed is being said now.
+    setComposing(false);
     broadcast({ type: "caption", text, at: now() });
     broadcast({ type: "speaking", state: "start", at: now() });
     synthesizer
@@ -181,7 +200,7 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
     }
   }
 
-  return { speak, stop, repeat, clearCaption, execute, listVoices };
+  return { speak, stop, repeat, clearCaption, setComposing, execute, listVoices };
 }
 
 export type ActionExecutor = ReturnType<typeof createActionExecutor>;

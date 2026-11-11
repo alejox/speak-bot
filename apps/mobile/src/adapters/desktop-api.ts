@@ -125,6 +125,11 @@ export class DesktopApiClient {
     await this.request("POST", "/api/speak", request);
   }
 
+  /** Tells the desktop whether someone is typing something to say: a flag for the overlay, never the text. */
+  async setComposing(composing: boolean): Promise<void> {
+    await this.request("PUT", "/api/composing", { composing });
+  }
+
   async stop(): Promise<void> {
     await this.request("POST", "/api/stop", {});
   }

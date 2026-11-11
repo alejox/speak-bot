@@ -1,5 +1,6 @@
 import { BookmarkPlus, Square, Volume2, X } from "lucide-react";
 import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, type KeyboardEvent } from "react";
+import { useComposingSignal } from "../app/use-composing-signal";
 import { useT } from "../i18n/I18nProvider";
 
 const ICON_SIZE = 20;
@@ -11,6 +12,8 @@ interface ComposerProps {
   onSpeak: () => void;
   onStop: () => void;
   onSave: () => void;
+  /** Told whether someone is typing (never what), where the computer speaks and its overlay shows it. */
+  onComposing?: ((composing: boolean) => void) | null;
 }
 
 export interface ComposerHandle {
@@ -22,9 +25,18 @@ export interface ComposerHandle {
  * scrolls from there) with a button to empty it while it holds text, the Speak action, and Stop and Save
  * on one row.
  */
-export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer({ text, isSpeaking, onTextChange, onSpeak, onStop, onSave }, ref) {
+export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer({ text, isSpeaking, onTextChange, onSpeak, onStop, onSave, onComposing }, ref) {
   const t = useT();
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const composing = useComposingSignal(onComposing);
+  const changeText = (next: string) => {
+    onTextChange(next);
+    composing.typed(next);
+  };
+  const speak = () => {
+    onSpeak();
+    composing.sent();
+  };
   useImperativeHandle(ref, () => ({ focusText: () => textarea.current?.focus() }), []);
 
   // Grow with the content: the height follows the text, between the CSS minimum and maximum.
@@ -40,7 +52,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     // Enter speaks, Shift+Enter inserts a new line. Ignore Enter while an IME is composing.
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
-      onSpeak();
+      speak();
     }
   };
 
@@ -58,7 +70,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           rows={2}
           placeholder={t("composer.placeholder")}
           enterKeyHint="send"
-          onChange={(event) => onTextChange(event.target.value)}
+          onChange={(event) => changeText(event.target.value)}
           onKeyDown={handleKeyDown}
         />
         {text !== "" && (
@@ -69,7 +81,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             aria-label={t("composer.clear")}
             title={t("composer.clear")}
             onClick={() => {
-              onTextChange("");
+              changeText("");
               textarea.current?.focus();
             }}
           >
@@ -77,7 +89,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           </button>
         )}
       </div>
-      <button type="button" className="button button-primary composer-speak" onClick={onSpeak}>
+      <button type="button" className="button button-primary composer-speak" onClick={speak}>
         <Volume2 size={ICON_SIZE + 4} aria-hidden="true" focusable="false" />
         {t("composer.speak")}
       </button>

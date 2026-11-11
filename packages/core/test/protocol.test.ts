@@ -23,6 +23,8 @@ describe("isServerEvent", () => {
       { type: "caption-clear", at: 8 },
       { type: "captions-visibility", visible: false, at: 9 },
       { type: "captions-visibility", visible: true, at: 10 },
+      { type: "composing", composing: true, at: 10 },
+      { type: "composing", composing: false, at: 10 },
       { type: "obs-status", status: "connected", at: 11 },
       { type: "obs-status", status: "error", code: "connection-lost", at: 12 },
       { type: "obs-state", state: { currentScene: "Main", mutedInputs: ["Mic"], streaming: true, recording: false }, at: 13 },

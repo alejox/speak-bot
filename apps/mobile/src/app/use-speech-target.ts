@@ -40,6 +40,8 @@ export interface SpeechTarget {
   boards: BoardStore;
   /** Runs voice, captions and OBS actions on the desktop; null when speaking on this device. */
   executeAction: ((action: Action) => Promise<ExecuteActionResult>) | null;
+  /** Tells the desktop whether someone is typing something to say; null when speaking on this device. */
+  reportComposing: ((composing: boolean) => void) | null;
   /** OBS through the desktop; null when speaking on this device. */
   obs: ObsServices | null;
   /** The desktop started or stopped speaking (from any device); never fires on this device. */
@@ -201,6 +203,7 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
     synthesizer,
     boards: remote?.boards ?? services.boards,
     executeAction: remote ? remote.executeAction : null,
+    reportComposing: remote ? remote.reportComposing : null,
     obs: remote ? remote.obs : null,
     onSpeechEvent: remote ? remote.onSpeechEvent : noSubscription,
     settings,

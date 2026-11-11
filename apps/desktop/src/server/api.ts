@@ -230,6 +230,17 @@ export function createApiHandler(deps: ApiDependencies) {
       },
     },
     {
+      /** Someone started or stopped typing something to say: a flag for the overlay, never the text. */
+      method: "PUT",
+      path: "/api/composing",
+      handler: async (request, response) => {
+        const { composing } = asObject(await readJsonBody(request));
+        if (typeof composing !== "boolean") throw new HttpError(400, "composing must be a boolean.");
+        executor.setComposing(composing);
+        sendJson(response, 200, { ok: true });
+      },
+    },
+    {
       /** Says the last spoken text again with the saved settings. */
       method: "POST",
       path: "/api/repeat",
