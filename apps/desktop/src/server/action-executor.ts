@@ -229,6 +229,8 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
       case "nav.prevPage":
       case "nav.goToPage":
       case "nav.goToBoard":
+      case "nav.openFolder":
+      case "nav.folderBack":
       // A volume key is a slider: the client sets the volume through the OBS volume route, not by pressing it.
       case "obs.inputVolume":
         throw new ClientActionError(action.type);
@@ -250,6 +252,8 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
       case "system.openApp":
         await openApplication(action.appId);
         return { status: 200, body: { ok: true } };
+      case "system.multiAction":
+        throw new Error("Multi-actions are not supported yet.");
     }
   }
 

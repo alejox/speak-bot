@@ -1,4 +1,4 @@
-import { ACTION_REGISTRY, InvalidBoardError, MAX_BOARD_ID_LENGTH, parseAction, type Action, type ActionCategory, type ActionType } from "./actions";
+import { ACTION_REGISTRY, actionsOf, InvalidBoardError, MAX_BOARD_ID_LENGTH, parseAction, type Action, type ActionCategory, type ActionType } from "./actions";
 
 /** Keys per row and rows per page of a board until the user picks another grid. */
 export const BOARD_COLUMNS = 5;
@@ -28,6 +28,12 @@ export const MAX_BOARDS = 50;
  * every one of them in two, and a split must never cost the user a key.
  */
 export const MAX_STORED_BOARDS = MAX_BOARDS * 2;
+/** Folders inside folders: a folder of a board is 1 deep, a folder inside it 2, and so on up to this. */
+export const MAX_FOLDER_DEPTH = 3;
+/** The slot of a folder's fixed Back key. */
+export const FOLDER_BACK_SLOT = 0;
+/** The Back key every folder holds on `FOLDER_BACK_SLOT`; it cannot be changed, moved or removed. */
+export const FOLDER_BACK_KEY: Key = { slot: FOLDER_BACK_SLOT, action: { type: "nav.folderBack" } };
 
 /** What a board is for: "voice" speaks for its user (and shows its captions), "deck" controls the computer (OBS). */
 export const BOARD_KINDS = ["voice", "deck"] as const;
@@ -78,6 +84,17 @@ export function assertActionAllowedOnBoard(kind: BoardKind, actionType: ActionTy
   if (!isActionAllowedOnBoard(kind, actionType)) throw new InvalidBoardError(`A ${kind} board cannot hold the action ${actionType}.`);
 }
 
+/** Whether a key running `action` may sit on a board of `kind`: the action and, for a multi-action, every step. */
+export function isKeyActionAllowedOnBoard(kind: BoardKind, action: Action): boolean {
+  return isActionAllowedOnBoard(kind, action.type) && actionsOf(action).every((step) => isActionAllowedOnBoard(kind, step.type));
+}
+
+/** Throws `InvalidBoardError` when a board of `kind` may not hold a key running `action` (see `isKeyActionAllowedOnBoard`). */
+export function assertKeyActionAllowedOnBoard(kind: BoardKind, action: Action): void {
+  assertActionAllowedOnBoard(kind, action.type);
+  for (const step of actionsOf(action)) assertActionAllowedOnBoard(kind, step.type);
+}
+
 /** Icon ids a key may show; the clients draw them. */
 export const KEY_ICON_IDS = [
   "message",
@@ -110,6 +127,7 @@ export const KEY_ICON_IDS = [
   "clock",
   "bell",
   "music",
+  "folder",
 ] as const;
 export type KeyIconId = (typeof KEY_ICON_IDS)[number];
 
@@ -194,6 +212,11 @@ export interface Board {
   readonly id: string;
   readonly name: string;
   readonly kind: BoardKind;
+  /**
+   * Set on a folder: the board whose folder key opens it. A folder has its parent's kind and grid, is never
+   * listed with the other boards, and holds the fixed `FOLDER_BACK_KEY` on slot 0. Absent on every other board.
+   */
+  readonly parentId?: string;
   readonly columns: number;
   readonly rows: number;
   readonly keys: readonly Key[];
@@ -368,13 +391,40 @@ export function parseBoardId(id: unknown): string {
 
 /**
  * A validated board of `kind` and `grid` with its keys in slot order. Rejects a key whose action the
- * kind does not allow.
+ * kind does not allow. With `parentId` it is a folder: its keys must hold `FOLDER_BACK_KEY` on slot 0
+ * (see `makeFolderBoard`); no other board may hold a Back key.
  */
-export function makeBoard(id: string, name: string, kind: BoardKind, keys: readonly Key[] = [], grid: BoardGrid = DEFAULT_BOARD_GRID): Board {
+export function makeBoard(
+  id: string,
+  name: string,
+  kind: BoardKind,
+  keys: readonly Key[] = [],
+  grid: BoardGrid = DEFAULT_BOARD_GRID,
+  parentId?: string,
+): Board {
   const parsedKind = parseBoardKind(kind);
   const { columns, rows } = parseBoardGrid(grid, parsedKind);
-  for (const key of keys) assertActionAllowedOnBoard(parsedKind, key.action.type);
-  return { id: parseBoardId(id), name: parseBoardName(name), kind: parsedKind, columns, rows, keys: sortKeys(keys) };
+  for (const key of keys) assertKeyActionAllowedOnBoard(parsedKind, key.action);
+  const isFolder = parentId !== undefined;
+  for (const key of keys) {
+    const isBack = key.action.type === "nav.folderBack";
+    if (isBack && (!isFolder || key.slot !== FOLDER_BACK_SLOT)) throw new InvalidBoardError("Only slot 0 of a folder holds a Back key.");
+    if (isFolder && key.slot === FOLDER_BACK_SLOT && !isBack) throw new InvalidBoardError("Slot 0 of a folder holds its Back key.");
+  }
+  if (isFolder && !keys.some((key) => key.slot === FOLDER_BACK_SLOT)) throw new InvalidBoardError("A folder needs its Back key on slot 0.");
+  const base = { id: parseBoardId(id), name: parseBoardName(name), kind: parsedKind };
+  const parent = isFolder ? { parentId: parseBoardId(parentId) } : {};
+  return { ...base, ...parent, columns, rows, keys: sortKeys(keys) };
+}
+
+/** An empty folder of `parent`: its kind and grid, with only the Back key. */
+export function makeFolderBoard(id: string, name: string, parent: Board): Board {
+  return makeBoard(id, name, parent.kind, [FOLDER_BACK_KEY], parent, parent.id);
+}
+
+/** Whether `board` is a folder (see `Board.parentId`). */
+export function isFolderBoard(board: Board): boolean {
+  return board.parentId !== undefined;
 }
 
 export function sortKeys(keys: readonly Key[]): Key[] {
@@ -386,6 +436,7 @@ interface StoredBoard {
   readonly id: string;
   readonly name: string;
   readonly kind: BoardKind | undefined;
+  readonly parentId: string | undefined;
   /** The stored grid as read; checked against the board's kind once that is known. */
   readonly grid: { readonly columns: unknown; readonly rows: unknown };
   readonly keys: readonly Key[];
@@ -428,7 +479,25 @@ export function readStoredBoards(value: unknown): Board[] {
     if (boards.length + read.length > MAX_STORED_BOARDS) break;
     boards.push(...read);
   }
-  return boards;
+  return withValidFolders(boards);
+}
+
+/**
+ * `boards` without the folders that cannot be reached: a folder whose parent is missing or of another
+ * kind, one too deep (see `MAX_FOLDER_DEPTH`) or in a loop of parents, and every folder inside those.
+ */
+function withValidFolders(boards: readonly Board[]): Board[] {
+  const byId = new Map(boards.map((board) => [board.id, board]));
+  const depthOf = (board: Board): number | null => {
+    let depth = 0;
+    for (let current = board; current.parentId !== undefined; depth += 1) {
+      const parent = byId.get(current.parentId);
+      if (!parent || parent.kind !== current.kind || depth >= MAX_FOLDER_DEPTH) return null;
+      current = parent;
+    }
+    return depth;
+  };
+  return boards.filter((board) => depthOf(board) !== null);
 }
 
 /** How the board split out of a board of the other kind is told apart from it. */
@@ -448,6 +517,7 @@ const SPLIT_SUFFIXES: Readonly<Record<BoardKind, { readonly id: string; readonly
  * `takenIds` holds every board id in use; the id of a new board is added to it.
  */
 function boardsOfStoredBoard(board: StoredBoard, gridOf: (kind: BoardKind) => BoardGrid, takenIds: Set<string>): Board[] {
+  if (board.parentId !== undefined) return board.kind ? [makeStoredFolder(board, board.kind, gridOf(board.kind), board.parentId)] : [];
   const kind = storedKindOf(board);
   const moved = board.keys.filter((key) => !isActionReadOnBoard(kind, key.action.type));
   if (moved.length === 0) return [makeStoredBoard(board.id, board.name, kind, board.keys, gridOf(kind))];
@@ -461,6 +531,17 @@ function boardsOfStoredBoard(board: StoredBoard, gridOf: (kind: BoardKind) => Bo
   return [makeStoredBoard(board.id, board.name, kind, kept, gridOf(kind)), makeBoard(splitId, splitName, otherKind, moved, gridOf(otherKind))];
 }
 
+/**
+ * A stored folder as it must be: keys its kind allows, the Back key on slot 0 and nowhere else. Folders
+ * are never split (they never existed before board kinds), so a key its kind refuses is dropped.
+ */
+function makeStoredFolder(board: StoredBoard, kind: BoardKind, grid: BoardGrid, parentId: string): Board {
+  const keys = board.keys.filter(
+    (key) => key.slot !== FOLDER_BACK_SLOT && key.action.type !== "nav.folderBack" && isKeyActionAllowedOnBoard(kind, key.action),
+  );
+  return makeBoard(board.id, board.name, kind, [FOLDER_BACK_KEY, ...keys], grid, parentId);
+}
+
 /** The kind a stored board is read as: its own, or the one its keys give a board stored before boards had one. */
 function storedKindOf(board: StoredBoard): BoardKind {
   return board.kind ?? kindOfLegacyKeys(board.keys);
@@ -468,9 +549,11 @@ function storedKindOf(board: StoredBoard): BoardKind {
 
 /** Like `makeBoard`, but also keeps the keys a kind only reads from storage (see `STORED_ONLY_CATEGORIES`). */
 function makeStoredBoard(id: string, name: string, kind: BoardKind, keys: readonly Key[], grid: BoardGrid): Board {
-  const allowed = keys.filter((key) => isActionAllowedOnBoard(kind, key.action.type));
+  // A Back key belongs to folders only.
+  const kept = keys.filter((key) => key.action.type !== "nav.folderBack");
+  const allowed = kept.filter((key) => isKeyActionAllowedOnBoard(kind, key.action));
   const board = makeBoard(id, name, kind, allowed, grid);
-  return allowed.length === keys.length ? board : { ...board, keys: sortKeys(keys) };
+  return allowed.length === kept.length ? board : { ...board, keys: sortKeys(kept) };
 }
 
 function kindOfLegacyKeys(keys: readonly Key[]): BoardKind {
@@ -499,7 +582,7 @@ function truncate(text: string, maxLength: number): string {
 
 function readStoredBoard(value: unknown): StoredBoard | null {
   if (typeof value !== "object" || value === null) return null;
-  const { id, name, kind, columns, rows, keys } = value as Record<string, unknown>;
+  const { id, name, kind, parentId, columns, rows, keys } = value as Record<string, unknown>;
   try {
     const slots = new Set<number>();
     const valid: Key[] = [];
@@ -510,7 +593,14 @@ function readStoredBoard(value: unknown): StoredBoard | null {
         valid.push(key);
       }
     }
-    return { id: parseBoardId(id), name: parseBoardName(name), kind: isBoardKind(kind) ? kind : undefined, grid: { columns, rows }, keys: valid };
+    return {
+      id: parseBoardId(id),
+      name: parseBoardName(name),
+      kind: isBoardKind(kind) ? kind : undefined,
+      parentId: parentId === undefined ? undefined : parseBoardId(parentId),
+      grid: { columns, rows },
+      keys: valid,
+    };
   } catch {
     return null;
   }

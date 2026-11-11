@@ -1,5 +1,5 @@
 import type { ActionOf } from "./actions";
-import { isHexColor, keysPerPage, type Board, type Key } from "./board";
+import { isFolderBoard, isHexColor, keysPerPage, type Board, type Key } from "./board";
 
 /** Where a client is: which board and which page (0-based) it shows. Every client keeps its own. */
 export interface BoardPosition {
@@ -7,7 +7,7 @@ export interface BoardPosition {
   readonly page: number;
 }
 
-export type NavigationAction = ActionOf<"nav.nextPage" | "nav.prevPage" | "nav.goToPage" | "nav.goToBoard">;
+export type NavigationAction = ActionOf<"nav.nextPage" | "nav.prevPage" | "nav.goToPage" | "nav.goToBoard" | "nav.openFolder" | "nav.folderBack">;
 
 /** Pages needed to show every key of `board`; at least one. */
 export function boardPageCount(board: Board): number {
@@ -24,18 +24,22 @@ export function keysOnPage(board: Board, page: number): (Key | undefined)[] {
 }
 
 /**
- * A position that exists: the saved board when it is still there (otherwise the first board), on a
- * page it has. Null when there is no board at all.
+ * A position that exists: the saved board or folder when it is still there (otherwise the first board
+ * that is not a folder), on a page it has. Null when there is no board at all.
  */
 export function resolveBoardPosition(boards: readonly Board[], position: BoardPosition | null): BoardPosition | null {
-  const board = boards.find((candidate) => candidate.id === position?.boardId) ?? boards[0];
+  const board = boards.find((candidate) => candidate.id === position?.boardId) ?? boards.find((candidate) => !isFolderBoard(candidate)) ?? boards[0];
   if (!board) return null;
   const sameBoard = board.id === position?.boardId;
   const page = sameBoard ? clamp(Math.trunc(position.page) || 0, 0, boardPageCount(board) - 1) : 0;
   return { boardId: board.id, page };
 }
 
-/** Where a navigation key leads. Next and previous wrap around; a missing board leaves the position as it is. */
+/**
+ * Where a navigation key leads. Next and previous wrap around; a missing board or folder leaves the position
+ * as it is. A folder opens on its first page; Back leads to the first page of the board the folder is in
+ * (clients that remember where a folder was opened from go back to that page instead).
+ */
 export function navigateBoard(boards: readonly Board[], position: BoardPosition, action: NavigationAction): BoardPosition {
   const board = boards.find((candidate) => candidate.id === position.boardId);
   if (!board) return resolveBoardPosition(boards, position) ?? position;
@@ -49,6 +53,10 @@ export function navigateBoard(boards: readonly Board[], position: BoardPosition,
       return { boardId: board.id, page: clamp(action.page - 1, 0, count - 1) };
     case "nav.goToBoard":
       return boards.some((candidate) => candidate.id === action.boardId) ? { boardId: action.boardId, page: 0 } : position;
+    case "nav.openFolder":
+      return boards.some((candidate) => candidate.id === action.folderId) ? { boardId: action.folderId, page: 0 } : position;
+    case "nav.folderBack":
+      return board.parentId !== undefined && boards.some((candidate) => candidate.id === board.parentId) ? { boardId: board.parentId, page: 0 } : position;
   }
 }
 

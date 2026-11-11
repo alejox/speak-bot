@@ -24,7 +24,7 @@ export function ActionPicker({ boardKind, query, onQueryChange, focusType, onPic
   const matches = (type: ActionType) =>
     needle === "" || `${name(type)} ${description(type)} ${t(`category.${ACTION_REGISTRY[type].category}`)}`.toLocaleLowerCase().includes(needle);
   const groups = allowedActionCategories(boardKind)
-    .map((category) => ({ category, types: ACTION_TYPES.filter((type) => ACTION_REGISTRY[type].category === category && matches(type)) }))
+    .map((category) => ({ category, types: ACTION_TYPES.filter((type) => ACTION_REGISTRY[type].userSelectable && ACTION_REGISTRY[type].category === category && matches(type)) }))
     .filter((group) => group.types.length > 0);
   const offered = groups.flatMap((group) => group.types);
   const focused = focusType && offered.includes(focusType) ? focusType : offered[0];

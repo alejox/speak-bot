@@ -16,6 +16,7 @@ import {
   Eye,
   EyeOff,
   FileText,
+  Folder,
   Hand,
   Heart,
   Languages,
@@ -65,6 +66,7 @@ const ICONS: Record<KeyIconId, LucideIcon> = {
   clock: Clock,
   bell: Bell,
   music: Music,
+  folder: Folder,
 };
 
 /** A decorative key icon; unknown ids draw nothing. */

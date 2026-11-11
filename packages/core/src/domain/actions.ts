@@ -15,6 +15,19 @@ export const MAX_PAGE_NUMBER = 100;
 /** Longest application id accepted in a `system.openApp` action (a path on the computer). */
 export const MAX_APPLICATION_ID_LENGTH = 1024;
 
+/** Steps a `system.multiAction` holds, at least and at most. */
+export const MIN_MULTI_ACTION_STEPS = 2;
+export const MAX_MULTI_ACTION_STEPS = 10;
+/** Longest wait before one step of a multi-action, in milliseconds. */
+export const MAX_STEP_DELAY_MS = 10_000;
+
+/** One step of a multi-action: wait `delayMs`, then run `action` (never a client action or another multi-action). */
+export interface MultiActionStep {
+  readonly action: Action;
+  /** Milliseconds to wait before the step runs, from 0 to `MAX_STEP_DELAY_MS`. */
+  readonly delayMs: number;
+}
+
 export type Action =
   | { readonly type: "voice.speak"; readonly text: string }
   | { readonly type: "voice.stop" }
@@ -27,6 +40,10 @@ export type Action =
   /** `page` is 1-based, as shown to the user. */
   | { readonly type: "nav.goToPage"; readonly page: number }
   | { readonly type: "nav.goToBoard"; readonly boardId: string }
+  /** Opens a folder: a hidden board inside the board that holds the key (see `Board.parentId`). */
+  | { readonly type: "nav.openFolder"; readonly folderId: string }
+  /** The fixed Back key on slot 0 of every folder; never chosen by the user. */
+  | { readonly type: "nav.folderBack" }
   | { readonly type: "obs.switchScene"; readonly sceneName: string }
   | { readonly type: "obs.toggleMute"; readonly inputName: string }
   | { readonly type: "obs.toggleStream" }
@@ -35,7 +52,9 @@ export type Action =
   /** A slider for the volume of one OBS input; its key may span several cells (see `Key.span`). */
   | { readonly type: "obs.inputVolume"; readonly inputName: string }
   /** `appId` is one of the ids the desktop lists (GET /api/applications); the desktop opens nothing else. */
-  | { readonly type: "system.openApp"; readonly appId: string };
+  | { readonly type: "system.openApp"; readonly appId: string }
+  /** Runs its steps in order on the desktop, waiting before each one as asked. */
+  | { readonly type: "system.multiAction"; readonly steps: readonly MultiActionStep[] };
 
 export type ActionType = Action["type"];
 export type ActionOf<T extends ActionType> = Extract<Action, { type: T }>;
@@ -47,7 +66,7 @@ export const ACTION_CATEGORIES: readonly ActionCategory[] = ["voice", "captions"
  * How an editor should ask for a parameter: free text, a number, or a pick list of OBS scenes, inputs,
  * sources, boards or the computer's applications.
  */
-export type ActionParamKind = "text" | "number" | "scene" | "input" | "source" | "board" | "application";
+export type ActionParamKind = "text" | "number" | "scene" | "input" | "source" | "board" | "application" | "folder";
 
 export interface ActionParamDefinition {
   readonly name: string;
@@ -73,6 +92,8 @@ export interface ActionDefinition {
   readonly requiresObs: boolean;
   /** Its key may span more than one cell (see `Key.span`). */
   readonly canSpan: boolean;
+  /** Offered in the action picker; false for keys the app places itself (a folder's Back key). */
+  readonly userSelectable: boolean;
   /** Icon id used when a key does not choose one (see `KEY_ICON_IDS`). */
   readonly defaultIcon: string;
   /** i18n key of the action name, as the action picker and editor show it. */
@@ -94,7 +115,14 @@ function define(
   type: ActionType,
   category: ActionCategory,
   defaultIcon: string,
-  options: { params?: ActionParamDefinition[]; runsOn?: "client" | "server"; requiresDesktop?: boolean; requiresObs?: boolean; canSpan?: boolean } = {},
+  options: {
+    params?: ActionParamDefinition[];
+    runsOn?: "client" | "server";
+    requiresDesktop?: boolean;
+    requiresObs?: boolean;
+    canSpan?: boolean;
+    userSelectable?: boolean;
+  } = {},
 ): ActionDefinition {
   const requiresObs = options.requiresObs ?? false;
   return {
@@ -105,6 +133,7 @@ function define(
     requiresDesktop: options.requiresDesktop ?? requiresObs,
     requiresObs,
     canSpan: options.canSpan ?? false,
+    userSelectable: options.userSelectable ?? true,
     defaultIcon,
     labelKey: `action.${type}`,
     keyLabelKey: `action.${type}.key`,
@@ -133,6 +162,11 @@ export const ACTION_REGISTRY: { readonly [T in ActionType]: ActionDefinition } =
     runsOn: "client",
     params: [textParam("boardId", "board", MAX_BOARD_ID_LENGTH)],
   }),
+  "nav.openFolder": define("nav.openFolder", "navigation", "folder", {
+    runsOn: "client",
+    params: [textParam("folderId", "folder", MAX_BOARD_ID_LENGTH)],
+  }),
+  "nav.folderBack": define("nav.folderBack", "navigation", "arrow-left", { runsOn: "client", userSelectable: false }),
   "obs.switchScene": define("obs.switchScene", "obs", "scene", { requiresObs: true, params: [sceneParam] }),
   "obs.toggleMute": define("obs.toggleMute", "obs", "mic", { requiresObs: true, params: [inputParam] }),
   "obs.toggleStream": define("obs.toggleStream", "obs", "broadcast", { requiresObs: true }),
@@ -146,6 +180,8 @@ export const ACTION_REGISTRY: { readonly [T in ActionType]: ActionDefinition } =
     requiresDesktop: true,
     params: [textParam("appId", "application", MAX_APPLICATION_ID_LENGTH)],
   }),
+  // Its steps are checked by `parseAction`; they are not parameters an editor shows one field for.
+  "system.multiAction": define("system.multiAction", "system", "clock", { requiresDesktop: true }),
 };
 
 export const ACTION_TYPES = Object.keys(ACTION_REGISTRY) as ActionType[];
@@ -156,6 +192,19 @@ export function isActionType(value: unknown): value is ActionType {
 
 export function actionDefinition(type: ActionType): ActionDefinition {
   return ACTION_REGISTRY[type];
+}
+
+/**
+ * Whether an action of `type` may be a step of a multi-action: anything the desktop runs on a press. Client
+ * actions (navigation, folders), volume sliders (set by dragging, not pressing) and multi-actions are not.
+ */
+export function isMultiActionStepType(type: ActionType): boolean {
+  return ACTION_REGISTRY[type].runsOn === "server" && type !== "obs.inputVolume" && type !== "system.multiAction";
+}
+
+/** Every action `action` runs: itself, or each step of a multi-action. */
+export function actionsOf(action: Action): readonly Action[] {
+  return action.type === "system.multiAction" ? action.steps.map((step) => step.action) : [action];
 }
 
 /** A board, key or action failed validation. */
@@ -177,7 +226,24 @@ export function parseAction(value: unknown): Action {
   const definition = ACTION_REGISTRY[input.type];
   const action: Record<string, unknown> = { type: definition.type };
   for (const param of definition.params) action[param.name] = parseParam(param, input[param.name]);
+  if (definition.type === "system.multiAction") action.steps = parseSteps(input.steps);
   return action as unknown as Action;
+}
+
+function parseSteps(value: unknown): MultiActionStep[] {
+  if (!Array.isArray(value) || value.length < MIN_MULTI_ACTION_STEPS || value.length > MAX_MULTI_ACTION_STEPS) {
+    throw new InvalidBoardError(`action.steps must hold ${MIN_MULTI_ACTION_STEPS} to ${MAX_MULTI_ACTION_STEPS} steps.`);
+  }
+  return value.map((candidate, index) => {
+    if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) throw new InvalidBoardError(`action.steps[${index}] must be an object.`);
+    const { action, delayMs = 0 } = candidate as Record<string, unknown>;
+    if (typeof delayMs !== "number" || !Number.isInteger(delayMs) || delayMs < 0 || delayMs > MAX_STEP_DELAY_MS) {
+      throw new InvalidBoardError(`action.steps[${index}].delayMs must be an integer from 0 to ${MAX_STEP_DELAY_MS}.`);
+    }
+    const parsed = parseAction(action);
+    if (!isMultiActionStepType(parsed.type)) throw new InvalidBoardError(`A multi-action step cannot be ${parsed.type}.`);
+    return { action: parsed, delayMs };
+  });
 }
 
 function parseParam(param: ActionParamDefinition, value: unknown): string | number {

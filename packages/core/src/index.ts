@@ -19,8 +19,14 @@ export {
   ACTION_TYPES,
   actionDefinition,
   InvalidBoardError,
+  actionsOf,
   isActionType,
+  isMultiActionStepType,
   MAX_ACTION_TEXT_LENGTH,
+  MAX_MULTI_ACTION_STEPS,
+  MAX_STEP_DELAY_MS,
+  MIN_MULTI_ACTION_STEPS,
+  type MultiActionStep,
   MAX_APPLICATION_ID_LENGTH,
   MAX_BOARD_ID_LENGTH,
   MAX_OBS_NAME_LENGTH,
@@ -37,6 +43,13 @@ export {
 export {
   allowedActionCategories,
   assertActionAllowedOnBoard,
+  assertKeyActionAllowedOnBoard,
+  FOLDER_BACK_KEY,
+  FOLDER_BACK_SLOT,
+  isFolderBoard,
+  isKeyActionAllowedOnBoard,
+  makeFolderBoard,
+  MAX_FOLDER_DEPTH,
   assertKeySlot,
   BOARD_COLUMNS,
   BOARD_GRID_RANGES,
@@ -87,6 +100,7 @@ export {
   type KeySpan,
 } from "./domain/board";
 export { BoardGridFullError, reflowBoard } from "./domain/board-grid";
+export { folderDepth, folderIdsOpenedBy, folderPath, visibleBoards, withoutUnreferencedFolders } from "./domain/folders";
 export { cellOwners, coveredSlots, firstFreeSlotOnPage, NoRoomForKeyError, withKeySpan } from "./domain/key-span";
 export { faderPositionToMultiplier, multiplierToFaderPosition } from "./domain/obs-volume";
 export {
@@ -153,6 +167,7 @@ export {
 export {
   clearKey,
   createBoard,
+  createFolder,
   deleteBoard,
   initializeBoards,
   listBoards,

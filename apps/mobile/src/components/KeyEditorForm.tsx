@@ -153,7 +153,7 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
             {keptType && <option value={keptType}>{t(ACTION_REGISTRY[keptType].labelKey as MessageKey)}</option>}
             {offeredCategories.map((category) => (
               <optgroup key={category} label={t(`category.${category}`)}>
-                {ACTION_TYPES.filter((type) => ACTION_REGISTRY[type].category === category).map((type) => (
+                {ACTION_TYPES.filter((type) => ACTION_REGISTRY[type].userSelectable && ACTION_REGISTRY[type].category === category).map((type) => (
                   <option key={type} value={type}>
                     {t(ACTION_REGISTRY[type].labelKey as MessageKey)}
                   </option>
