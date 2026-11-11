@@ -35,6 +35,8 @@ export function useBoards(store: BoardStore, language: UiLanguage, report: (mess
 
   useEffect(() => {
     let active = true;
+    // Never keep another store's boards on screen, even if this one fails to load.
+    setBoards([]);
     setIsLoaded(false);
     const load = async () => {
       const loaded = await store.list();

@@ -16,7 +16,7 @@ import {
   type Voice,
   type Application,
 } from "@speed-deck/core";
-import type { BoardStore } from "../adapters/board-stores";
+import { pendingBoardStore, type BoardStore } from "../adapters/board-stores";
 import { useCallback, useEffect, useState } from "react";
 import type { SpeechSettings } from "../adapters/local-storage-settings-store";
 import type { SpeakTarget } from "../adapters/local-storage-speak-target-store";
@@ -24,14 +24,13 @@ import type { AppSpeechSynthesizer } from "../adapters/web-speech-synthesizer";
 import type { MessageKey } from "../i18n/messages";
 import type { AppServices, ExecuteActionResult, ObsServices } from "./composition-root";
 
-/** Whether a desktop server answered: still asking, found, or not there. */
-
 /** How long each look for the desktop waits for its answer, attempt by attempt (the last one repeats). */
 const DETECT_TIMEOUTS_MS = [1500, 3000, 5000];
 /** The pause before each new look after one that found nothing. */
 const DETECT_RETRY_DELAYS_MS = [300, 1000, 2000, 4000];
 /** Looks before giving up until the page comes back online or into view. */
 const DETECT_ATTEMPTS = 6;
+/** Whether a desktop server answered: still asking, found, or not there. */
 export type DesktopDetection = "pending" | "found" | "missing";
 
 export interface SpeechTargetOptions {
@@ -122,17 +121,22 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
       if (!active || found || searching) return;
       searching = true;
       const timeoutMs = DETECT_TIMEOUTS_MS[Math.min(attempt, DETECT_TIMEOUTS_MS.length - 1)];
-      void desktop.detect(timeoutMs).then((detected) => {
+      void desktop.probe(timeoutMs).then((result) => {
         searching = false;
         if (!active) return;
-        setIsDetected(true);
-        if (detected) {
+        if (result.kind === "found") {
           found = true;
-          setCapabilities(detected);
+          setCapabilities(result.capabilities);
+          setIsDetected(true);
           return;
         }
         attempt += 1;
-        if (attempt < DETECT_ATTEMPTS) retry = setTimeout(search, DETECT_RETRY_DELAYS_MS[Math.min(attempt - 1, DETECT_RETRY_DELAYS_MS.length - 1)]);
+        // Only a sure "not the desktop" or the last missed answer gives up; until then the phone keeps waiting.
+        if (result.kind === "unreachable" && attempt < DETECT_ATTEMPTS) {
+          retry = setTimeout(search, DETECT_RETRY_DELAYS_MS[Math.min(attempt - 1, DETECT_RETRY_DELAYS_MS.length - 1)]);
+          return;
+        }
+        setIsDetected(true);
       });
     };
     const searchAgain = () => {
@@ -242,12 +246,15 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
     saveLocalSettings(next);
   };
 
+  const detection: DesktopDetection = !desktop ? "missing" : !isDetected ? "pending" : capabilities ? "found" : "missing";
+
   return {
-    detection: !desktop ? "missing" : !isDetected ? "pending" : capabilities ? "found" : "missing",
+    detection,
     isRemote,
     isDesktopAvailable: desktop !== undefined && capabilities !== null,
     synthesizer,
-    boards: remote?.boards ?? services.boards,
+    // While still looking, no boards: the phone's own would flash (and be created) before the desktop's.
+    boards: remote?.boards ?? (detection === "pending" ? pendingBoardStore : services.boards),
     executeAction: remote ? remote.executeAction : null,
     reportComposing: remote ? remote.reportComposing : null,
     listApplications: remote ? remote.listApplications : null,

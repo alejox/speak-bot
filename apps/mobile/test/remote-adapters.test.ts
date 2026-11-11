@@ -40,6 +40,34 @@ describe("DesktopApiClient.detect", () => {
   });
 });
 
+describe("DesktopApiClient.probe", () => {
+  const hangingClient = () =>
+    new DesktopApiClient((_input, init) => new Promise((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(new Error("aborted")))));
+
+  it("finds a Speed Deck desktop server", async () => {
+    const { api } = setup(() => ({ body: { ok: true, name: "speed-deck-desktop", capabilities } }));
+    expect(await api.probe()).toEqual({ kind: "found", capabilities });
+  });
+
+  it("says absent when another server answers for sure", async () => {
+    expect(await setup(() => ({ status: 404 })).api.probe()).toEqual({ kind: "absent" });
+    expect(await setup(() => ({ body: { ok: true, name: "other" } })).api.probe()).toEqual({ kind: "absent" });
+    expect(await setup(() => ({ body: { ok: true, name: "speed-deck-desktop", capabilities: { platform: 1 } } })).api.probe()).toEqual({ kind: "absent" });
+    const html = new DesktopApiClient(async () => new Response("<html></html>", { status: 200, headers: { "content-type": "text/html" } }));
+    expect(await html.probe()).toEqual({ kind: "absent" });
+  });
+
+  it("says unreachable when the network fails, the answer is late or the server errs", async () => {
+    expect(await new DesktopApiClient(() => Promise.reject(new Error("offline"))).probe()).toEqual({ kind: "unreachable" });
+    expect(await setup(() => ({ status: 503 })).api.probe()).toEqual({ kind: "unreachable" });
+
+    vi.useFakeTimers();
+    const result = hangingClient().probe(1000);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(await result).toEqual({ kind: "unreachable" });
+  });
+});
+
 describe("DesktopApiClient boards", () => {
   it("calls every board endpoint", async () => {
     const { api, requests } = setup((request) => ({ status: request.method === "DELETE" ? 204 : 200, body: request.method === "GET" ? boardsOf([]) : {} }));

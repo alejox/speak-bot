@@ -22,7 +22,7 @@ import type {
 import { createLocalBoardStore, createRemoteBoardStore, type BoardStore } from "../adapters/board-stores";
 import { getLocalStorage, migrateLegacyStorageKeys } from "../adapters/browser-storage";
 import { copyText as copyToClipboard } from "../adapters/clipboard";
-import { DesktopApiClient, type ConnectionInfo } from "../adapters/desktop-api";
+import { DesktopApiClient, type ConnectionInfo, type DesktopProbe } from "../adapters/desktop-api";
 import { DesktopEventSource, type WebSocketFactory } from "../adapters/desktop-events";
 import { LocalStorageAppearanceStore, type AppearanceStore } from "../adapters/local-storage-appearance-store";
 import { LocalStorageBoardRepository } from "../adapters/local-storage-board-repository";
@@ -81,9 +81,8 @@ export interface LicenseServices {
 
 /** Speaking and running keys through the desktop computer that serves this app. */
 export interface DesktopServices {
-  /** Resolves with the desktop capabilities, or null when no desktop serves this page. */
-  /** The desktop capabilities, or null when no Speed Deck desktop answers within `timeoutMs`. */
-  detect(timeoutMs?: number): Promise<SpeechCapabilities | null>;
+  /** Asks whether a Speed Deck desktop serves this page: found, for sure not (absent), or no answer yet within `timeoutMs`. */
+  probe(timeoutMs?: number): Promise<DesktopProbe>;
   synthesizer: AppSpeechSynthesizer;
   boards: BoardStore;
   /** Runs a voice, captions or OBS action on the desktop. */
@@ -146,7 +145,7 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
   const api = new DesktopApiClient(options.fetch);
   const events = new DesktopEventSource(options.createSocket, location);
   return {
-    detect: (timeoutMs) => api.detect(timeoutMs),
+    probe: (timeoutMs) => api.probe(timeoutMs),
     synthesizer: new RemoteSpeechSynthesizer(api, events),
     boards: createRemoteBoardStore(api, events),
     executeAction: (action, key) => api.executeAction(action, key),

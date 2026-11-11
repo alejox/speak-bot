@@ -1,7 +1,8 @@
 import { buildDefaultBoards } from "@speed-deck/core";
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import { boardOf, desktopState, renderRemoteApp, speakKey, writes } from "./app-fakes";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { App } from "../src/app/App";
+import { boardOf, desktopState, remoteServices, renderRemoteApp, speakKey, writes } from "./app-fakes";
 import { goTo } from "./i18n-helpers";
 
 const executed = (requests: { url: string; body: unknown }[]) =>
@@ -26,6 +27,30 @@ describe("App in Computer mode", () => {
     const { requests } = renderRemoteApp({ state });
     expect(await screen.findByRole("button", { name: "Hello" }, { timeout: 5000 })).toBeInTheDocument();
     expect(requests.filter((request) => request.url === "/api/health")).toHaveLength(3);
+  });
+
+  it("shows none of this phone's boards while the desktop has not answered yet", async () => {
+    const state = desktopState({ boards: [boardOf("main", "Main", [speakKey(0, "Hello")])], healthFailures: 100 });
+    const remote = remoteServices({ state });
+    const prepare = vi.spyOn(remote.services.boards, "prepare");
+    const list = vi.spyOn(remote.services.boards, "list");
+    render(<App services={remote.services} />);
+    const healthChecks = () => remote.requests.filter((request) => request.url === "/api/health").length;
+
+    // Past the first failed answer and into the retries, the phone's own decks never show nor get created.
+    await waitFor(() => expect(healthChecks()).toBeGreaterThanOrEqual(2), { timeout: 3000 });
+    expect(screen.queryByRole("button", { name: "Local phrase" })).not.toBeInTheDocument();
+    expect(prepare).not.toHaveBeenCalled();
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("goes straight to this phone's boards when a server that is not the desktop answers", async () => {
+    const state = desktopState({ healthStatus: 404 });
+    const { requests } = renderRemoteApp({ state });
+    expect(await screen.findByRole("button", { name: "Local phrase" })).toBeInTheDocument();
+    // Longer than the first retry pause: a definitive answer is not asked again.
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(requests.filter((request) => request.url === "/api/health")).toHaveLength(1);
   });
 
   it("runs keys on the desktop, and navigation keys in this client", async () => {

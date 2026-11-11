@@ -142,6 +142,8 @@ export interface DesktopState {
   licenseError?: { status: number; body: unknown };
   /** How many GET /api/health answer 503 before the desktop answers (a phone whose Wi-Fi is still waking up). */
   healthFailures?: number;
+  /** When set, GET /api/health answers this status: e.g. 404 for a server that is not a Speed Deck desktop. */
+  healthStatus?: number;
   /** The sponsor GET /api/ad answers; none (the house banner) unless a test sets it. */
   ad?: Record<string, unknown> | null;
 }
@@ -178,6 +180,7 @@ export function desktopRoute(state: DesktopState) {
     const body = (request.body ?? {}) as Record<string, unknown>;
     switch (route) {
       case "GET /api/health":
+        if (state.healthStatus) return { status: state.healthStatus };
         if (state.healthFailures) {
           state.healthFailures -= 1;
           return { status: 503 };

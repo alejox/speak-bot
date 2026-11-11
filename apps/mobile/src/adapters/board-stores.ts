@@ -85,6 +85,27 @@ export function createLocalBoardStore(repository: LocalStorageBoardRepository, g
   };
 }
 
+const stillLooking = () => Promise.reject(new Error("Still looking for the desktop."));
+
+/**
+ * Stands in while the app still looks for the desktop: no boards, and never creates this device's first board,
+ * so a phone the desktop serves does not flash (or seed) its own decks. One shared instance keeps effects stable.
+ */
+export const pendingBoardStore: BoardStore = {
+  prepare: async () => {},
+  list: async () => [],
+  create: stillLooking,
+  rename: stillLooking,
+  remove: stillLooking,
+  setKey: stillLooking,
+  clearKey: stillLooking,
+  createFolder: stillLooking,
+  moveKey: stillLooking,
+  restoreDefault: stillLooking,
+  setGrid: stillLooking,
+  onChanged: () => () => {},
+};
+
 /** Boards kept on the desktop; every device sees the same ones. */
 export function createRemoteBoardStore(api: DesktopApiClient, events: DesktopEventSource): BoardStore {
   return {

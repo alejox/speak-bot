@@ -55,21 +55,39 @@ export interface ConnectionInfo {
 
 const DETECT_TIMEOUT_MS = 1500;
 
+/** What asking for the desktop found: it, for sure not it, or no answer yet. */
+export type DesktopProbe = { kind: "found"; capabilities: SpeechCapabilities } | { kind: "absent" } | { kind: "unreachable" };
+
+const ABSENT: DesktopProbe = { kind: "absent" };
+const UNREACHABLE: DesktopProbe = { kind: "unreachable" };
+
 /** Thin client for the desktop HTTP API. Uses relative URLs: the app is served by the desktop itself. */
 export class DesktopApiClient {
   constructor(private readonly fetchFn: typeof fetch = (input, init) => globalThis.fetch(input, init)) {}
 
-  /** Returns the desktop speech capabilities, or null when the page is not served by a Speed Deck desktop. */
+  /** Returns the desktop speech capabilities, or null when no Speed Deck desktop answered. */
   async detect(timeoutMs = DETECT_TIMEOUT_MS): Promise<SpeechCapabilities | null> {
+    const result = await this.probe(timeoutMs);
+    return result.kind === "found" ? result.capabilities : null;
+  }
+
+  /**
+   * Asks `/api/health` whether a Speed Deck desktop serves this page. A server that answers but is not one is
+   * "absent" for sure; no answer, a late one or a server error (5xx) is "unreachable" and worth asking again.
+   */
+  async probe(timeoutMs = DETECT_TIMEOUT_MS): Promise<DesktopProbe> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let response: Response | undefined;
     try {
-      const response = await this.fetchFn("/api/health", { signal: controller.signal });
-      if (!response.ok) return null;
-      const body = (await response.json()) as Record<string, unknown>;
-      return body.name === DESKTOP_SERVER_NAME && isCapabilities(body.capabilities) ? body.capabilities : null;
+      response = await this.fetchFn("/api/health", { signal: controller.signal });
+      if (response.status >= 500) return UNREACHABLE;
+      if (!response.ok) return ABSENT;
+      const body = (await response.json()) as Record<string, unknown> | null;
+      return body?.name === DESKTOP_SERVER_NAME && isCapabilities(body.capabilities) ? { kind: "found", capabilities: body.capabilities } : ABSENT;
     } catch {
-      return null;
+      // A body that is not JSON came from another server; a failed or aborted request never answered.
+      return response && !controller.signal.aborted ? ABSENT : UNREACHABLE;
     } finally {
       clearTimeout(timer);
     }
