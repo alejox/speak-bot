@@ -13,6 +13,7 @@ import { FolderBreadcrumb } from "../components/FolderBreadcrumb";
 import { GridSizeButton } from "../components/GridSizeButton";
 import { Composer, type ComposerHandle } from "../components/Composer";
 import { ComposerSheet } from "../components/ComposerSheet";
+import { ConnectionBanner } from "../components/ConnectionBanner";
 import { ConnectPanel } from "../components/ConnectPanel";
 import { DeckStatusIndicator } from "../components/DeckStatus";
 import { EditKeysToggle } from "../components/EditKeysToggle";
@@ -32,11 +33,14 @@ import { VoicePanel } from "../components/VoicePanel";
 import { obsTone } from "../components/StatusDot";
 import { I18nProvider, useMessageText, useT } from "../i18n/I18nProvider";
 import type { Message, MessageKey } from "../i18n/messages";
+import { LocalStorageConnectionAlertsStore } from "../adapters/local-storage-connection-alerts-store";
 import type { AppServices } from "./composition-root";
+import { VIBRATION_PATTERNS } from "./connection-signal";
 import { describeRequestError } from "./describe-error";
 import { isDesktopShell } from "./desktop-shell";
 import { useAppearance, type AppearancePreference } from "./use-appearance";
 import { useConnection } from "./use-connection";
+import { useConnectionSignal } from "./use-connection-signal";
 import { canEditDeck } from "./edit-capability";
 import { useSpaceDecks } from "./use-deck";
 import { actionOnlyKey, needsDetails } from "./key-draft";
@@ -148,6 +152,17 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const monetization = useMonetization(services.desktop, target);
   // Set when the house banner leads to Settings, so focus lands on the Remove ads group.
   const [focusRemoveAds, setFocusRemoveAds] = useState(false);
+  // Losing the computer shows a banner everywhere and, unless turned off on this device, vibrates.
+  const [alertsStore] = useState(() => services.connectionAlerts ?? new LocalStorageConnectionAlertsStore());
+  const [connectionAlerts, setConnectionAlerts] = useState(() => alertsStore.load());
+  const setVibrateOnDisconnect = (vibrate: boolean) => {
+    const next = { ...connectionAlerts, vibrate };
+    setConnectionAlerts(next);
+    alertsStore.save(next);
+  };
+  const connectionBanner = useConnectionSignal(target.isConnected ? services.desktop?.watchConnection : undefined, (signal) => {
+    if (connectionAlerts.vibrate) services.device?.vibrate(VIBRATION_PATTERNS[signal]);
+  });
 
   const select = (next: Section) => {
     setSection(next);
@@ -357,6 +372,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
       />
 
       <main className="app-main">
+        <ConnectionBanner banner={connectionBanner} computerName={connectionBanner === "none" ? null : (services.device?.computerName() ?? null)} />
         {!target.synthesizer.isSupported && (
           <p className="notice" role="alert">
             {t("app.speechUnsupported")}
@@ -506,6 +522,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
               speakOn={target.speakOn}
               outputDevice={target.outputDevice}
               voiceOutput={target.voiceOutput}
+              vibrateOnDisconnect={target.isConnected ? { value: connectionAlerts.vibrate, onChange: setVibrateOnDisconnect } : null}
             >
               <RemoveAdsSettings
                 mode={monetization.mode}

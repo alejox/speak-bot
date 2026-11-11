@@ -20,6 +20,7 @@ const MAX_RETRY_MS = 10_000;
  */
 export class DesktopEventSource {
   private readonly listeners = new Set<(event: ServerEvent) => void>();
+  private readonly connectionListeners = new Set<(connected: boolean) => void>();
   private socket: WebSocketLike | undefined;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
   private retryDelay = 500;
@@ -42,6 +43,23 @@ export class DesktopEventSource {
     };
   }
 
+  /**
+   * Reports each time the link opens (true) or closes (false, also when an attempt to reconnect fails),
+   * and keeps it open while watched. Returns a function that stops watching.
+   */
+  watchConnection(listener: (connected: boolean) => void): () => void {
+    this.connectionListeners.add(listener);
+    const unsubscribe = this.subscribe(() => {});
+    return () => {
+      this.connectionListeners.delete(listener);
+      unsubscribe();
+    };
+  }
+
+  private reportConnection(connected: boolean): void {
+    for (const listener of [...this.connectionListeners]) listener(connected);
+  }
+
   private connect(): void {
     this.retryTimer = undefined;
     const protocol = this.location.protocol === "https:" ? "wss:" : "ws:";
@@ -49,6 +67,7 @@ export class DesktopEventSource {
     this.socket = socket;
     socket.onopen = () => {
       this.retryDelay = 500;
+      this.reportConnection(true);
     };
     socket.onmessage = (message) => {
       let event: unknown;
@@ -63,6 +82,7 @@ export class DesktopEventSource {
     socket.onclose = () => {
       if (this.socket !== socket) return;
       this.socket = undefined;
+      this.reportConnection(false);
       if (this.listeners.size === 0) return;
       this.retryTimer = setTimeout(() => this.connect(), this.retryDelay);
       this.retryDelay = Math.min(this.retryDelay * 2, MAX_RETRY_MS);

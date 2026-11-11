@@ -46,6 +46,8 @@ interface SettingsPanelProps {
   outputDevice?: { devices: AudioDevice[]; selectedId: string; onChange: (deviceId: string) => void } | null;
   /** Shown only when speaking on a computer that can send the voice to OBS as its own audio channel. */
   voiceOutput?: { value: VoiceOutput; overlayConnected: boolean | null; onChange: (output: VoiceOutput) => void } | null;
+  /** Shown only when using a computer: vibrate when the link to it is lost and when it is back. */
+  vibrateOnDisconnect?: { value: boolean; onChange: (vibrate: boolean) => void } | null;
   /** More groups after the built-in ones (Remove ads). */
   children?: ReactNode;
 }
@@ -75,6 +77,7 @@ export function SettingsPanel({
   speakOn,
   outputDevice,
   voiceOutput,
+  vibrateOnDisconnect,
   children,
 }: SettingsPanelProps) {
   const t = useT();
@@ -207,6 +210,15 @@ export function SettingsPanel({
           </span>
         </div>
       </SettingsGroup>
+
+      {vibrateOnDisconnect && (
+        <SettingsGroup title={t("settings.connectionGroup")}>
+          <label className="field-check">
+            <input type="checkbox" checked={vibrateOnDisconnect.value} onChange={(event) => vibrateOnDisconnect.onChange(event.target.checked)} />
+            <span>{t("settings.vibrateOnDisconnect")}</span>
+          </label>
+        </SettingsGroup>
+      )}
 
       <SettingsGroup title={t("settings.appearance")}>
         <label className="field">

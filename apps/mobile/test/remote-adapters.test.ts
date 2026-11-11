@@ -257,4 +257,25 @@ describe("DesktopEventSource", () => {
     await vi.advanceTimersByTimeAsync(20_000);
     expect(FakeSocket.instances).toHaveLength(2);
   });
+
+  it("reports when the link opens and closes, keeping it open while watched", async () => {
+    vi.useFakeTimers();
+    const { events } = setup();
+    const changes: boolean[] = [];
+    const stop = events.watchConnection((connected) => changes.push(connected));
+    expect(FakeSocket.instances).toHaveLength(1);
+
+    FakeSocket.instances[0]!.open();
+    FakeSocket.instances[0]!.close();
+    await vi.advanceTimersByTimeAsync(1000);
+    // A failed attempt to reconnect is reported as closed too.
+    FakeSocket.instances[1]!.close();
+    await vi.advanceTimersByTimeAsync(2000);
+    FakeSocket.instances[2]!.open();
+    expect(changes).toEqual([true, false, false, true]);
+
+    stop();
+    expect(FakeSocket.instances[2]!.closed).toBe(true);
+    expect(changes).toEqual([true, false, false, true]);
+  });
 });

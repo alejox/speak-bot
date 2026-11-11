@@ -25,7 +25,9 @@ import { getLocalStorage, migrateLegacyStorageKeys } from "../adapters/browser-s
 import { copyText as copyToClipboard } from "../adapters/clipboard";
 import { DesktopApiClient, type ConnectionInfo, type DesktopProbe } from "../adapters/desktop-api";
 import { DesktopEventSource, type WebSocketFactory } from "../adapters/desktop-events";
+import { createDeviceSignals, type DeviceSignals } from "../adapters/device-signals";
 import { LocalStorageAppearanceStore, type AppearanceStore } from "../adapters/local-storage-appearance-store";
+import { LocalStorageConnectionAlertsStore, type ConnectionAlertsStore } from "../adapters/local-storage-connection-alerts-store";
 import { LocalStorageBoardRepository } from "../adapters/local-storage-board-repository";
 import { LocalStorageLanguageStore, type LanguageStore } from "../adapters/local-storage-language-store";
 import { LocalStorageRecentPhrasesStore, type RecentPhrasesStore } from "../adapters/local-storage-recent-phrases-store";
@@ -114,6 +116,8 @@ export interface DesktopServices {
   loadAd(): Promise<AdCreative | null>;
   /** Present only when this page is open on the desktop computer itself (localhost). */
   connection?: ConnectionServices;
+  /** Reports each time the link to the desktop opens (true) or closes (false), and keeps it open while watched. */
+  watchConnection(listener: (connected: boolean) => void): () => void;
 }
 
 export interface AppServices {
@@ -131,6 +135,10 @@ export interface AppServices {
   desktop?: DesktopServices;
   /** The host name this page was served from (location.hostname); decides where the Deck can be edited. */
   servedFrom?: string;
+  /** Vibration and what the device knows about the computer; without it nothing vibrates. */
+  device?: DeviceSignals;
+  /** Whether this device vibrates when it loses the computer; without it, this browser's storage. */
+  connectionAlerts?: ConnectionAlertsStore;
 }
 
 export interface DesktopServicesOptions {
@@ -210,6 +218,7 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
         }),
     },
     loadAd: () => api.loadAd(),
+    watchConnection: (listener) => events.watchConnection(listener),
     connection: isLocalHostname(location.hostname ?? "")
       ? {
           load: () => api.loadConnection(),
@@ -231,6 +240,8 @@ export function createAppServices(): AppServices {
     recentPhrases: new LocalStorageRecentPhrasesStore(),
     desktop: createDesktopServices(),
     servedFrom: globalThis.location?.hostname ?? "",
+    device: createDeviceSignals(globalThis),
+    connectionAlerts: new LocalStorageConnectionAlertsStore(),
   };
 }
 
