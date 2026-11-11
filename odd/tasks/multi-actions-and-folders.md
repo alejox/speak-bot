@@ -23,7 +23,7 @@ User request 2026-11-11 after the competitor research (Elgato Multi Action and F
 ## Tasks
 - [x] F1 — Core: folder boards (kind, parent link, hidden), `nav.openFolder`, Back key rules, cascade delete, depth limit, reflow and grid rules; multi-action action shape and validation; tests. Route: delegated. Commit `bb61e70`. RED: new `folders.test.ts` + `multi-action.test.ts` 22/23 failed with the source changes stashed; GREEN: core 18 files / 221 tests; `npm run typecheck` clean, `npm test` all workspaces green (desktop 250, electron 24, mobile 384).
 - [x] F2 — Desktop: sequential multi-action runner with delays, failure reporting, one-run-per-key, running-state events; API for folder create/delete if needed; tests. Route: delegated. Commit `8cb270b`. RED: `multi-action-runner.test.ts` (fake timers) + `folders-api.test.ts` 8/8 failed before the runner and route existed; GREEN: desktop 33 files / 258 tests; `npm run typecheck` clean, `npm test` all workspaces green (core 221, electron 24, mobile 384).
-- [x] F3 — Mobile: folder navigation + Back + breadcrumb, folder key creation/deletion; multi-action editor and running state; start confirmation for sequences; en/es; tests. Route: delegated. Commit `F3_HASH`. RED: `folders-and-multi-actions.test.tsx` 8/8 failed with the mobile source changes stashed (tests written alongside the implementation, RED observed retroactively); GREEN: mobile 48 files / 392 tests; `npm run typecheck` clean, `npm test` all workspaces green (core 221, desktop 258, electron 24). Pending manual checks: folder Back/breadcrumb on a real phone held upright (transposed grid), multi-action against a live OBS (Intro: scene, wait 1 s, unmute, record after one confirmation).
+- [x] F3 — Mobile: folder navigation + Back + breadcrumb, folder key creation/deletion; multi-action editor and running state; start confirmation for sequences; en/es; tests. Route: delegated. Commit `a14cb60`. RED: `folders-and-multi-actions.test.tsx` 8/8 failed with the mobile source changes stashed (tests written alongside the implementation, RED observed retroactively); GREEN: mobile 48 files / 392 tests; `npm run typecheck` clean, `npm test` all workspaces green (core 221, desktop 258, electron 24). Pending manual checks: folder Back/breadcrumb on a real phone held upright (transposed grid), multi-action against a live OBS (Intro: scene, wait 1 s, unmute, record after one confirmation).
 
 ## Acceptance
 - A multi-action "Intro" switches scene, waits 1 s, unmutes the mic and starts recording (after one confirmation).
@@ -55,4 +55,4 @@ User request 2026-11-11 after the competitor research (Elgato Multi Action and F
 - Created 2026-11-11.
 - F1 done (core).
 - F2 done (desktop).
-- F3 done (mobile).
+- F3 done (mobile). Next: manual checks on a phone and against a live OBS; push and PR are the user's call.
