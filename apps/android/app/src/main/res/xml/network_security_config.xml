@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The desktop serves the deck over plain HTTP on the local network, and its
+     LAN address is not known in advance, so cleartext is allowed everywhere. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
