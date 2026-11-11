@@ -25,6 +25,13 @@ import type { MessageKey } from "../i18n/messages";
 import type { AppServices, ExecuteActionResult, ObsServices } from "./composition-root";
 
 /** Whether a desktop server answered: still asking, found, or not there. */
+
+/** How long each look for the desktop waits for its answer, attempt by attempt (the last one repeats). */
+const DETECT_TIMEOUTS_MS = [1500, 3000, 5000];
+/** The pause before each new look after one that found nothing. */
+const DETECT_RETRY_DELAYS_MS = [300, 1000, 2000, 4000];
+/** Looks before giving up until the page comes back online or into view. */
+const DETECT_ATTEMPTS = 6;
 export type DesktopDetection = "pending" | "found" | "missing";
 
 export interface SpeechTargetOptions {
@@ -101,16 +108,48 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
   const [voicesLoaded, setVoicesLoaded] = useState(false);
   const [error, setError] = useState<MessageKey | null>(null);
 
+  // Looks for the desktop, and keeps looking: a phone that just joined the Wi-Fi (or woke up) may miss the
+  // first answer. Each attempt waits longer; coming back online or to the page starts over at once.
   useEffect(() => {
     if (!desktop) return;
     let active = true;
-    void desktop.detect().then((detected) => {
-      if (!active) return;
-      setCapabilities(detected);
-      setIsDetected(true);
-    });
+    let found = false;
+    let searching = false;
+    let attempt = 0;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+
+    const search = () => {
+      if (!active || found || searching) return;
+      searching = true;
+      const timeoutMs = DETECT_TIMEOUTS_MS[Math.min(attempt, DETECT_TIMEOUTS_MS.length - 1)];
+      void desktop.detect(timeoutMs).then((detected) => {
+        searching = false;
+        if (!active) return;
+        setIsDetected(true);
+        if (detected) {
+          found = true;
+          setCapabilities(detected);
+          return;
+        }
+        attempt += 1;
+        if (attempt < DETECT_ATTEMPTS) retry = setTimeout(search, DETECT_RETRY_DELAYS_MS[Math.min(attempt - 1, DETECT_RETRY_DELAYS_MS.length - 1)]);
+      });
+    };
+    const searchAgain = () => {
+      if (found || document.visibilityState === "hidden") return;
+      clearTimeout(retry);
+      attempt = 0;
+      search();
+    };
+
+    search();
+    window.addEventListener("online", searchAgain);
+    document.addEventListener("visibilitychange", searchAgain);
     return () => {
       active = false;
+      clearTimeout(retry);
+      window.removeEventListener("online", searchAgain);
+      document.removeEventListener("visibilitychange", searchAgain);
     };
   }, [desktop]);
 

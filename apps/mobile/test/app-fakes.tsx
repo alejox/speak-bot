@@ -140,6 +140,8 @@ export interface DesktopState {
   license?: Record<string, unknown>;
   /** When set, PUT /api/license answers with it instead of activating. */
   licenseError?: { status: number; body: unknown };
+  /** How many GET /api/health answer 503 before the desktop answers (a phone whose Wi-Fi is still waking up). */
+  healthFailures?: number;
   /** The sponsor GET /api/ad answers; none (the house banner) unless a test sets it. */
   ad?: Record<string, unknown> | null;
 }
@@ -176,6 +178,10 @@ export function desktopRoute(state: DesktopState) {
     const body = (request.body ?? {}) as Record<string, unknown>;
     switch (route) {
       case "GET /api/health":
+        if (state.healthFailures) {
+          state.healthFailures -= 1;
+          return { status: 503 };
+        }
         return {
           body: { ok: true, name: "speed-deck-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: state.supportsDeviceSelection } },
         };

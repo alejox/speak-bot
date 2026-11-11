@@ -82,7 +82,8 @@ export interface LicenseServices {
 /** Speaking and running keys through the desktop computer that serves this app. */
 export interface DesktopServices {
   /** Resolves with the desktop capabilities, or null when no desktop serves this page. */
-  detect(): Promise<SpeechCapabilities | null>;
+  /** The desktop capabilities, or null when no Speed Deck desktop answers within `timeoutMs`. */
+  detect(timeoutMs?: number): Promise<SpeechCapabilities | null>;
   synthesizer: AppSpeechSynthesizer;
   boards: BoardStore;
   /** Runs a voice, captions or OBS action on the desktop. */
@@ -145,7 +146,7 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
   const api = new DesktopApiClient(options.fetch);
   const events = new DesktopEventSource(options.createSocket, location);
   return {
-    detect: () => api.detect(),
+    detect: (timeoutMs) => api.detect(timeoutMs),
     synthesizer: new RemoteSpeechSynthesizer(api, events),
     boards: createRemoteBoardStore(api, events),
     executeAction: (action, key) => api.executeAction(action, key),

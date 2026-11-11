@@ -21,6 +21,13 @@ describe("App in Computer mode", () => {
     expect(screen.getByRole("combobox", { name: "Speak on" })).toHaveValue("computer");
   });
 
+  it("keeps looking for the desktop when its first answer fails, then shows its boards", async () => {
+    const state = desktopState({ boards: [boardOf("main", "Main", [speakKey(0, "Hello")])], healthFailures: 2 });
+    const { requests } = renderRemoteApp({ state });
+    expect(await screen.findByRole("button", { name: "Hello" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(requests.filter((request) => request.url === "/api/health")).toHaveLength(3);
+  });
+
   it("runs keys on the desktop, and navigation keys in this client", async () => {
     const state = desktopState({
       boards: [boardOf("main", "Main", [speakKey(0, "Hello"), { slot: 1, action: { type: "nav.nextPage" } }, speakKey(15, "Later")])],
