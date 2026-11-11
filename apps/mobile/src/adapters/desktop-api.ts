@@ -5,6 +5,7 @@ import {
   type ApiErrorCode,
   type AudioDevice,
   type Board,
+  type BoardGrid,
   type BoardKind,
   type DesktopSettings,
   type DesktopSettingsPatch,
@@ -103,6 +104,11 @@ export class DesktopApiClient {
   /** Moves the key at `from` to `to`, swapping with a key already there. */
   moveKey(boardId: string, from: number, to: number): Promise<Board> {
     return this.request("POST", `${keysPath(boardId)}/move`, { from, to }) as Promise<Board>;
+  }
+
+  /** Gives every board the grid `columns` × `rows`; keys that no longer fit move ("grid-full" when there is no room). */
+  setBoardGrid(grid: BoardGrid): Promise<Board[]> {
+    return this.request("PUT", "/api/boards/grid", { columns: grid.columns, rows: grid.rows }) as Promise<Board[]>;
   }
 
   /** Puts back the built-in communication board in `language`. */

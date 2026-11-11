@@ -1,4 +1,4 @@
-import { ACTION_REGISTRY, MAX_KEY_SLOTS, type ActionType, type Board, type BoardKind } from "@speed-deck/core";
+import { ACTION_REGISTRY, keysPerPage, MAX_BOARD_PAGES, type ActionType, type Board, type BoardKind } from "@speed-deck/core";
 import { LayoutGrid, MessageSquare, Settings, Smartphone, Video } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import {
@@ -9,6 +9,7 @@ import {
 } from "../adapters/local-storage-board-position-store";
 import { BoardMenu } from "../components/BoardMenu";
 import { BoardPlayer } from "../components/BoardPlayer";
+import { GridSizeButton } from "../components/GridSizeButton";
 import { Composer, type ComposerHandle } from "../components/Composer";
 import { ConnectPanel } from "../components/ConnectPanel";
 import { DeckStatus, DeckStatusIndicator } from "../components/DeckStatus";
@@ -95,10 +96,11 @@ interface Inspected {
   assignedType?: ActionType;
 }
 
-/** The first empty slot of `board`, or null when it is full. */
+/** The first empty slot of `board` on the pages it may have, or null when it is full. */
 function firstFreeSlot(board: Board): number | null {
   const used = new Set(board.keys.map((key) => key.slot));
-  for (let slot = 0; slot < MAX_KEY_SLOTS; slot += 1) if (!used.has(slot)) return slot;
+  const slotCount = keysPerPage(board) * MAX_BOARD_PAGES;
+  for (let slot = 0; slot < slotCount; slot += 1) if (!used.has(slot)) return slot;
   return null;
 }
 
@@ -253,7 +255,9 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   return (
     // data-space picks the accent colour: each space has its own, OBS shares the Deck one and the rest the Voice one.
     <div
-      className={["app", navCollapsed ? "app-nav-collapsed" : "", hasPanel ? "app-inspecting" : "", isWorkspace ? "app-workspace" : ""].filter(Boolean).join(" ")}
+      className={["app", navCollapsed ? "app-nav-collapsed" : "", hasPanel ? "app-inspecting" : "", space ? "app-space" : "", isWorkspace ? "app-workspace" : ""]
+        .filter(Boolean)
+        .join(" ")}
       data-space={space ?? (section === "obs" ? "deck" : "voice")}
     >
       <header className="app-header">
@@ -332,6 +336,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                           onSelect={(boardId) => deck.navigation.go({ boardId, page: 0 })}
                           statusText={statusText}
                         />
+                        <GridSizeButton board={board} boards={deck.boards} statusText={statusText} />
                         {deckIndicator}
                       </>
                     )

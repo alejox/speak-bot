@@ -3,6 +3,7 @@ import {
   buildDefaultDeckBoard,
   DEFAULT_DECK_BOARD_ID,
   makeBoard,
+  reflowBoard,
   type Board,
   type BoardKind,
   type Key,
@@ -127,6 +128,8 @@ export interface DesktopState {
   supportsDeviceSelection: boolean;
   /** Answers for POST /api/actions/execute by action type (default 200 `{ ok: true }`). */
   execute: Record<string, { status?: number; body?: unknown }>;
+  /** When set, PUT /api/boards/grid answers 409 "grid-full". */
+  gridFull?: boolean;
 }
 
 export function desktopState(overrides: Partial<DesktopState> = {}): DesktopState {
@@ -179,6 +182,11 @@ export function desktopRoute(state: DesktopState) {
           : [fresh, ...state.boards];
         return { body: fresh };
       }
+      case "PUT /api/boards/grid": {
+        if (state.gridFull) return { status: 409, body: { error: "No room.", code: "grid-full" } };
+        state.boards = state.boards.map((candidate) => reflowBoard(candidate, { columns: Number(body.columns), rows: Number(body.rows) }));
+        return { body: state.boards };
+      }
       case "GET /api/voices":
         return { body: [{ id: "Alex", name: "Alex", lang: "en-US", isDefault: false }] };
       case "GET /api/devices":
@@ -221,11 +229,11 @@ export function desktopRoute(state: DesktopState) {
         const { replace, ...key } = body as { replace?: boolean } & Omit<Key, "slot">;
         if (!replace && target.keys.some((candidate) => candidate.slot === slot)) return { status: 409, body: { error: "Taken.", code: "slot-occupied" } };
         const stored: Key = { slot, ...(key.label ? { label: key.label } : {}), ...(key.icon ? { icon: key.icon } : {}), ...(key.color ? { color: key.color } : {}), action: key.action };
-        replaceBoard(makeBoard(target.id, target.name, target.kind, [...target.keys.filter((candidate) => candidate.slot !== slot), stored]));
+        replaceBoard(makeBoard(target.id, target.name, target.kind, [...target.keys.filter((candidate) => candidate.slot !== slot), stored], target));
         return { body: stored };
       }
       if (request.method === "DELETE") {
-        replaceBoard(makeBoard(target.id, target.name, target.kind, target.keys.filter((candidate) => candidate.slot !== slot)));
+        replaceBoard(makeBoard(target.id, target.name, target.kind, target.keys.filter((candidate) => candidate.slot !== slot), target));
         return { status: 204 };
       }
     }
@@ -234,7 +242,7 @@ export function desktopRoute(state: DesktopState) {
       const target = board(moveMatch[1]!)!;
       const { from, to } = body as { from: number; to: number };
       const keys = target.keys.map((key) => (key.slot === from ? { ...key, slot: to } : key.slot === to ? { ...key, slot: from } : key));
-      const moved = makeBoard(target.id, target.name, target.kind, keys);
+      const moved = makeBoard(target.id, target.name, target.kind, keys, target);
       replaceBoard(moved);
       return { body: moved };
     }

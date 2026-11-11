@@ -2,10 +2,12 @@ import {
   ACTION_TYPES,
   ACTION_REGISTRY,
   allowedActionCategories,
+  gridOfBoards,
   isHexColor,
+  keysPerPage,
   KEY_ICON_IDS,
+  MAX_BOARD_PAGES,
   MAX_KEY_LABEL_LENGTH,
-  MAX_KEY_SLOTS,
   type Action,
   type ActionType,
   type Board,
@@ -99,9 +101,11 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
     else onTest(result.action);
   };
 
+  // Every board shares one grid, so a key can move to any slot of the pages a board may have.
+  const slotCount = keysPerPage(gridOfBoards(boards)) * MAX_BOARD_PAGES;
   const move = () => {
     const to = Number(moveTo) - 1;
-    if (!Number.isInteger(to) || to < 0 || to >= MAX_KEY_SLOTS || !onMove) return;
+    if (!Number.isInteger(to) || to < 0 || to >= slotCount || !onMove) return;
     setIsBusy(true);
     void onMove(to).finally(() => setIsBusy(false));
   };
@@ -258,7 +262,7 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
             type="number"
             inputMode="numeric"
             min={1}
-            max={MAX_KEY_SLOTS}
+            max={slotCount}
             value={moveTo}
             onChange={(event) => setMoveTo(event.target.value)}
           />

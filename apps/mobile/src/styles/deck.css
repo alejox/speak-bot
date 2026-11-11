@@ -49,6 +49,12 @@
   color: var(--color-text-muted);
 }
 
+/* The grid size button beside the board pill, as tall as the pill. */
+.grid-size-button {
+  width: var(--size-control);
+  height: var(--size-control);
+}
+
 .board-pill-name {
   min-width: 0;
   overflow: hidden;
@@ -56,7 +62,10 @@
   white-space: nowrap;
 }
 
-/* Large keys straight on the page: 4 columns on wide screens, 3 when the deck is narrow. Always 15 keys per page. */
+/*
+ * Large keys straight on the page: 4 columns on wide screens, 3 when the deck is narrow. A page holds the
+ * board's columns × rows keys (--grid-columns, --grid-rows); only the wide workspace lays them out that way.
+ */
 .deck-grid {
   list-style: none;
   margin: 0;
@@ -446,27 +455,90 @@
 }
 
 /*
+ * A space (Voice or Deck) in the app, at every width: the page of keys keeps the board's proportions,
+ * exactly columns x rows square keys, each the largest square that fits both the width and the height
+ * left for them (capped), centred, so the page never scrolls. The dock keeps its compact layout.
+ */
+.app-space .app-main > .section,
+.app-space .deck-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-space .deck-full {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.app-space .deck-full .deck-grid-area {
+  flex: 1 1 auto;
+  min-height: 0;
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-space .deck-full .deck-grid {
+  --deck-gap: var(--space-2);
+  --columns: var(--grid-columns, 5);
+  --rows: var(--grid-rows, 3);
+  --key-size: min(
+    calc((100cqw - (var(--columns) - 1) * var(--deck-gap)) / var(--columns)),
+    calc((100cqh - (var(--rows) - 1) * var(--deck-gap)) / var(--rows)),
+    190px
+  );
+  grid-template-columns: repeat(var(--columns), var(--key-size));
+  grid-auto-rows: var(--key-size);
+  gap: var(--deck-gap);
+  max-width: none;
+}
+
+/* Each key is a size reference for its own label and icon, so both shrink with the key and still fit. */
+.app-space .deck-full .deck-grid li {
+  container-type: inline-size;
+}
+
+.app-space .deck-full .deck-key {
+  gap: clamp(1px, 4cqi, var(--space-2));
+  padding: clamp(2px, 6cqi, var(--space-3));
+  font-size: clamp(9px, 12cqi, var(--text-md));
+  border-radius: clamp(6px, 12cqi, var(--radius-xl));
+}
+
+.app-space .deck-full .deck-key-phrase {
+  font-size: clamp(10px, 14cqi, var(--text-lg));
+}
+
+.app-space .deck-full .deck-key[data-label-length="long"] .deck-key-text {
+  font-size: 0.875em;
+}
+
+.app-space .deck-full .deck-key[data-label-length="longer"] .deck-key-text {
+  font-size: 0.75em;
+}
+
+.app-space .deck-full .deck-key .key-icon {
+  width: clamp(12px, 24cqi, 32px);
+  height: clamp(12px, 24cqi, 32px);
+}
+
+.app-space .deck-full .deck-key-plus {
+  font-size: clamp(1rem, 30cqi, 2.5rem);
+}
+
+/*
  * A space's workspace on wide screens (Deck and Voice): only the board pill, the Deck status icon, the
- * pager and the keys.
- * The keys are a 5 x 3 page like a hardware deck, each the largest square that fits both the width and
- * the height left for them (capped), centred, so the page never scrolls.
+ * pager and the keys, with the header and the pager on one row.
  */
 @media (min-width: 1000px) {
   .app-workspace .app-main {
     max-width: none;
   }
 
-  .app-workspace .app-main > .section,
-  .app-workspace .deck-layout {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
   .app-workspace .deck {
-    flex: 1 1 auto;
-    min-height: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto minmax(0, 1fr);
@@ -500,19 +572,9 @@
 
   .app-workspace .deck-grid-area {
     grid-area: grid;
-    min-height: 0;
-    container-type: size;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
-  .app-workspace .deck-grid {
+  .app-workspace .deck-full .deck-grid {
     --deck-gap: var(--space-4);
-    --key-size: min(calc((100cqw - 4 * var(--deck-gap)) / 5), calc((100cqh - 2 * var(--deck-gap)) / 3), 190px);
-    grid-template-columns: repeat(5, var(--key-size));
-    grid-auto-rows: var(--key-size);
-    gap: var(--deck-gap);
-    max-width: none;
   }
 }

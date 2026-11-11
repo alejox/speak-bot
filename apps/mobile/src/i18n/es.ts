@@ -79,6 +79,14 @@ export const es: Messages = {
   "boards.restored": "Se restauró el tablero «{name}».",
 
   "board.addPage": "Página nueva",
+  "grid.open": "Tamaño de la cuadrícula",
+  "grid.title": "Tamaño de la cuadrícula",
+  "grid.columns": "Columnas",
+  "grid.rows": "Filas",
+  "grid.hint": "Se aplica a todos los tableros. Las teclas conservan su lugar si caben.",
+  "grid.save": "Guardar",
+  "grid.cancel": "Cancelar",
+  "grid.saved": "Cuadrícula de {columns} × {rows}.",
   "inspector.label": "Tecla {number}",
   "keyMenu.label": "Tecla {number}: {label}",
   "keyMenu.options": "Opciones de la tecla {number}",
@@ -242,6 +250,7 @@ export const es: Messages = {
 
   "errorCode.slotOccupied": "Esa tecla ya está ocupada.",
   "errorCode.boardLimit": "Llegaste al máximo de tableros.",
+  "errorCode.gridFull": "Las teclas no caben en esa cuadrícula. Elige un tamaño mayor o quita teclas.",
   "errorCode.lastBoard": "No puedes eliminar el único tablero.",
   "errorCode.boardNotFound": "Ese tablero ya no existe.",
   "errorCode.keyNotFound": "Esa tecla ya está vacía.",

@@ -63,7 +63,8 @@ Closing the window keeps the app running in the tray or menu bar, so OBS keeps w
 
 ### Boards and keys
 
-- A **board** is a grid of 5 × 3 keys (3 × 5 on a phone), with as many pages as you need.
+- A **board** is a grid of keys, 5 × 3 until you change it, with as many pages as you need. The grid button next to the board name sets the size for **all boards** (3–8 columns, 2–5 rows). Keys keep their place when they fit; when you shrink the grid, keys that no longer fit move to the next free positions from their own page on, and a size that cannot hold every key is refused.
+- The keys of a page always fit the screen, on a phone too: they stay square and shrink to fit, so the page never scrolls.
 - Every board has a **kind**: a **voice** board holds voice, caption and navigation keys and lives in **Voz**; a **deck** board holds OBS and navigation keys and lives in **Deck**. When you add a key, Speed Deck only offers the actions that fit the board.
 - Speed Deck starts with two boards: **Comunicación** (voice: common phrases plus stop, repeat, voice language and the two caption keys) and **Deck** (stream and recording).
 - Each **key** has an action and, optionally, a label, an icon and a color.

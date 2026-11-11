@@ -14,12 +14,16 @@ The user wants more keys per page ("agregar más cuadros a la cuadrícula"). Use
 - Reflow on change: each key keeps its page, row and column when they fit the new grid; keys that no longer fit take the first free slot in reading order from their own page onward (new pages if needed, ≤ `MAX_BOARD_PAGES`). Growing never moves a key. If there is no room the change is refused.
 - Default communication keys and caption seed slots take the last slots of the page computed from the board's grid (with ≥ 5 columns this is today's last row).
 - Remote: `PUT /api/boards/grid {columns, rows}` → reflow + `boards-changed` broadcast. Phone-only: the local board repository.
-- CSS: `.deck-grid` gets `--grid-columns`/`--grid-rows`; the wide workspace sizes keys from them; narrow and dock layouts keep their responsive column counts.
+- CSS: `.deck-grid` gets `--grid-columns`/`--grid-rows`. Changed by user request 2026-11-11: in the main app (Voice and Deck, every width) the page keeps the board proportions — exactly columns × rows square keys sized to fit the area (size container, `min(width / columns, height / rows)`), labels and icons scale with the key (cqi); only the dock keeps its compact layout.
 
 ## Tasks
 - [x] T1 — Core: grid-aware board model (`makeBoard`, `readStoredBoard`, slot bound), navigation, defaults, caption migration, `setBoardGrid` use case with reflow; tests. Route: delegated (writer trigger: several non-trivial files). Done in 5041fcb — RED: new `packages/core/test/board-grid.test.ts` 14/15 failing; GREEN: core 154/154, desktop 157/157 (its hard-coded slot-1500 bound now uses `MAX_KEY_SLOTS`), root typecheck clean.
 - [x] T2 — Desktop: `PUT /api/boards/grid` and repository behavior; tests. Route: delegated (same writer). Done in T2 commit (see Progress) — RED: 3 API tests failing (grid route, 409 grid-full, JSON content type); GREEN: desktop 160/160, typecheck clean. Adds `ApiErrorCode` "grid-full".
-- [ ] T3 — Mobile: grid icon + modal next to the board pill, deck hook / local and remote stores, BoardPlayer + CSS driven by the board's grid, en/es strings; tests. Route: delegated (same writer).
+- [x] T3 — Mobile: grid icon + modal next to the board pill, deck hook / local and remote stores, BoardPlayer + CSS driven by the board's grid, en/es strings; tests. Route: delegated (same writer). Done in the T3 commit (see Progress) — RED: new `apps/mobile/test/board-grid.test.tsx` 4/4 failing; GREEN: mobile 285/285 + 4 grid tests, typecheck clean. Fit-to-screen on phones is CSS only (jsdom cannot measure layout): covered by a structural assertion on `--grid-columns`/`--grid-rows` and a manual check.
+
+- [ ] T4 — App shell never scrolls the document: scroll containers become the containing block of hidden absolutely positioned elements, `overflow: clip` on html/body at every width; regression test. Reason: user request 2026-11-11. Route: delegated (same writer).
+- [ ] T5 — Two key colors: optional `activeColor` used when a stateful key is on; core validation and persistence, desktop API, editor with "Color when off" / "Color when on" for stateful actions only; tests. Reason: user request 2026-11-11. Route: delegated (same writer).
+- [ ] T6 — Confirm before starting a recording or a stream from a key or the inspector's Test button (mobile UI only); tests. Reason: user request 2026-11-11. Route: delegated (same writer).
 
 ## Acceptance
 - Choosing e.g. 6×4 shows 24 keys per page on every board, on desktop and phone; existing keys keep their positions.
@@ -31,3 +35,4 @@ Strategy: ask-on-risk. Forecast ≈ 600–800 authored lines across three work-u
 
 ## Progress
 - Prior unrelated UI fixes committed as ec2d106.
+- T1 5041fcb, T2 1cea157.

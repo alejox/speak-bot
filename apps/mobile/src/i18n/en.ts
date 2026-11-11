@@ -76,6 +76,14 @@ export const en = {
   "boards.restored": "The “{name}” board was restored.",
 
   "board.addPage": "New page",
+  "grid.open": "Grid size",
+  "grid.title": "Grid size",
+  "grid.columns": "Columns",
+  "grid.rows": "Rows",
+  "grid.hint": "Applies to all boards. Keys keep their place when they fit.",
+  "grid.save": "Save",
+  "grid.cancel": "Cancel",
+  "grid.saved": "Grid set to {columns} × {rows}.",
   "inspector.label": "Key {number}",
   "keyMenu.label": "Key {number}: {label}",
   "keyMenu.options": "Options for key {number}",
@@ -239,6 +247,7 @@ export const en = {
 
   "errorCode.slotOccupied": "That key is already taken.",
   "errorCode.boardLimit": "You reached the maximum number of boards.",
+  "errorCode.gridFull": "The keys do not fit in that grid. Choose a larger size or remove keys.",
   "errorCode.lastBoard": "The only board cannot be deleted.",
   "errorCode.boardNotFound": "That board no longer exists.",
   "errorCode.keyNotFound": "That key is already empty.",

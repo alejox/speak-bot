@@ -1,4 +1,5 @@
 import {
+  BoardGridFullError,
   BoardLimitError,
   BoardNotFoundError,
   InvalidBoardError,
@@ -13,6 +14,7 @@ import type { Message, MessageKey } from "../i18n/messages";
 const CODE_MESSAGES: Partial<Record<ApiErrorCode, MessageKey>> = {
   "slot-occupied": "errorCode.slotOccupied",
   "board-limit": "errorCode.boardLimit",
+  "grid-full": "errorCode.gridFull",
   "last-board": "errorCode.lastBoard",
   "board-not-found": "errorCode.boardNotFound",
   "key-not-found": "errorCode.keyNotFound",
@@ -28,6 +30,7 @@ const CODE_MESSAGES: Partial<Record<ApiErrorCode, MessageKey>> = {
 export function describeRequestError(error: unknown): Message {
   if (error instanceof DesktopRequestError) return { key: (error.code && CODE_MESSAGES[error.code]) || "errorCode.failed" };
   if (error instanceof SlotOccupiedError) return { key: "errorCode.slotOccupied" };
+  if (error instanceof BoardGridFullError) return { key: "errorCode.gridFull" };
   if (error instanceof BoardLimitError) return { key: "errorCode.boardLimit" };
   if (error instanceof LastBoardError) return { key: "errorCode.lastBoard" };
   if (error instanceof BoardNotFoundError) return { key: "errorCode.boardNotFound" };

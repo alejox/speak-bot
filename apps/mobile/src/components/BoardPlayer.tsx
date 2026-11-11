@@ -1,6 +1,6 @@
-import { boardPageCount, keysOnPage, KEYS_PER_PAGE, MAX_BOARD_PAGES, type Action, type Key } from "@speed-deck/core";
+import { boardPageCount, keysOnPage, keysPerPage, MAX_BOARD_PAGES, type Action, type Key } from "@speed-deck/core";
 import { MoreHorizontal } from "lucide-react";
-import { useEffect, useId, useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import type { BoardNavigation } from "../app/use-boards";
 import { KEY_STATE_LABELS, keyLabel, keyLook, presentKey, type KeyContext } from "../app/key-presentation";
 import { useMediaQuery } from "../app/use-media-query";
@@ -82,9 +82,11 @@ export function BoardPlayer({
   const showsNewPage = canEdit && board !== null && newPage?.boardId === board.id && newPage.page === pageCount;
   const page = showsNewPage ? pageCount : (position?.page ?? 0);
   const keys = board ? keysOnPage(board, page) : [];
+  // Keys per page: the board's columns × rows.
+  const pageSize = board ? keysPerPage(board) : 0;
   // One + per page; others (the inspector's Add key) add at the same slot.
   const plusIndex = addIndexOnPage(keys);
-  const addSlot = board && plusIndex >= 0 ? page * KEYS_PER_PAGE + plusIndex : null;
+  const addSlot = board && plusIndex >= 0 ? page * pageSize + plusIndex : null;
 
   useEffect(() => {
     onAddSlotChange?.(addSlot);
@@ -211,9 +213,13 @@ export function BoardPlayer({
 
       {/* The grid's own box, so wide layouts can size the keys to the room it gets. */}
       <div className="deck-grid-area">
-        <ol className="deck-grid" aria-label={t("board.keys", { board: board.name })}>
+        <ol
+          className="deck-grid"
+          aria-label={t("board.keys", { board: board.name })}
+          style={{ "--grid-columns": board.columns, "--grid-rows": board.rows } as CSSProperties}
+        >
           {keys.map((key, index) => {
-            const slot = page * KEYS_PER_PAGE + index;
+            const slot = page * pageSize + index;
             const dropClass = dropSlot === slot ? "deck-key-drop" : "";
             if (!key) {
               return (

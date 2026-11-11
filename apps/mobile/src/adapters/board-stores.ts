@@ -6,9 +6,11 @@ import {
   moveKey,
   renameBoard,
   restoreDefaultBoard,
+  setBoardGrid,
   setKey,
   type Action,
   type Board,
+  type BoardGrid,
   type BoardKind,
   type Key,
   type UiLanguage,
@@ -43,6 +45,8 @@ export interface BoardStore {
   moveKey(boardId: string, from: number, to: number): Promise<Board>;
   /** Puts back a built-in board: the communication board unless `boardId` names the built-in deck board. */
   restoreDefault(language: UiLanguage, boardId?: string): Promise<Board>;
+  /** Gives every board `grid`, moving keys that no longer fit; rejects when a board has no room. */
+  setGrid(grid: BoardGrid): Promise<Board[]>;
   /** Boards changed somewhere else (another device). Returns an unsubscribe function. */
   onChanged(listener: () => void): () => void;
 }
@@ -64,6 +68,7 @@ export function createLocalBoardStore(repository: LocalStorageBoardRepository, g
     clearKey: (boardId, slot) => clearKey(repository, boardId, slot),
     moveKey: (boardId, from, to) => moveKey(repository, boardId, from, to),
     restoreDefault: (language, boardId) => restoreDefaultBoard(repository, language, boardId),
+    setGrid: (grid) => setBoardGrid(repository, grid),
     onChanged: () => () => {},
   };
 }
@@ -80,6 +85,7 @@ export function createRemoteBoardStore(api: DesktopApiClient, events: DesktopEve
     clearKey: (boardId, slot) => api.clearKey(boardId, slot),
     moveKey: (boardId, from, to) => api.moveKey(boardId, from, to),
     restoreDefault: (language, boardId) => api.restoreDefaultBoard(language, boardId),
+    setGrid: (grid) => api.setBoardGrid(grid),
     onChanged: (listener) =>
       events.subscribe((event) => {
         if (event.type === "boards-changed") listener();
