@@ -398,6 +398,24 @@ export interface LicenseResponse {
   readonly checkoutUrl?: string;
 }
 
+/** A sponsor banner as GET /api/ad serves it; remote URLs other than `linkUrl` never reach clients. */
+export interface AdCreative {
+  readonly id: string;
+  readonly title: string;
+  readonly text?: string;
+  /** https URL opened outside the app when the banner is pressed. */
+  readonly linkUrl: string;
+  /** Path of the cached image on this server (GET /api/ad/image), when the creative has one. */
+  readonly imagePath?: string;
+  /** Text alternative for the image. */
+  readonly alt?: string;
+}
+
+/** GET /api/ad → the current sponsor, or null when the house banner should show. */
+export interface AdResponse {
+  readonly ad: AdCreative | null;
+}
+
 export interface ActivateLicenseRequest {
   key: string;
 }

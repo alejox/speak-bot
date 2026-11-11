@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { hostname as osHostname } from "node:os";
 import type { JsonFileSettingsStore } from "../adapters/json-file-settings-store";
+import type { AdFeed } from "../ads/ad-feed";
 import type { LicenseManager } from "../license/license-manager";
 import type { DesktopSpeechSynthesizer } from "../adapters/tts/process-speech-synthesizer";
 import { createApiHandler } from "./api";
@@ -36,6 +37,8 @@ export interface DesktopServerDependencies {
   apps?: ApplicationLauncher;
   /** The "remove ads" license; its changes are broadcast as license-changed. */
   license?: LicenseManager;
+  /** The cached sponsor banner served at /api/ad. */
+  ads?: AdFeed;
 }
 
 export interface DesktopServer {

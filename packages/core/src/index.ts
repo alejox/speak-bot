@@ -199,6 +199,8 @@ export {
   MAX_SPEAK_TEXT_LENGTH,
   voiceLanguageOf,
   type ActivateLicenseRequest,
+  type AdCreative,
+  type AdResponse,
   type ApiErrorCode,
   type ApplicationsResponse,
   type LicenseChangedEvent,

@@ -272,6 +272,37 @@ Boards and settings are stored in:
 - **Windows**: `%APPDATA%\speed-deck`
 - **Linux**: `$XDG_CONFIG_HOME/speed-deck` (or `~/.config/speed-deck`)
 
+### Ads and the remove-ads license
+
+Every feature is free; the **Deck** shows a small banner above the keys (never in **Voz**). A one-time purchase removes it on the computer and on every paired phone. Both need your own [Lemon Squeezy](https://www.lemonsqueezy.com) store (a product with license keys enabled) and, for sponsors, a public https feed. Until they are set, the banner only shows the "Quita los anuncios" house message and keys cannot be activated.
+
+Set them in `apps/desktop/src/config/monetization.ts` (built in) or with environment variables:
+
+| Env var                               | What it is                                                        | When missing                 |
+| ------------------------------------- | ----------------------------------------------------------------- | ---------------------------- |
+| `SPEED_DECK_LEMON_SQUEEZY_STORE_ID`   | Your Lemon Squeezy store id                                       | Keys cannot be activated     |
+| `SPEED_DECK_LEMON_SQUEEZY_PRODUCT_ID` | The "remove ads" product id; keys of other products are refused   | Keys cannot be activated     |
+| `SPEED_DECK_CHECKOUT_URL`             | https checkout link, opened in the system browser                 | No **Comprar** button            |
+| `SPEED_DECK_AD_FEED_URL`              | https URL of the sponsor feed                                     | House banner only            |
+
+- **License**: the key is activated from the computer's **Ajustes → Quitar anuncios** with the [License API](https://docs.lemonsqueezy.com/api/license-api) (only the key and the computer name are sent). It is saved in `license.json` in the data folder and checked at start and every 24 hours. If Lemon Squeezy cannot be reached, the saved status is kept; if it says the key is expired or disabled, the banner comes back. **Quitar licencia** frees the activation.
+- **Sponsor feed**: fetched at start and every 6 hours, over https without following redirects. The last good creative is cached in the `ad` folder of the data folder; a failed or invalid fetch keeps it, and `"ad": null` removes it.
+
+```json
+{
+  "ad": {
+    "id": "spring-2027",
+    "title": "Stream gear",
+    "text": "10% off microphones",
+    "linkUrl": "https://sponsor.example/offer",
+    "imageUrl": "https://cdn.example/banner.png",
+    "alt": "A microphone"
+  }
+}
+```
+
+`id` (letters, digits, `.`, `-`, `_`), `title` (up to 80 characters) and `linkUrl` (https) are required; `text` (up to 160), `imageUrl` (https; PNG, JPEG or WebP up to 500 KB) and `alt` are optional. Phones never contact the feed: they get the creative and the image from the computer. No tracking and no cookies.
+
 ### Scripts
 
 | Command                              | What it does                                      |

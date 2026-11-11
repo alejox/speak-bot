@@ -36,6 +36,7 @@ import {
   setKey,
   SlotOccupiedError,
   SpeechQueueFullError,
+  type AdResponse,
   type ApiErrorCode,
   type ApplicationLauncher,
   type BoardRepository,
@@ -52,6 +53,7 @@ import { networkInterfaces as osNetworkInterfaces } from "node:os";
 import { InvalidSettingsError, isValidRate, toPublicSettings, type JsonFileSettingsStore } from "../adapters/json-file-settings-store";
 import type { DesktopSpeechSynthesizer } from "../adapters/tts/process-speech-synthesizer";
 import { ClientActionError, createActionExecutor, NothingToRepeatError, type SpeechOverrides } from "./action-executor";
+import type { AdFeed } from "../ads/ad-feed";
 import type { LicenseManager } from "../license/license-manager";
 import { applyObsSettings, ObsDisabledError } from "./obs-settings";
 import { asObject, HttpError, readJsonBody, sendEmpty, sendJson } from "./http-utils";
@@ -77,6 +79,8 @@ export interface ApiDependencies {
   apps?: ApplicationLauncher;
   /** The "remove ads" license; absent means ads always show and keys cannot be activated. */
   license?: LicenseManager;
+  /** The cached sponsor banner; absent means the house banner always shows. */
+  ads?: AdFeed;
 }
 
 /** The longest license key accepted; Lemon Squeezy keys are UUIDs. */
@@ -356,6 +360,31 @@ export function createApiHandler(deps: ApiDependencies) {
       handler: async (request, response) => {
         requireLoopback(request);
         sendJson(response, 200, deps.license ? await deps.license.remove() : NO_LICENSE);
+      },
+    },
+
+    // ---- Sponsor banner ----
+    {
+      method: "GET",
+      path: "/api/ad",
+      handler: async (_request, response) => {
+        const body: AdResponse = { ad: (await deps.ads?.current()) ?? null };
+        sendJson(response, 200, body);
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/ad/image",
+      handler: async (_request, response) => {
+        const image = await deps.ads?.image();
+        if (!image) throw new HttpError(404, "No sponsor image.");
+        response.writeHead(200, {
+          "content-type": image.contentType,
+          "content-length": image.bytes.length,
+          "cache-control": "no-cache",
+          "x-content-type-options": "nosniff",
+        });
+        response.end(image.bytes);
       },
     },
 

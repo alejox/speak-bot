@@ -10,6 +10,7 @@ import { createObsWebSocketClient, type ObsClient } from "./adapters/obs/obs-cli
 import { ObsConnectionManager } from "./adapters/obs/obs-connection-manager";
 import { createApplicationLauncher } from "./adapters/apps/create-application-launcher";
 import { createSystemSynthesizer } from "./adapters/tts/create-system-synthesizer";
+import { AdFeed } from "./ads/ad-feed";
 import { loadConfig, type ConfigSources } from "./config";
 import { loadMonetizationConfig } from "./config/monetization";
 import { JsonFileLicenseStore } from "./license/json-file-license-store";
@@ -96,6 +97,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     now: () => Date.now(),
     log,
   });
+  const ads = new AdFeed({ feedUrl: monetization.adFeedUrl, dir: join(config.dataDir, "ad"), fetch: options.fetch, log });
   const settingsListeners = new Set<(next: DesktopSettings) => void>();
 
   const pageHandler = createPageHandler({
@@ -112,6 +114,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     obs,
     apps: createApplicationLauncher(),
     license,
+    ads,
     onSettingsChanged: (next) => {
       for (const listener of [...settingsListeners]) listener(next);
     },
@@ -134,6 +137,8 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
   void applyObsSettings(obs, (await settings.loadStored()).obs).catch((error: unknown) => log(`OBS: ${String(error)}`));
   // Validates the saved license now and every 24 h; failures keep the saved status.
   void license.start();
+  // Refreshes the sponsor banner now and every 6 h; failures keep the last good one.
+  void ads.start();
   log(`Speech engine: ${engine}${supportsDeviceSelection ? " (output device selectable)" : ""}`);
 
   let closing: Promise<void> | undefined;
@@ -154,6 +159,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
       closing ??= (async () => {
         synthesizer.cancel();
         license.stop();
+        ads.stop();
         await obs.close();
         await server.close();
       })();

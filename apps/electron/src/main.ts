@@ -1,6 +1,7 @@
 import { startDesktop, type RunningDesktop } from "@speed-deck/desktop";
 import { app, BrowserWindow, clipboard, dialog, Menu, nativeImage, shell, Tray } from "electron";
 import { homedir } from "node:os";
+import { externalLinkPolicy, type LinkDecision } from "./external-links";
 import { isLinuxAutostartEnabled, linuxAutostartEntry, linuxAutostartFile, migrateLinuxAutostart, setLinuxAutostart } from "./linux-autostart";
 import { resolveAppPaths } from "./paths";
 import { installQuitOnSignals } from "./quit-signals";
@@ -106,15 +107,17 @@ function createWindow(port: number): BrowserWindow {
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
 
-  // Links to other sites open in the default browser, never inside the app.
+  // Links to other sites (sponsors, checkout) open in the default browser, only when https, never inside the app.
+  const links = externalLinkPolicy(origin);
   created.webContents.setWindowOpenHandler(({ url }) => {
-    openExternal(url);
+    openExternal(links.open(url));
     return { action: "deny" };
   });
   created.webContents.on("will-navigate", (event, url) => {
-    if (new URL(url).origin === origin) return;
+    const decision = links.navigate(url);
+    if (decision.allow) return;
     event.preventDefault();
-    openExternal(url);
+    openExternal(decision);
   });
 
   // Closing the window only hides it; "Quit" in the tray really quits.
@@ -148,9 +151,8 @@ async function loadWithoutServiceWorker(window: BrowserWindow, origin: string): 
   await window.loadURL(`${origin}/`);
 }
 
-function openExternal(url: string): void {
-  const { protocol } = new URL(url);
-  if (protocol === "http:" || protocol === "https:" || protocol === "mailto:") void shell.openExternal(url);
+function openExternal(decision: LinkDecision): void {
+  if (!decision.allow && decision.openExternal) void shell.openExternal(decision.openExternal);
 }
 
 function createTray(): void {
