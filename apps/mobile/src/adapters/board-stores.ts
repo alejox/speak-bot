@@ -13,6 +13,7 @@ import {
   type BoardGrid,
   type BoardKind,
   type Key,
+  type KeySpan,
   type UiLanguage,
 } from "@speed-deck/core";
 import type { DesktopApiClient } from "./desktop-api";
@@ -27,6 +28,8 @@ export interface KeyInput {
   color?: string;
   /** Color while the key's toggle is on; empty for none. */
   activeColor?: string;
+  /** Cells the key covers; only actions that can span (see `ActionDefinition.canSpan`). */
+  span?: KeySpan;
   action: Action;
 }
 

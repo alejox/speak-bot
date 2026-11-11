@@ -1,13 +1,15 @@
-import { boardPageCount, keysOnPage, keysPerPage, MAX_BOARD_PAGES, type Action, type Key } from "@speed-deck/core";
+import { boardPageCount, coveredSlots, keySpanOf, keysOnPage, keysPerPage, MAX_BOARD_PAGES, type Action, type Key } from "@speed-deck/core";
 import { MoreHorizontal } from "lucide-react";
 import { useEffect, useId, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import type { BoardNavigation } from "../app/use-boards";
 import { KEY_STATE_LABELS, keyFillColor, keyLabel, keyLook, presentKey, type KeyContext } from "../app/key-presentation";
 import { displayedCellIndexes } from "../app/board-display";
+import type { InputVolumeServices } from "../app/use-input-volume";
 import { PORTRAIT_BOARD_QUERY, useMediaQuery } from "../app/use-media-query";
 import { useT } from "../i18n/I18nProvider";
 import { BoardKey } from "./BoardKey";
 import { KeyMenu } from "./KeyMenu";
+import { VolumeKey } from "./VolumeKey";
 
 /** Drag data type of a key being moved to another slot. */
 const SLOT_DRAG_TYPE = "application/x-speed-deck-slot";
@@ -20,10 +22,23 @@ const TOUCH_MOVE_THRESHOLD = 8;
 /** Dragging keys (HTML drag and drop) needs a mouse or trackpad; a touch moves them with a long press, then a drag. */
 const FINE_POINTER_QUERY = "(pointer: fine)";
 
-/** Where a page offers its one +: right after the last key, or in the first gap when the last space is taken; -1 when full. */
-function addIndexOnPage(keys: readonly (Key | undefined)[]): number {
-  const lastKeyIndex = keys.reduce((last, key, index) => (key ? index : last), -1);
-  return lastKeyIndex < keys.length - 1 ? lastKeyIndex + 1 : keys.findIndex((key) => !key);
+/**
+ * Where a page offers its one +: right after the last used cell, or in the first gap when the last space is
+ * taken; -1 when full. `used` tells, per cell, whether a key sits on it or covers it.
+ */
+function addIndexOnPage(used: readonly boolean[]): number {
+  const lastUsedIndex = used.reduce((last, isUsed, index) => (isUsed ? index : last), -1);
+  return lastUsedIndex < used.length - 1 ? lastUsedIndex + 1 : used.findIndex((isUsed) => !isUsed);
+}
+
+/** Where a key covering several cells is drawn: its first row and column (1-based) and how many it covers, on screen. */
+function cellPlacement(index: number, key: Key, columns: number, transposed: boolean): CSSProperties | undefined {
+  const span = keySpanOf(key);
+  if (span.rows === 1 && span.columns === 1) return undefined;
+  const row = Math.floor(index / columns);
+  const column = index % columns;
+  const [drawnRow, drawnColumn, rowSpan, columnSpan] = transposed ? [column, row, span.columns, span.rows] : [row, column, span.rows, span.columns];
+  return { "--cell-row": drawnRow + 1, "--cell-column": drawnColumn + 1, "--row-span": rowSpan, "--column-span": columnSpan } as CSSProperties;
 }
 
 interface BoardPlayerProps {
@@ -49,6 +64,8 @@ interface BoardPlayerProps {
   strip?: ReactNode;
   /** "dock" is the compact layout for the OBS dock. */
   variant?: "full" | "dock";
+  /** Reads, sets and follows OBS input volumes for volume keys; null in phone-only mode. */
+  volumes?: InputVolumeServices | null;
 }
 
 /** Plays a board: its header (the board pill), a page of keys and the pager. Keys show live OBS and captions state. */
@@ -65,6 +82,7 @@ export function BoardPlayer({
   toolbar,
   strip,
   variant = "full",
+  volumes = null,
 }: BoardPlayerProps) {
   const t = useT();
   const descriptionPrefix = useId();
@@ -74,7 +92,7 @@ export function BoardPlayer({
   const [dropSlot, setDropSlot] = useState<number | null>(null);
   // A slot whose control should take focus once it renders (the + left by a deleted key).
   const [focusSlot, setFocusSlot] = useState<number | null>(null);
-  const slotButtons = useRef(new Map<number, HTMLButtonElement>());
+  const slotButtons = useRef(new Map<number, HTMLElement>());
   const longPress = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
   // The touch resting on a key: `held` once its long press fired, `moving` once it then dragged the key.
   const touch = useRef<{ slot: number; x: number; y: number; held: boolean; moving: boolean } | null>(null);
@@ -98,8 +116,10 @@ export function BoardPlayer({
   const keys = board ? keysOnPage(board, page) : [];
   // Keys per page: the board's columns × rows.
   const pageSize = board ? keysPerPage(board) : 0;
+  // Cells covered by a key spanning several cells: not drawn, never offered for a new key.
+  const covered = board ? coveredSlots(board) : new Set<number>();
   // One + per page; others (the inspector's Add key) add at the same slot.
-  const plusIndex = addIndexOnPage(keys);
+  const plusIndex = addIndexOnPage(keys.map((key, index) => key !== undefined || covered.has(page * pageSize + index)));
   const addSlot = board && plusIndex >= 0 ? page * pageSize + plusIndex : null;
 
   useEffect(() => {
@@ -136,7 +156,7 @@ export function BoardPlayer({
     setNewPage({ boardId: board.id, page: pageCount });
   };
 
-  const slotRef = (slot: number) => (element: HTMLButtonElement | null) => {
+  const slotRef = (slot: number) => (element: HTMLElement | null) => {
     if (element) slotButtons.current.set(slot, element);
     else slotButtons.current.delete(slot);
   };
@@ -183,13 +203,13 @@ export function BoardPlayer({
             if (touch.current) touch.current.held = true;
             openMenu(slot);
           },
-          onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => {
+          onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
             if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
               event.preventDefault();
               openMenu(slot);
             }
           },
-          onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
+          onPointerDown: (event: PointerEvent<HTMLElement>) => {
             swallowClick.current = false;
             cancelLongPress();
             if (event.pointerType === "mouse") return;
@@ -202,7 +222,7 @@ export function BoardPlayer({
             }, LONG_PRESS_MS);
             longPress.current = { timer, x: event.clientX, y: event.clientY };
           },
-          onPointerMove: (event: PointerEvent<HTMLButtonElement>) => {
+          onPointerMove: (event: PointerEvent<HTMLElement>) => {
             const start = longPress.current;
             if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > LONG_PRESS_SLOP) {
               cancelLongPress();
@@ -228,7 +248,7 @@ export function BoardPlayer({
             if (over === null) cancelTouchMove();
             else setDropSlot(over === held.slot ? null : over);
           },
-          onPointerUp: (event: PointerEvent<HTMLButtonElement>) => {
+          onPointerUp: (event: PointerEvent<HTMLElement>) => {
             cancelLongPress();
             const held = touch.current;
             touch.current = null;
@@ -298,6 +318,7 @@ export function BoardPlayer({
           {cellIndexes.map((index) => {
             const key = keys[index];
             const slot = page * pageSize + index;
+            if (covered.has(slot)) return null;
             const dropClass = dropSlot === slot ? "deck-key-drop" : "";
             if (!key) {
               return (
@@ -331,8 +352,80 @@ export function BoardPlayer({
             // Why the key is offline, or that it is being said: hidden text the key points to.
             const description = reason ?? (speaking ? t("key.speaking") : undefined);
             const descriptionId = `${descriptionPrefix}-${slot}`;
+            const placement = cellPlacement(index, key, board.columns, isTransposed);
+            const cellClass = [canEdit ? "deck-slot" : "", placement ? "deck-cell-span" : ""].filter(Boolean).join(" ") || undefined;
+            const menu = canEdit && (
+              <>
+                {/* A visible way into the menu for mouse users; keyboards use Shift+F10 on the key itself. */}
+                <button
+                  type="button"
+                  className="deck-key-more"
+                  tabIndex={-1}
+                  aria-label={t("keyMenu.options", { number: slot + 1 })}
+                  aria-haspopup="menu"
+                  aria-expanded={menuSlot === slot}
+                  onClick={() => openMenu(slot)}
+                >
+                  <MoreHorizontal size={18} aria-hidden="true" />
+                </button>
+                {menuSlot === slot && onEditKey && (
+                  <KeyMenu
+                    slot={slot}
+                    label={label}
+                    onEdit={() => {
+                      closeMenu(true);
+                      onEditKey(slot);
+                    }}
+                    onDelete={async () => {
+                      const deleted = (await onDeleteKey?.(slot)) ?? false;
+                      if (deleted) {
+                        setMenuSlot(null);
+                        setFocusSlot(slot);
+                      }
+                      return deleted;
+                    }}
+                    onClose={closeMenu}
+                  />
+                )}
+              </>
+            );
+            if (key.action.type === "obs.inputVolume") {
+              const span = keySpanOf(key);
+              const { onKeyDown, ...handleHandlers } = keyMenuHandlers(slot);
+              return (
+                <li key={slot} data-slot={slot} className={cellClass} style={placement}>
+                  <VolumeKey
+                    ref={slotRef(slot)}
+                    label={label}
+                    inputName={key.action.inputName}
+                    iconId={keyLook(key).iconId}
+                    color={key.color}
+                    vertical={isTransposed ? span.columns > span.rows : span.rows > span.columns}
+                    disabledReason={reason}
+                    services={volumes}
+                    selected={selectedSlot === slot}
+                    className={[dropClass, movingSlot === slot ? "deck-key-moving" : ""].filter(Boolean).join(" ") || undefined}
+                    onSliderKeyDown={onKeyDown}
+                    handleProps={{
+                      ...handleHandlers,
+                      draggable: canDrag || undefined,
+                      onDragStart: canDrag
+                        ? (event) => {
+                            cancelLongPress();
+                            setMenuSlot(null);
+                            event.dataTransfer.setData(SLOT_DRAG_TYPE, String(slot));
+                            event.dataTransfer.effectAllowed = "move";
+                          }
+                        : undefined,
+                    }}
+                    dropProps={dropHandlers(slot)}
+                  />
+                  {menu}
+                </li>
+              );
+            }
             return (
-              <li key={slot} data-slot={slot} className={canEdit ? "deck-slot" : undefined}>
+              <li key={slot} data-slot={slot} className={cellClass} style={placement}>
                 <BoardKey
                   ref={slotRef(slot)}
                   label={label}
@@ -365,39 +458,7 @@ export function BoardPlayer({
                   {...keyMenuHandlers(slot)}
                   {...dropHandlers(slot)}
                 />
-                {canEdit && (
-                  // A visible way into the menu for mouse users; keyboards use Shift+F10 on the key itself.
-                  <button
-                    type="button"
-                    className="deck-key-more"
-                    tabIndex={-1}
-                    aria-label={t("keyMenu.options", { number: slot + 1 })}
-                    aria-haspopup="menu"
-                    aria-expanded={menuSlot === slot}
-                    onClick={() => openMenu(slot)}
-                  >
-                    <MoreHorizontal size={18} aria-hidden="true" />
-                  </button>
-                )}
-                {menuSlot === slot && onEditKey && (
-                  <KeyMenu
-                    slot={slot}
-                    label={label}
-                    onEdit={() => {
-                      closeMenu(true);
-                      onEditKey(slot);
-                    }}
-                    onDelete={async () => {
-                      const deleted = (await onDeleteKey?.(slot)) ?? false;
-                      if (deleted) {
-                        setMenuSlot(null);
-                        setFocusSlot(slot);
-                      }
-                      return deleted;
-                    }}
-                    onClose={closeMenu}
-                  />
-                )}
+                {menu}
                 {description && (
                   <span id={descriptionId} hidden>
                     {description}

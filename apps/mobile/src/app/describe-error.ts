@@ -5,6 +5,7 @@ import {
   InvalidBoardError,
   KeyNotFoundError,
   LastBoardError,
+  NoRoomForKeyError,
   SlotOccupiedError,
   type ApiErrorCode,
 } from "@speed-deck/core";
@@ -13,6 +14,7 @@ import type { Message, MessageKey } from "../i18n/messages";
 
 const CODE_MESSAGES: Partial<Record<ApiErrorCode, MessageKey>> = {
   "slot-occupied": "errorCode.slotOccupied",
+  "no-room": "errorCode.noRoom",
   "board-limit": "errorCode.boardLimit",
   "grid-full": "errorCode.gridFull",
   "last-board": "errorCode.lastBoard",
@@ -34,6 +36,7 @@ const CODE_MESSAGES: Partial<Record<ApiErrorCode, MessageKey>> = {
 export function describeRequestError(error: unknown): Message {
   if (error instanceof DesktopRequestError) return { key: (error.code && CODE_MESSAGES[error.code]) || "errorCode.failed" };
   if (error instanceof SlotOccupiedError) return { key: "errorCode.slotOccupied" };
+  if (error instanceof NoRoomForKeyError) return { key: "errorCode.noRoom" };
   if (error instanceof BoardGridFullError) return { key: "errorCode.gridFull" };
   if (error instanceof BoardLimitError) return { key: "errorCode.boardLimit" };
   if (error instanceof LastBoardError) return { key: "errorCode.lastBoard" };

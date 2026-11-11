@@ -109,6 +109,7 @@ export function keyLabel(key: Key, boards: readonly Board[], t: Translate): stri
     case "obs.switchScene":
       return action.sceneName;
     case "obs.toggleMute":
+    case "obs.inputVolume":
       return action.inputName;
     case "obs.toggleSourceVisibility":
       return action.sourceName;

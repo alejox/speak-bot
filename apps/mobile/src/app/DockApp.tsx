@@ -72,6 +72,7 @@ function DockContent({ target }: { target: SpeechTarget }) {
         navigation={deck.navigation}
         context={deck.context}
         onRun={confirmed.run}
+        volumes={target.obs}
         isSpeaking={speech.isSpeaking}
         onEditKey={setDialogSlot}
         onDeleteKey={deck.clearKey}

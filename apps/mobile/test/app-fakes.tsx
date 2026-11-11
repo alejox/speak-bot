@@ -134,6 +134,8 @@ export interface DesktopState {
   speak?: { status?: number; body?: unknown };
   /** When set, PUT /api/boards/grid answers 409 "grid-full". */
   gridFull?: boolean;
+  /** OBS input volumes (multipliers) by input name; any other input answers 502 "obs-request-failed". */
+  volumes?: Record<string, number>;
 }
 
 export function desktopState(overrides: Partial<DesktopState> = {}): DesktopState {
@@ -228,6 +230,17 @@ export function desktopRoute(state: DesktopState) {
       case "POST /api/obs/connect":
         return { body: { status: "connected" } };
     }
+    const volumeMatch = /^\/api\/obs\/inputs\/([^/]+)\/volume$/.exec(request.url);
+    if (volumeMatch) {
+      const inputName = decodeURIComponent(volumeMatch[1]!);
+      const volumes = (state.volumes ??= {});
+      if (!(inputName in volumes)) return { status: 502, body: { error: "No source was found.", code: "obs-request-failed" } };
+      if (request.method === "PUT") {
+        volumes[inputName] = body.volumeMul as number;
+        return { body: { ok: true } };
+      }
+      return { body: { inputName, volumeMul: volumes[inputName] } };
+    }
     const keyMatch = KEY_PATH.exec(request.url);
     if (keyMatch) {
       const target = board(keyMatch[1]!);
@@ -236,7 +249,7 @@ export function desktopRoute(state: DesktopState) {
       if (request.method === "PUT") {
         const { replace, ...key } = body as { replace?: boolean } & Omit<Key, "slot">;
         if (!replace && target.keys.some((candidate) => candidate.slot === slot)) return { status: 409, body: { error: "Taken.", code: "slot-occupied" } };
-        const stored: Key = { slot, ...(key.label ? { label: key.label } : {}), ...(key.icon ? { icon: key.icon } : {}), ...(key.color ? { color: key.color } : {}), ...(key.activeColor ? { activeColor: key.activeColor } : {}), action: key.action };
+        const stored: Key = { slot, ...(key.label ? { label: key.label } : {}), ...(key.icon ? { icon: key.icon } : {}), ...(key.color ? { color: key.color } : {}), ...(key.activeColor ? { activeColor: key.activeColor } : {}), ...(key.span && (key.span.rows > 1 || key.span.columns > 1) ? { span: key.span } : {}), action: key.action };
         replaceBoard(makeBoard(target.id, target.name, target.kind, [...target.keys.filter((candidate) => candidate.slot !== slot), stored], target));
         return { body: stored };
       }

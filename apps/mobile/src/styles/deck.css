@@ -384,6 +384,98 @@
   color: var(--color-text-muted);
 }
 
+/*
+ * A key covering several cells (a volume slider). In the compact layouts it spans that many cells wherever
+ * it lands; where the page keeps the board's grid (below) it sits on its own cells, so it lines up with
+ * the keys and gaps around it. The cells it covers are not drawn.
+ */
+.deck-grid li.deck-cell-span {
+  grid-row: span var(--row-span);
+  grid-column: span var(--column-span);
+}
+
+/*
+ * A volume key: its name and level on a title row (a long press there opens the menu or moves the key),
+ * then a slider that only ever changes the volume. It fills its cells instead of staying square.
+ */
+.deck-key.deck-volume {
+  aspect-ratio: auto;
+  height: 100%;
+  min-height: 0;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: var(--space-2);
+  cursor: default;
+}
+
+.deck-key.deck-volume:active {
+  background-color: var(--key-bg);
+  filter: none;
+  box-shadow: var(--key-shadow);
+  transform: none;
+}
+
+.deck-key-colored.deck-volume:active {
+  background-color: var(--key-color);
+}
+
+.deck-volume-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: 0;
+  flex-wrap: wrap;
+  cursor: grab;
+}
+
+.deck-volume-head .deck-key-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deck-volume-value {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.deck-volume-range {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  margin: 0;
+  accent-color: var(--key-color, var(--color-accent));
+  cursor: pointer;
+  /* The finger on the track moves the slider only: no scroll, no zoom, no key move. */
+  touch-action: none;
+}
+
+.deck-volume-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Taller than wide: the slider runs from the bottom (silent) to the top (0 dB), centred in the key. */
+.deck-volume-vertical .deck-volume-range {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: auto;
+  height: 100%;
+  align-self: center;
+}
+
+.deck-volume:not(.deck-volume-vertical) .deck-volume-range {
+  align-self: center;
+}
+
+.deck-volume-reason {
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
 /* An editable key: its slot anchors the "more" button and the key menu. */
 .deck-slot {
   position: relative;
@@ -573,6 +665,12 @@
   grid-auto-rows: var(--key-size);
   gap: var(--deck-gap);
   max-width: none;
+}
+
+/* On the board's own grid a key covering several cells sits exactly on them, gaps included. */
+.app-space .deck-full .deck-grid li.deck-cell-span {
+  grid-row: var(--cell-row) / span var(--row-span);
+  grid-column: var(--cell-column) / span var(--column-span);
 }
 
 /* Each key is a size reference for its own label and icon, so both shrink with the key and still fit. */

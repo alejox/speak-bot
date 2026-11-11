@@ -24,6 +24,9 @@ export interface KeyDraft {
   actionType: ActionType | "";
   /** Parameter values by name, as typed. */
   params: Record<string, string>;
+  /** Rows and columns the key covers; only saved for actions that can span (see `ActionDefinition.canSpan`). */
+  spanRows: number;
+  spanColumns: number;
 }
 
 /** Preset key colors, light and dark, each with an i18n name (`color.<name>`). */
@@ -53,6 +56,8 @@ export function draftOf(key: Key | undefined, actionType?: ActionType): KeyDraft
     activeColor: key?.activeColor ?? "",
     actionType: actionType ?? action?.type ?? "",
     params,
+    spanRows: key?.span?.rows ?? 1,
+    spanColumns: key?.span?.columns ?? 1,
   };
 }
 
@@ -95,7 +100,8 @@ export function draftToKey(slot: number, draft: KeyDraft, t: (key: MessageKey) =
   if (activeColor !== "" && !isHexColor(activeColor)) return { ok: false, error: { key: "editor.colorInvalid" }, field: "activeColor" };
   const action = draftAction(draft, t);
   if (!action.ok) return action;
-  const key: KeyInput = { slot, label: draft.label.trim(), icon: draft.icon, color: color.toLowerCase(), action: action.action };
+  const base: KeyInput = { slot, label: draft.label.trim(), icon: draft.icon, color: color.toLowerCase(), action: action.action };
+  const key = ACTION_REGISTRY[action.action.type].canSpan ? { ...base, span: { rows: draft.spanRows, columns: draft.spanColumns } } : base;
   return { ok: true, key: withOnState ? { ...key, activeColor: activeColor.toLowerCase() } : key };
 }
 

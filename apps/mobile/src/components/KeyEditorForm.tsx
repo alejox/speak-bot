@@ -8,6 +8,8 @@ import {
   KEY_ICON_IDS,
   MAX_BOARD_PAGES,
   MAX_KEY_LABEL_LENGTH,
+  MAX_KEY_SPAN_COLUMNS,
+  MAX_KEY_SPAN_ROWS,
   type Action,
   type ActionType,
   type Board,
@@ -62,7 +64,7 @@ export interface KeyEditorFormProps {
 /** Edits one key: action and its parameters, label, icon and color (and its color when on, for keys with an on state); tests, saves and moves it. Deleting lives in the key menu. */
 export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards, obs, listApplications, onSave, onTest, onMove, onCancel, cancelLabel, fixedAction = false, variant = "dialog", onDraftChange, heading }: KeyEditorFormProps) {
   const t = useT();
-  const ids = { action: useId(), label: useId(), labelHint: useId(), hex: useId(), activeHex: useId(), move: useId(), error: useId() };
+  const ids = { action: useId(), spanRows: useId(), spanColumns: useId(), spanHint: useId(), label: useId(), labelHint: useId(), hex: useId(), activeHex: useId(), move: useId(), error: useId() };
   const form = useRef<HTMLFormElement>(null);
   const [draft, setDraft] = useState<KeyDraft>(() => draftOf(existing, assignedType));
   const [error, setError] = useState<{ message: Message; field: string } | null>(null);
@@ -175,6 +177,34 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
         />
       )}
 
+      {draft.actionType && ACTION_REGISTRY[draft.actionType].canSpan && (
+        <div className="key-editor-span">
+          <div className="field">
+            <label htmlFor={ids.spanRows}>{t("editor.spanRows")}</label>
+            <select id={ids.spanRows} value={draft.spanRows} aria-describedby={ids.spanHint} onChange={(event) => update({ spanRows: Number(event.target.value) })}>
+              {range(MAX_KEY_SPAN_ROWS).map((rows) => (
+                <option key={rows} value={rows}>
+                  {t(`editor.rows.${rows}` as MessageKey)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor={ids.spanColumns}>{t("editor.spanColumns")}</label>
+            <select id={ids.spanColumns} value={draft.spanColumns} aria-describedby={ids.spanHint} onChange={(event) => update({ spanColumns: Number(event.target.value) })}>
+              {range(MAX_KEY_SPAN_COLUMNS).map((columns) => (
+                <option key={columns} value={columns}>
+                  {t(`editor.columns.${columns}` as MessageKey)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <p id={ids.spanHint} className="field-hint">
+            {t("editor.spanHint")}
+          </p>
+        </div>
+      )}
+
       <div className="field key-editor-name">
         <label htmlFor={ids.label}>{t("editor.label")}</label>
         <input
@@ -264,6 +294,11 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
       )}
     </form>
   );
+}
+
+/** 1, 2, … `count`. */
+function range(count: number): number[] {
+  return Array.from({ length: count }, (_, index) => index + 1);
 }
 
 interface PickerChoiceProps {

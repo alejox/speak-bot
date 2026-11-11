@@ -331,6 +331,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   navigation={deck.navigation}
                   context={deck.context}
                   onRun={confirmed.run}
+                  volumes={target.obs}
                   isSpeaking={speech.isSpeaking}
                   onEditKey={openKey}
                   selectedSlot={inspection?.slot ?? null}

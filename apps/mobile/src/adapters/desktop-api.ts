@@ -11,6 +11,7 @@ import {
   type DesktopSettingsPatch,
   type Key,
   type ObsInput,
+  type ObsInputVolumeResponse,
   type ObsSceneItem,
   type ObsStatus,
   type ObsStatusResponse,
@@ -178,6 +179,16 @@ export class DesktopApiClient {
     return this.request("GET", "/api/obs/inputs") as Promise<ObsInput[]>;
   }
 
+  /** An input's volume as OBS's multiplier; "obs-request-failed" when OBS has no such input with audio. */
+  async getObsInputVolume(inputName: string): Promise<number> {
+    const { volumeMul } = (await this.request("GET", obsVolumePath(inputName))) as ObsInputVolumeResponse;
+    return volumeMul;
+  }
+
+  async setObsInputVolume(inputName: string, volumeMul: number): Promise<void> {
+    await this.request("PUT", obsVolumePath(inputName), { volumeMul });
+  }
+
   listObsSceneItems(sceneName: string): Promise<ObsSceneItem[]> {
     return this.request("GET", `/api/obs/scenes/${encodeURIComponent(sceneName)}/items`) as Promise<ObsSceneItem[]>;
   }
@@ -234,4 +245,8 @@ function isCapabilities(value: unknown): value is SpeechCapabilities {
     typeof candidate.engine === "string" &&
     typeof candidate.supportsDeviceSelection === "boolean"
   );
+}
+
+function obsVolumePath(inputName: string): string {
+  return `/api/obs/inputs/${encodeURIComponent(inputName)}/volume`;
 }

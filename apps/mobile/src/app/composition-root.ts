@@ -56,6 +56,11 @@ export interface ObsServices {
   /** Connects again with the saved settings (only from the computer itself). */
   connect(): Promise<ObsStatus>;
   onEvent(listener: (event: ObsStatusEvent | ObsStateEvent) => void): () => void;
+  /** An input's volume as OBS's multiplier (1 = 0 dB); rejects when OBS has no such input with audio. */
+  getInputVolume(inputName: string): Promise<number>;
+  setInputVolume(inputName: string, volumeMul: number): Promise<void>;
+  /** An input's volume changed in OBS, from anywhere. Returns an unsubscribe function. */
+  onInputVolume(listener: (inputName: string, volumeMul: number) => void): () => void;
 }
 
 /** Speaking and running keys through the desktop computer that serves this app. */
@@ -134,6 +139,12 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
       onEvent: (listener) =>
         events.subscribe((event) => {
           if (event.type === "obs-status" || event.type === "obs-state") listener(event);
+        }),
+      getInputVolume: (inputName) => api.getObsInputVolume(inputName),
+      setInputVolume: (inputName, volumeMul) => api.setObsInputVolume(inputName, volumeMul),
+      onInputVolume: (listener) =>
+        events.subscribe((event) => {
+          if (event.type === "obs-input-volume") listener(event.inputName, event.volumeMul);
         }),
     },
     listDevices: () => api.listDevices(),
