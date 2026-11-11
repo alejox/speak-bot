@@ -72,10 +72,10 @@ describe("Deck workspace on wide screens", () => {
     expect(indicator.querySelector(".nav-status-ok")).not.toBeNull();
   });
 
-  it("leads to the OBS section from the indicator when OBS is not connected", async () => {
+  it("leads to the OBS section from the indicator on the computer when OBS is not connected", async () => {
     const state = desktopState({ boards: boards() });
     state.obs = { enabled: true, status: "error", state: idle };
-    const { user } = renderRemoteApp({ state });
+    const { user } = renderRemoteApp({ state, hostname: "localhost" });
     await screen.findByRole("button", { name: "Hi" });
     await goTo(user, "Deck");
     const indicator = await screen.findByRole("button", { name: "OBS not connected. Open OBS" });

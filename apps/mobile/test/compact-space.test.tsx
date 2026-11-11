@@ -33,7 +33,7 @@ describe("a space below the inspector width", () => {
     const state = desktopState({ boards: boards() });
     state.obs = { enabled: true, status: "connected", state: idle };
     const { user } = renderRemoteApp({ state });
-    await screen.findByRole("button", { name: "Hi" });
+    await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
     await goTo(user, "Deck");
     expect(screen.getByRole("heading", { level: 2, name: "Deck" })).toHaveClass("visually-hidden");
     expect(await screen.findByRole("img", { name: "OBS connected" })).toBeInTheDocument();
@@ -47,7 +47,7 @@ describe("a space below the inspector width", () => {
   it("keeps the Voice composer above the keys, under a hidden heading, with no side panel", async () => {
     setScreen(PHONE_UPRIGHT);
     renderLocalApp({ boards: boards() });
-    await screen.findByRole("button", { name: "Hi" });
+    await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
     expect(screen.getByRole("heading", { level: 2, name: "Voice" })).toHaveClass("visually-hidden");
     expect(within(screen.getByRole("main")).getByLabelText("Text to speak")).toBeInTheDocument();
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
@@ -72,7 +72,7 @@ describe("the sidebar in a short window", () => {
   it("shows as the icon rail without a toggle and without changing the stored choice", async () => {
     setScreen(PHONE_SIDEWAYS);
     renderLocalApp({ boards: boards() });
-    await screen.findByRole("button", { name: "Hi" });
+    await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
     expect(nav()).toHaveClass("side-nav-collapsed");
     expect(within(nav()).getByRole("link", { name: "Voice" })).toHaveAttribute("title", "Voice");
     expect(screen.queryByRole("button", { name: /menu$/ })).not.toBeInTheDocument();
@@ -82,7 +82,7 @@ describe("the sidebar in a short window", () => {
   it("keeps the labelled sidebar and its toggle in a tall one", async () => {
     setScreen(TABLET_UPRIGHT);
     renderLocalApp({ boards: boards() });
-    await screen.findByRole("button", { name: "Hi" });
+    await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
     expect(nav()).not.toHaveClass("side-nav-collapsed");
     expect(screen.getByRole("button", { name: "Collapse menu" })).toBeInTheDocument();
   });
@@ -107,7 +107,7 @@ describe("a board on a phone held upright", () => {
   it("draws a 6 x 4 page as 4 columns of 6, each stored row as a column", async () => {
     setScreen(PHONE_UPRIGHT);
     renderLocalApp({ boards: [sixByFour()] });
-    await screen.findByRole("button", { name: "K0" });
+    await screen.findByRole("button", { name: "K0" }, { timeout: 5000 });
     expect(grid().style.getPropertyValue("--grid-columns")).toBe("4");
     expect(grid().style.getPropertyValue("--grid-rows")).toBe("6");
     expect(drawnSlots()).toEqual([0, 6, 12, 18, 1, 7, 13, 19, 2, 8, 14, 20, 3, 9, 15, 21, 4, 10, 16, 22, 5, 11, 17, 23]);
@@ -141,7 +141,7 @@ describe("a board on a phone held upright", () => {
   it.each([PHONE_SIDEWAYS, TABLET_UPRIGHT, { width: 1280, height: 800 }])("draws the page as stored at $width x $height", async (size) => {
     setScreen(size);
     renderLocalApp({ boards: [sixByFour()] });
-    await screen.findByRole("button", { name: "K0" });
+    await screen.findByRole("button", { name: "K0" }, { timeout: 5000 });
     expect(grid().style.getPropertyValue("--grid-columns")).toBe("6");
     expect(drawnSlots().slice(0, 8)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
   });

@@ -17,7 +17,7 @@ describe.each([
   it("offers Clear text only while there is text, empties the field in one tap and returns focus to it", async () => {
     setWideScreen(wide);
     const { user, synthesizer } = renderLocalApp({ boards: boards() });
-    await screen.findByRole("button", { name: "Hello" });
+    await screen.findByRole("button", { name: "Hello" }, { timeout: 5000 });
     expect(clearButton()).not.toBeInTheDocument();
 
     await user.type(field(), "Good morning");

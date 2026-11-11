@@ -9,7 +9,7 @@ describe("navigation", () => {
   it("starts in Deck and switches sections, marking the current one", async () => {
     const { user } = renderLocalApp({ section: null });
     const nav = screen.getByRole("navigation", { name: "Sections" });
-    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Deck", "Voice", "OBS, not connected", "Settings"]);
+    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Deck", "Voice", "Settings"]);
     expect(within(nav).getByRole("link", { name: "Deck" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { level: 2, name: "Deck" })).toBeInTheDocument();
 
@@ -72,10 +72,6 @@ describe("navigation", () => {
     const deck = within(nav).getByRole("link", { name: "Deck" });
     expect(deck).toHaveAttribute("title", "Deck");
     expect(deck).toHaveAttribute("aria-current", "page");
-    // The OBS status stays on the icon in the rail, and in its name and tooltip.
-    const obs = within(nav).getByRole("link", { name: "OBS, not connected" });
-    expect(obs).toHaveAttribute("title", "OBS, not connected");
-    expect(obs.querySelector(".nav-status-off")).not.toBeNull();
     expect(JSON.parse(localStorage.getItem(NAV_COLLAPSED_STORAGE_KEY) ?? "null")).toBe(true);
 
     view.unmount();

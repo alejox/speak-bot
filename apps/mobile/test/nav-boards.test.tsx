@@ -23,7 +23,7 @@ describe("deck boards in the menu", () => {
   it("lists each deck board as its own menu item, before Voice, with no nested lists", async () => {
     renderLocalApp({ boards: boards() });
     await screen.findByRole("button", { name: "Hi" });
-    expect(menuItems()).toEqual(["Stream", "Games", "Voice", "OBS, not connected", "Settings"]);
+    expect(menuItems()).toEqual(["Stream", "Games", "Voice", "Settings"]);
     expect(within(nav()).queryByRole("list", { name: /boards/ })).not.toBeInTheDocument();
   });
 
@@ -50,7 +50,7 @@ describe("deck boards in the menu", () => {
   it("shows a single Deck item that opens the empty Deck when there are no deck boards", async () => {
     const { user } = renderLocalApp({ boards: [boardOf("talk", "Talk", [speakKey(0, "Hi")])] });
     await screen.findByRole("button", { name: "Hi" });
-    expect(menuItems()).toEqual(["Deck", "Voice", "OBS, not connected", "Settings"]);
+    expect(menuItems()).toEqual(["Deck", "Voice", "Settings"]);
     await user.click(within(nav()).getByRole("link", { name: "Deck" }));
     expect(await screen.findByText("There are no boards here yet.")).toBeInTheDocument();
     expect(within(nav()).getByRole("link", { name: "Deck" })).toHaveAttribute("aria-current", "page");
@@ -91,7 +91,7 @@ describe("deck boards in the menu", () => {
     setWideScreen(false);
     const { user } = renderLocalApp({ boards: boards() });
     await screen.findByRole("button", { name: "Hi" });
-    expect(menuItems()).toEqual(["Deck", "Voice", "OBS, not connected", "Settings"]);
+    expect(menuItems()).toEqual(["Deck", "Voice", "Settings"]);
     await user.click(within(nav()).getByRole("link", { name: "Deck" }));
     expect(await screen.findByRole("button", { name: "Live" })).toBeInTheDocument();
     expect(within(nav()).getByRole("link", { name: "Deck" })).toHaveAttribute("aria-current", "page");

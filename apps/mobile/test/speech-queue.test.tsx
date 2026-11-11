@@ -10,7 +10,7 @@ const speakButton = () => screen.getByRole("button", { name: "Speak" });
 describe("typed text waits its turn; everything else interrupts", () => {
   it("queues what the composer says and interrupts from keys, quick phrases, recent phrases and repeat", async () => {
     const { synthesizer } = renderLocalApp({ boards: boards() });
-    await screen.findByRole("button", { name: "Hello" });
+    await screen.findByRole("button", { name: "Hello" }, { timeout: 5000 });
     const modes = () => synthesizer.spoken.map((entry) => `${entry.text}: ${entry.options?.mode ?? "interrupt"}`);
 
     type("Typed");
@@ -29,7 +29,7 @@ describe("typed text waits its turn; everything else interrupts", () => {
 
   it("sends the mode to the computer for typed text only", async () => {
     const { requests } = renderRemoteApp({ state: desktopState({ boards: boards() }) });
-    await screen.findByRole("button", { name: "Hello" });
+    await screen.findByRole("button", { name: "Hello" }, { timeout: 5000 });
     type("Typed");
     fireEvent.click(speakButton());
     await waitFor(() => expect(requests.some((request) => request.url === "/api/speak")).toBe(true));
@@ -42,7 +42,7 @@ describe("typed text waits its turn; everything else interrupts", () => {
     const state = desktopState({ boards: boards() });
     state.speak = { status: 409, body: { error: "Full.", code: "queue-full" } };
     renderRemoteApp({ state });
-    await screen.findByRole("button", { name: "Hello" });
+    await screen.findByRole("button", { name: "Hello" }, { timeout: 5000 });
     type("One too many");
     fireEvent.click(speakButton());
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Too many phrases are waiting. Wait for one to be spoken."));

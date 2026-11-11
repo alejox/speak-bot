@@ -28,7 +28,7 @@ interface DeckStatusIndicatorProps extends DeckStatusProps {
   note?: string;
   onOpenSettings: () => void;
   /** Where the indicator leads when the computer runs the keys but OBS is not connected. */
-  onOpenObs: () => void;
+  onOpenObs?: () => void;
 }
 
 /**
@@ -51,7 +51,7 @@ export function DeckStatusIndicator({ isComputerConnected, obs, note, onOpenSett
       <StatusDot tone={tone} />
     </>
   );
-  if (!note && !isObsConnected) {
+  if (!note && !isObsConnected && onOpenObs) {
     return (
       <button type="button" className={`${className} deck-indicator-link`} aria-label={`${summary}. ${t("deck.openObs")}`} title={summary} onClick={onOpenObs}>
         {icon}

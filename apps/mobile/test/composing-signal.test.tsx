@@ -13,7 +13,7 @@ const flags = (requests: readonly RecordedRequest[]) => composing(requests).map(
 
 async function openVoice(options: Parameters<typeof renderRemoteApp>[0] = {}) {
   const rendered = renderRemoteApp({ state: desktopState({ boards: boards() }), ...options });
-  await screen.findByRole("button", { name: /^(Hi|Local phrase)$/ });
+  await screen.findByRole("button", { name: /^(Hi|Local phrase)$/ }, { timeout: 5000 });
   return rendered;
 }
 

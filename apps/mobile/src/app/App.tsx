@@ -138,7 +138,11 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const spaces = useSpaceDecks(target, speech, language, positionStores, select, setStatus);
 
   // Connect only exists on the computer itself; fall back when it is not available.
-  const section: Section = storedSection === "connect" && !connection ? "deck" : storedSection;
+  // OBS is set up on the computer that runs it: its section only exists in the computer's own window (the
+  // same signal as Connect: this page is open on that computer), never on a paired phone or without a computer.
+  // Known at once from the page's address, so the menu never changes shape after it is drawn.
+  const showsObsSection = target.isOnComputer;
+  const section: Section = (storedSection === "connect" && !connection) || (storedSection === "obs" && !showsObsSection) ? "deck" : storedSection;
   // OBS is reached through the computer app only; the menu item shows and says whether it is connected.
   const obsStatusTone = obsTone(target.isRemote, spaces.deck.obs);
   // Each deck board is a menu item of its own (the Deck section on that board). The phone tab bar has no
@@ -151,7 +155,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
       : deckBoards.map((candidate) => ({ id: `${DECK_BOARD_ITEM_PREFIX}${candidate.id}`, label: candidate.name, icon: SECTION_ICONS.deck }));
   const navItems: NavItem<string>[] = [
     ...deckItems,
-    ...SECTIONS.filter((id) => id !== "deck" && (id !== "connect" || connection)).map((id) => ({
+    ...SECTIONS.filter((id) => id !== "deck" && (id !== "connect" || connection) && (id !== "obs" || showsObsSection)).map((id) => ({
       id,
       label: t(`nav.${id}`),
       icon: SECTION_ICONS[id],
@@ -258,7 +262,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
       obs={deck.obs}
       note={deckNote ? t(deckNote) : undefined}
       onOpenSettings={() => select("settings")}
-      onOpenObs={() => select("obs")}
+      // Elsewhere the icon only tells the status: there is no OBS section to open.
+      onOpenObs={showsObsSection ? () => select("obs") : undefined}
     />
   );
 

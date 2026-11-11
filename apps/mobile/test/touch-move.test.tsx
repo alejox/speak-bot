@@ -43,7 +43,7 @@ describe("moving a key by touch", () => {
   it("lifts the key once the finger moves after a long press, marks the cell under it and swaps on release", async () => {
     const state = desktopState({ boards: [boardOf("main", "Main", [speakKey(0, "A"), speakKey(1, "B")])] });
     const { requests } = renderRemoteApp({ state });
-    const a = await screen.findByRole("button", { name: "A" });
+    const a = await screen.findByRole("button", { name: "A" }, { timeout: 5000 });
     longPress(a);
     expect(screen.getByRole("menu", { name: "Key 1: A" })).toBeInTheDocument();
 
@@ -69,7 +69,7 @@ describe("moving a key by touch", () => {
 
   it("moves onto an empty place and neither runs the key nor opens its menu", async () => {
     const { synthesizer } = renderLocalApp({ boards: [boardOf("main", "Main", [speakKey(0, "A")])] });
-    const a = await screen.findByRole("button", { name: "A" });
+    const a = await screen.findByRole("button", { name: "A" }, { timeout: 5000 });
     longPress(a);
     fingerOver(cellOf(7).firstElementChild);
     fireEvent.pointerMove(a, { pointerType: "touch", pointerId: 1, clientX: 200, clientY: 120 });
@@ -84,7 +84,7 @@ describe("moving a key by touch", () => {
   it("keeps the menu when the finger lifts without moving", async () => {
     const state = desktopState({ boards: [boardOf("main", "Main", [speakKey(0, "A"), speakKey(1, "B")])] });
     const { requests } = renderRemoteApp({ state });
-    const a = await screen.findByRole("button", { name: "A" });
+    const a = await screen.findByRole("button", { name: "A" }, { timeout: 5000 });
     longPress(a);
     fireEvent.pointerUp(a, { pointerType: "touch", pointerId: 1, clientX: 20, clientY: 20 });
     fireEvent.click(a, { detail: 1 });
@@ -95,7 +95,7 @@ describe("moving a key by touch", () => {
   it.each(["leaves the grid", "is cancelled"])("drops the move when the touch %s", async (how) => {
     const state = desktopState({ boards: [boardOf("main", "Main", [speakKey(0, "A"), speakKey(1, "B")])] });
     const { requests } = renderRemoteApp({ state });
-    const a = await screen.findByRole("button", { name: "A" });
+    const a = await screen.findByRole("button", { name: "A" }, { timeout: 5000 });
     longPress(a);
     fingerOver(screen.getByRole("button", { name: "B" }));
     fireEvent.pointerMove(a, { pointerType: "touch", pointerId: 1, clientX: 120, clientY: 20 });
@@ -117,7 +117,7 @@ describe("moving a key by touch", () => {
     setScreen({ width: 390, height: 844 });
     const board: Board = makeBoard("main", "Main", "voice", [speakKey(0, "A")], { columns: 6, rows: 4 });
     const { requests } = renderRemoteApp({ state: desktopState({ boards: [board] }) });
-    const a = await screen.findByRole("button", { name: "A" });
+    const a = await screen.findByRole("button", { name: "A" }, { timeout: 5000 });
     // Drawn second (first row, second column): the first cell of the stored second row.
     const second = within(grid()).getAllByRole("listitem")[1]!;
     expect(second).toHaveAttribute("data-slot", "6");

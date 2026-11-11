@@ -45,13 +45,10 @@ describe("OBS settings", () => {
     expect(within(group).getByRole("status")).toHaveTextContent("OBS: Wrong password");
   });
 
-  it("is read-only on a phone, explaining that it changes on the computer", async () => {
-    const { user } = renderRemoteApp({ hostname: "192.168.1.20" });
-    await goTo(user, OBS_LINK);
-    const group = await screen.findByRole("region", { name: "Connection" });
-    expect(within(group).getByText("The OBS connection can only be changed on the computer running Speed Deck.")).toBeInTheDocument();
-    expect(within(group).getByRole("checkbox", { name: "Connect to OBS" })).toBeDisabled();
-    expect(within(group).getByRole("button", { name: "Save and connect" })).toBeDisabled();
+  it("has no section on a paired phone", async () => {
+    renderRemoteApp({ hostname: "192.168.1.20" });
+    await screen.findByRole("link", { name: "Voice" });
+    expect(screen.queryByRole("link", { name: OBS_LINK })).not.toBeInTheDocument();
   });
 
   it("shows when the connection is turned off", async () => {
@@ -64,12 +61,10 @@ describe("OBS settings", () => {
     expect(within(group).getByLabelText("Password")).toHaveAccessibleDescription("Saved. Type a new one to change it.");
   });
 
-  it("explains in phone-only mode that OBS is set up from the computer app", async () => {
-    const { user } = renderLocalApp();
-    await goTo(user, OBS_LINK);
-    expect(screen.getByRole("heading", { level: 2, name: "OBS" })).toBeInTheDocument();
-    expect(screen.getByText(/OBS connection is set up here/)).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Connection" })).not.toBeInTheDocument();
+  it("has no section in phone-only mode", async () => {
+    renderLocalApp();
+    await screen.findByRole("link", { name: "Voice" });
+    expect(screen.queryByRole("link", { name: OBS_LINK })).not.toBeInTheDocument();
   });
 
   it("is no longer part of Settings", async () => {

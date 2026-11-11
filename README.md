@@ -43,7 +43,7 @@ The menu is a side menu on wide screens (the button at its top collapses it to i
 | ----------------- | -------- | ----------------------------------------------------------------------- |
 | Deck              | Deck     | Your deck boards with OBS keys and their live state                     |
 | Voz               | Voice    | Type a message and speak it; recent phrases; voice and caption keys     |
-| OBS               | OBS      | The OBS connection                                                      |
+| OBS               | OBS      | The OBS connection (only on the computer itself, not on a paired phone) |
 | Conectar          | Connect  | QR code for the phone; OBS caption and dock URLs (computer only)        |
 | Ajustes           | Settings | Voice and speed, appearance, language                                   |
 

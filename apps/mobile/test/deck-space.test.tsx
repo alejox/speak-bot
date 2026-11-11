@@ -56,7 +56,8 @@ describe("Deck status", () => {
     const { emit } = await openDeck();
     await waitFor(() => expect(indicator("OBS connected")).toBeInTheDocument());
     act(() => emit({ type: "obs-status", status: "error", code: "connection-lost" }));
-    expect(screen.getByRole("button", { name: "OBS not connected. Open OBS" })).toBeInTheDocument();
+    // A paired device has no OBS section to open: the icon only tells the status.
+    expect(indicator("OBS not connected")).toBeInTheDocument();
     expect(screen.queryByRole("img", { name: /^OBS connected/ })).not.toBeInTheDocument();
   });
 

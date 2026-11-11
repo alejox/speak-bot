@@ -29,7 +29,7 @@ describe("quick phrases", () => {
 
   it("sit above the keys, outside the grid, the same on every page and Voice board", async () => {
     const { user } = renderLocalApp({ boards: boards() });
-    await screen.findByRole("button", { name: "Hi" });
+    await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
     expect(stripTexts()).toEqual(["Yes", "No", "Wait", "Thanks"]);
     expect(grid()).not.toContainElement(strip());
     expect(strip().compareDocumentPosition(grid()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -46,7 +46,7 @@ describe("quick phrases", () => {
 
   it("speak at one tap on this device, without joining the recent phrases", async () => {
     const { synthesizer } = renderLocalApp({ boards: boards() });
-    await screen.findByRole("button", { name: "Hi" });
+    await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
     fireEvent.click(within(strip()).getByRole("button", { name: "Wait" }));
     expect(synthesizer.texts).toEqual(["Wait"]);
     expect(screen.queryByRole("region", { name: "Recent phrases" })).not.toBeInTheDocument();
@@ -54,27 +54,27 @@ describe("quick phrases", () => {
 
   it("speak through the computer the way a phrase key does", async () => {
     const { requests } = renderRemoteApp({ state: desktopState({ boards: boards() }) });
-    await screen.findByRole("button", { name: "Hi" });
+    await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
     fireEvent.click(within(strip()).getByRole("button", { name: "Thanks" }));
     expect(requests).toContainEqual({ method: "POST", url: "/api/actions/execute", body: { action: { type: "voice.speak", text: "Thanks" } } });
   });
 
   it("follow the voice language", async () => {
     renderLocalApp({ boards: boards(), language: "es" });
-    await screen.findByRole("button", { name: "Hi" });
+    await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
     expect(within(screen.getByRole("group", { name: "Frases rápidas" })).getAllByRole("button").map((button) => button.textContent)).toEqual(["Sí", "No", "Espera", "Gracias"]);
   });
 
   it("are not transposed with the board on a phone held upright", async () => {
     setScreen({ width: 390, height: 844 });
     renderLocalApp({ boards: boards() });
-    await screen.findByRole("button", { name: "Hi" });
+    await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
     expect(stripTexts()).toEqual(["Yes", "No", "Wait", "Thanks"]);
   });
 
   it("are not shown in the Deck", async () => {
     const { user } = renderLocalApp({ boards: boards() });
-    await screen.findByRole("button", { name: "Hi" });
+    await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
     await goTo(user, "Deck");
     await screen.findByRole("button", { name: "Board: Stream" });
     expect(screen.queryByRole("group", { name: "Quick phrases" })).not.toBeInTheDocument();

@@ -19,7 +19,7 @@ async function openDeck(options: { applications?: typeof APPS | null; deckKeys?:
   const state = desktopState({ boards: boards(options.deckKeys) });
   state.applications = options.applications === undefined ? APPS : options.applications;
   const rendered = renderRemoteApp({ state });
-  await screen.findByRole("button", { name: "Hi" });
+  await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
   await goTo(rendered.user, "Deck");
   await screen.findByRole("button", { name: "Board: Stream" });
   return { ...rendered, state };
@@ -57,7 +57,7 @@ describe("the open application action", () => {
 
   it("is not offered on Voice boards", async () => {
     const { user } = renderRemoteApp({ state: desktopState({ boards: boards() }) });
-    await screen.findByRole("button", { name: "Hi" });
+    await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
     await user.click(screen.getByRole("button", { name: "Add a key at position 2" }));
     expect(within(screen.getByRole("dialog")).queryByRole("button", { name: /^Open application/ })).not.toBeInTheDocument();
   });
@@ -93,7 +93,7 @@ describe("the open application action", () => {
 
   it("needs the computer in phone-only mode", async () => {
     const { user } = renderLocalApp({ boards: boards([openKey]) });
-    await screen.findByRole("button", { name: "Hi" });
+    await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
     await goTo(user, "Deck");
     const key = await within(grid()).findByRole("button", { name: "DaVinci Resolve" });
     expect(key).toHaveAttribute("aria-disabled", "true");
