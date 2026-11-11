@@ -121,3 +121,91 @@
 .app-space .deck-compact .deck-grid-area {
   --key-min: var(--compact-target);
 }
+
+/*
+ * The mixer: while playing on a phone the volume keys leave the grid for a strip of faders beside it (on
+ * its side) or under it (upright), so the grid gets the room they took. Each fader keeps its key's colour,
+ * icon, level and muted look; the slider is the 48px-wide target.
+ */
+.app-space .deck-compact .deck-stage {
+  grid-area: grid;
+  min-height: 0;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.app-space .deck-compact .deck-stage > .deck-grid-area {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.deck-mixer {
+  flex: none;
+  min-height: 0;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.deck-mixer .deck-key.deck-volume {
+  --volume-thumb: 28px;
+  width: 5.25rem;
+  height: 100%;
+  padding: var(--space-2) var(--space-1);
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  border-radius: var(--radius-lg);
+}
+
+.deck-mixer .deck-volume-head {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 2px;
+  cursor: default;
+}
+
+.deck-mixer .deck-volume-head .deck-key-text {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deck-mixer .deck-volume-vertical .deck-volume-range {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  width: var(--compact-target);
+}
+
+/* Upright: the faders lie under the keys, one row each, the slider across the whole width. */
+.app-space .deck-compact .deck-stage-upright {
+  flex-direction: column;
+}
+
+.deck-stage-upright .deck-mixer {
+  flex-direction: column;
+}
+
+.deck-stage-upright .deck-mixer .deck-key.deck-volume {
+  width: 100%;
+  height: auto;
+  flex-direction: row;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  gap: var(--space-3);
+}
+
+/* A fixed head, so every slider starts at the same place, like faders on a mixer. */
+.deck-stage-upright .deck-mixer .deck-volume-head {
+  flex: 0 0 min(10.5rem, 45%);
+  min-width: 0;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+
+.deck-stage-upright .deck-mixer .deck-volume-range {
+  flex: 1 1 0;
+  min-width: 0;
+  height: var(--compact-target);
+}

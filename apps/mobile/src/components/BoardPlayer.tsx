@@ -61,6 +61,11 @@ function usedExtent(keys: readonly (Key | undefined)[], columns: number): { colu
   return { columns: usedColumns, rows: usedRows };
 }
 
+/** A volume slider key and the slot it is stored on. */
+type VolumeKeyOnBoard = { slot: number; key: Key & { action: Extract<Key["action"], { type: "obs.inputVolume" }> } };
+
+const isVolumeKey = (key: Key | undefined): key is VolumeKeyOnBoard["key"] => key?.action.type === "obs.inputVolume";
+
 interface BoardPlayerProps {
   navigation: BoardNavigation;
   context: KeyContext;
@@ -84,7 +89,8 @@ interface BoardPlayerProps {
   strip?: ReactNode;
   /**
    * A phone-sized window: the deck shows only what playing needs. Without editing (no onEditKey) the page
-   * draws only its keys, on the rows and columns they reach, and the pager shows only for several pages.
+   * draws only its keys, on the rows and columns they reach, its volume keys move to a mixer beside them
+   * (under them when upright), and the pager shows only for several pages.
    */
   compact?: boolean;
   /** "dock" is the compact layout for the OBS dock. */
@@ -170,7 +176,10 @@ export function BoardPlayer({
   const cellIndexes = displayedCellIndexes(board.columns, board.rows, isTransposed);
   // Playing on a phone: no empty cells, and the keys get the room of the rows and columns nobody uses.
   const isPlaying = compact && !canEdit;
-  const extent = isPlaying ? usedExtent(keys, board.columns) : { columns: board.columns, rows: board.rows };
+  // There the volume keys leave the grid for the mixer, so their cells count as free.
+  const gridKeys = isPlaying ? keys.map((key) => (isVolumeKey(key) ? undefined : key)) : keys;
+  const mixerKeys: VolumeKeyOnBoard[] = isPlaying ? keys.flatMap((key, index) => (isVolumeKey(key) ? [{ key, slot: page * pageSize + index }] : [])) : [];
+  const extent = isPlaying ? usedExtent(gridKeys, board.columns) : { columns: board.columns, rows: board.rows };
   // The page's drawn columns and rows; its box reads them too, to keep room for keys large enough to use.
   const gridSize = { "--grid-columns": isTransposed ? extent.rows : extent.columns, "--grid-rows": isTransposed ? extent.columns : extent.rows } as CSSProperties;
   const shownPageCount = Math.max(pageCount, page + 1);
@@ -337,6 +346,178 @@ export function BoardPlayer({
     onRun(key.action, { boardId: board.id, slot });
   };
 
+  // The grid's own box, so wide layouts can size the keys to the room it gets.
+  const gridArea = (
+    <div className="deck-grid-area" style={gridSize}>
+      <ol
+        ref={gridElement}
+        className={canTouchMove ? "deck-grid deck-grid-movable" : "deck-grid"}
+        aria-label={t("board.keys", { board: board.name })}
+        style={gridSize}
+      >
+        {/* Cells in the order they are drawn, so reading order follows the screen; names keep the real position. */}
+        {cellIndexes.map((index) => {
+          const key = gridKeys[index];
+          const slot = page * pageSize + index;
+          if (covered.has(slot)) return null;
+          const dropClass = dropSlot === slot ? "deck-key-drop" : "";
+          if (!key) {
+            if (isPlaying) return null;
+            return (
+              <li key={slot} data-slot={slot}>
+                {onEditKey && index === plusIndex ? (
+                  <button
+                    ref={slotRef(slot)}
+                    type="button"
+                    className={["deck-key", "deck-key-empty", dropClass].filter(Boolean).join(" ")}
+                    aria-label={t("board.addKey", { number: slot + 1 })}
+                    onClick={() => press(slot, undefined, false)}
+                    {...dropHandlers(slot)}
+                  >
+                    <span className="deck-key-plus" aria-hidden="true">
+                      +
+                    </span>
+                  </button>
+                ) : (
+                  // A blank space: still a place to drop a dragged key.
+                  <div className={["deck-key-blank", dropClass].filter(Boolean).join(" ")} aria-hidden="true" {...dropHandlers(slot)} />
+                )}
+              </li>
+            );
+          }
+          const label = keyLabel(key, context.boards, t);
+          const presentation = presentKey(key.action, context, { boardId: board.id, slot });
+          const isFixed = isFixedSlot(slot);
+          const isMovable = canDrag && !isFixed;
+          const disabled = presentation.disabledReason !== undefined;
+          const reason = presentation.disabledReason ? t(presentation.disabledReason) : undefined;
+          const stateLabel = presentation.state && KEY_STATE_LABELS[presentation.state];
+          const speaking = isSpeaking && spoken?.boardId === board.id && spoken.slot === slot;
+          // Why the key is offline, or that it is being said: hidden text the key points to.
+          const description = reason ?? (speaking ? t("key.speaking") : undefined);
+          const descriptionId = `${descriptionPrefix}-${slot}`;
+          // Without the empty cells every key needs its own place to stay where it is on the board.
+          const placement = cellPlacement(index, key, board.columns, isTransposed, isPlaying);
+          const cellClass = [canEdit ? "deck-slot" : "", placement ? "deck-cell-span" : ""].filter(Boolean).join(" ") || undefined;
+          const menu = canEdit && !isFixed && (
+            <>
+              {/* A visible way into the menu for mouse users; keyboards use Shift+F10 on the key itself. */}
+              <button
+                type="button"
+                className="deck-key-more"
+                tabIndex={-1}
+                aria-label={t("keyMenu.options", { number: slot + 1 })}
+                aria-haspopup="menu"
+                aria-expanded={menuSlot === slot}
+                onClick={() => openMenu(slot)}
+              >
+                <MoreHorizontal size={18} aria-hidden="true" />
+              </button>
+              {menuSlot === slot && onEditKey && (
+                <KeyMenu
+                  slot={slot}
+                  label={label}
+                  isFolder={key.action.type === "nav.openFolder"}
+                  onEdit={() => {
+                    closeMenu(true);
+                    onEditKey(slot);
+                  }}
+                  onDelete={async () => {
+                    const deleted = (await onDeleteKey?.(slot)) ?? false;
+                    if (deleted) {
+                      setMenuSlot(null);
+                      setFocusSlot(slot);
+                    }
+                    return deleted;
+                  }}
+                  onClose={closeMenu}
+                />
+              )}
+            </>
+          );
+          if (key.action.type === "obs.inputVolume") {
+            const span = keySpanOf(key);
+            const { onKeyDown, ...handleHandlers } = keyMenuHandlers(slot);
+            return (
+              <li key={slot} data-slot={slot} className={cellClass} style={placement}>
+                <VolumeKey
+                  ref={slotRef(slot)}
+                  label={label}
+                  inputName={key.action.inputName}
+                  iconId={keyLook(key).iconId}
+                  color={key.color}
+                  vertical={isTransposed ? span.columns > span.rows : span.rows > span.columns}
+                  muted={context.obs?.state?.mutedInputs.includes(key.action.inputName) ?? false}
+                  disabledReason={reason}
+                  services={volumes}
+                  selected={selectedSlot === slot}
+                  className={[dropClass, movingSlot === slot ? "deck-key-moving" : ""].filter(Boolean).join(" ") || undefined}
+                  onSliderKeyDown={onKeyDown}
+                  handleProps={{
+                    ...handleHandlers,
+                    draggable: canDrag || undefined,
+                    onDragStart: canDrag
+                      ? (event) => {
+                          cancelLongPress();
+                          setMenuSlot(null);
+                          event.dataTransfer.setData(SLOT_DRAG_TYPE, String(slot));
+                          event.dataTransfer.effectAllowed = "move";
+                        }
+                      : undefined,
+                  }}
+                  dropProps={dropHandlers(slot)}
+                />
+                {menu}
+              </li>
+            );
+          }
+          return (
+            <li key={slot} data-slot={slot} className={cellClass} style={placement}>
+              <BoardKey
+                ref={slotRef(slot)}
+                label={label}
+                {...keyLook(key, presentation.iconId)}
+                color={keyFillColor(key, presentation.pressed)}
+                pressed={presentation.pressed}
+                state={presentation.state}
+                stateLabel={stateLabel ? t(stateLabel) : undefined}
+                detail={presentation.detail ? t(presentation.detail.key, presentation.detail.params) : undefined}
+                speaking={speaking}
+                offline={disabled}
+                aria-disabled={disabled ? true : undefined}
+                aria-describedby={description ? descriptionId : undefined}
+                title={reason}
+                selected={selectedSlot === slot}
+                className={[dropClass, movingSlot === slot ? "deck-key-moving" : ""].filter(Boolean).join(" ") || undefined}
+                aria-keyshortcuts={canEdit && !isFixed ? "Shift+F10" : undefined}
+                onClick={() => press(slot, key, disabled)}
+                draggable={isMovable || undefined}
+                onDragStart={
+                  isMovable
+                    ? (event) => {
+                        cancelLongPress();
+                        setMenuSlot(null);
+                        event.dataTransfer.setData(SLOT_DRAG_TYPE, String(slot));
+                        event.dataTransfer.effectAllowed = "move";
+                      }
+                    : undefined
+                }
+                {...keyMenuHandlers(slot)}
+                {...dropHandlers(slot)}
+              />
+              {menu}
+              {description && (
+                <span id={descriptionId} hidden>
+                  {description}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+
   return (
     <section
       className={["deck", `deck-${variant}`, strip ? "deck-with-strip" : "", compact ? "deck-compact" : "", compact && !canEdit ? "deck-playing" : ""].filter(Boolean).join(" ")}
@@ -345,175 +526,32 @@ export function BoardPlayer({
       {toolbar && <div className="deck-header">{toolbar}</div>}
       {strip && <div className="deck-strip">{strip}</div>}
 
-      {/* The grid's own box, so wide layouts can size the keys to the room it gets. */}
-      <div className="deck-grid-area" style={gridSize}>
-        <ol
-          ref={gridElement}
-          className={canTouchMove ? "deck-grid deck-grid-movable" : "deck-grid"}
-          aria-label={t("board.keys", { board: board.name })}
-          style={gridSize}
-        >
-          {/* Cells in the order they are drawn, so reading order follows the screen; names keep the real position. */}
-          {cellIndexes.map((index) => {
-            const key = keys[index];
-            const slot = page * pageSize + index;
-            if (covered.has(slot)) return null;
-            const dropClass = dropSlot === slot ? "deck-key-drop" : "";
-            if (!key) {
-              if (isPlaying) return null;
+      {mixerKeys.length > 0 ? (
+        // The faders beside the keys (under them when upright), like a mixer next to a deck.
+        <div className={isPortraitBoard ? "deck-stage deck-stage-upright" : "deck-stage"}>
+          {gridArea}
+          <div className="deck-mixer" role="group" aria-label={t("deck.mixer")}>
+            {mixerKeys.map(({ key, slot }) => {
+              const presentation = presentKey(key.action, context, { boardId: board.id, slot });
               return (
-                <li key={slot} data-slot={slot}>
-                  {onEditKey && index === plusIndex ? (
-                    <button
-                      ref={slotRef(slot)}
-                      type="button"
-                      className={["deck-key", "deck-key-empty", dropClass].filter(Boolean).join(" ")}
-                      aria-label={t("board.addKey", { number: slot + 1 })}
-                      onClick={() => press(slot, undefined, false)}
-                      {...dropHandlers(slot)}
-                    >
-                      <span className="deck-key-plus" aria-hidden="true">
-                        +
-                      </span>
-                    </button>
-                  ) : (
-                    // A blank space: still a place to drop a dragged key.
-                    <div className={["deck-key-blank", dropClass].filter(Boolean).join(" ")} aria-hidden="true" {...dropHandlers(slot)} />
-                  )}
-                </li>
-              );
-            }
-            const label = keyLabel(key, context.boards, t);
-            const presentation = presentKey(key.action, context, { boardId: board.id, slot });
-            const isFixed = isFixedSlot(slot);
-            const isMovable = canDrag && !isFixed;
-            const disabled = presentation.disabledReason !== undefined;
-            const reason = presentation.disabledReason ? t(presentation.disabledReason) : undefined;
-            const stateLabel = presentation.state && KEY_STATE_LABELS[presentation.state];
-            const speaking = isSpeaking && spoken?.boardId === board.id && spoken.slot === slot;
-            // Why the key is offline, or that it is being said: hidden text the key points to.
-            const description = reason ?? (speaking ? t("key.speaking") : undefined);
-            const descriptionId = `${descriptionPrefix}-${slot}`;
-            // Without the empty cells every key needs its own place to stay where it is on the board.
-            const placement = cellPlacement(index, key, board.columns, isTransposed, isPlaying);
-            const cellClass = [canEdit ? "deck-slot" : "", placement ? "deck-cell-span" : ""].filter(Boolean).join(" ") || undefined;
-            const menu = canEdit && !isFixed && (
-              <>
-                {/* A visible way into the menu for mouse users; keyboards use Shift+F10 on the key itself. */}
-                <button
-                  type="button"
-                  className="deck-key-more"
-                  tabIndex={-1}
-                  aria-label={t("keyMenu.options", { number: slot + 1 })}
-                  aria-haspopup="menu"
-                  aria-expanded={menuSlot === slot}
-                  onClick={() => openMenu(slot)}
-                >
-                  <MoreHorizontal size={18} aria-hidden="true" />
-                </button>
-                {menuSlot === slot && onEditKey && (
-                  <KeyMenu
-                    slot={slot}
-                    label={label}
-                    isFolder={key.action.type === "nav.openFolder"}
-                    onEdit={() => {
-                      closeMenu(true);
-                      onEditKey(slot);
-                    }}
-                    onDelete={async () => {
-                      const deleted = (await onDeleteKey?.(slot)) ?? false;
-                      if (deleted) {
-                        setMenuSlot(null);
-                        setFocusSlot(slot);
-                      }
-                      return deleted;
-                    }}
-                    onClose={closeMenu}
-                  />
-                )}
-              </>
-            );
-            if (key.action.type === "obs.inputVolume") {
-              const span = keySpanOf(key);
-              const { onKeyDown, ...handleHandlers } = keyMenuHandlers(slot);
-              return (
-                <li key={slot} data-slot={slot} className={cellClass} style={placement}>
-                  <VolumeKey
-                    ref={slotRef(slot)}
-                    label={label}
-                    inputName={key.action.inputName}
-                    iconId={keyLook(key).iconId}
-                    color={key.color}
-                    vertical={isTransposed ? span.columns > span.rows : span.rows > span.columns}
-                    muted={context.obs?.state?.mutedInputs.includes(key.action.inputName) ?? false}
-                    disabledReason={reason}
-                    services={volumes}
-                    selected={selectedSlot === slot}
-                    className={[dropClass, movingSlot === slot ? "deck-key-moving" : ""].filter(Boolean).join(" ") || undefined}
-                    onSliderKeyDown={onKeyDown}
-                    handleProps={{
-                      ...handleHandlers,
-                      draggable: canDrag || undefined,
-                      onDragStart: canDrag
-                        ? (event) => {
-                            cancelLongPress();
-                            setMenuSlot(null);
-                            event.dataTransfer.setData(SLOT_DRAG_TYPE, String(slot));
-                            event.dataTransfer.effectAllowed = "move";
-                          }
-                        : undefined,
-                    }}
-                    dropProps={dropHandlers(slot)}
-                  />
-                  {menu}
-                </li>
-              );
-            }
-            return (
-              <li key={slot} data-slot={slot} className={cellClass} style={placement}>
-                <BoardKey
-                  ref={slotRef(slot)}
-                  label={label}
-                  {...keyLook(key, presentation.iconId)}
-                  color={keyFillColor(key, presentation.pressed)}
-                  pressed={presentation.pressed}
-                  state={presentation.state}
-                  stateLabel={stateLabel ? t(stateLabel) : undefined}
-                  detail={presentation.detail ? t(presentation.detail.key, presentation.detail.params) : undefined}
-                  speaking={speaking}
-                  offline={disabled}
-                  aria-disabled={disabled ? true : undefined}
-                  aria-describedby={description ? descriptionId : undefined}
-                  title={reason}
-                  selected={selectedSlot === slot}
-                  className={[dropClass, movingSlot === slot ? "deck-key-moving" : ""].filter(Boolean).join(" ") || undefined}
-                  aria-keyshortcuts={canEdit && !isFixed ? "Shift+F10" : undefined}
-                  onClick={() => press(slot, key, disabled)}
-                  draggable={isMovable || undefined}
-                  onDragStart={
-                    isMovable
-                      ? (event) => {
-                          cancelLongPress();
-                          setMenuSlot(null);
-                          event.dataTransfer.setData(SLOT_DRAG_TYPE, String(slot));
-                          event.dataTransfer.effectAllowed = "move";
-                        }
-                      : undefined
-                  }
-                  {...keyMenuHandlers(slot)}
-                  {...dropHandlers(slot)}
+                <VolumeKey
+                  key={slot}
+                  label={keyLabel(key, context.boards, t)}
+                  inputName={key.action.inputName}
+                  iconId={keyLook(key).iconId}
+                  color={key.color}
+                  vertical={!isPortraitBoard}
+                  muted={context.obs?.state?.mutedInputs.includes(key.action.inputName) ?? false}
+                  disabledReason={presentation.disabledReason ? t(presentation.disabledReason) : undefined}
+                  services={volumes}
                 />
-                {menu}
-                {description && (
-                  <span id={descriptionId} hidden>
-                    {description}
-                  </span>
-                )}
-              </li>
-            );
-          })}
-        </ol>
-      </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        gridArea
+      )}
 
       {showsPager && (
         <div className="deck-pager">

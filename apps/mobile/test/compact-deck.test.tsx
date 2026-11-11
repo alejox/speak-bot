@@ -19,8 +19,9 @@ const volume = (slot: number, inputName: string, rows = 1): Key =>
   rows === 1 ? { slot, action: { type: "obs.inputVolume", inputName } } : { slot, span: { rows, columns: 1 }, action: { type: "obs.inputVolume", inputName } };
 const deckBoard = (keys: Key[], size = { columns: 4, rows: 3 }): Board => makeBoard("stream", "Stream", "deck", keys, size);
 
-async function openDeck(keys: Key[], size?: { columns: number; rows: number }) {
+async function openDeck(keys: Key[], size?: { columns: number; rows: number }, mutedInputs: string[] = []) {
   const state = desktopState({ boards: [boardOf("talk", "Talk", [speakKey(0, "Hi")]), deckBoard(keys, size)], volumes: { Music: 0.5, Mic: 1 } });
+  state.obs = { enabled: true, status: "connected", state: { currentScene: "Main", mutedInputs, streaming: false, recording: false } };
   const remote = renderRemoteApp({ state });
   await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
   await goTo(remote.user, "Deck");
@@ -130,5 +131,60 @@ describe("the Deck's keys on a phone, while playing", () => {
     expect(cells()).toHaveLength(12);
     expect(grid().style.getPropertyValue("--grid-rows")).toBe("3");
     expect(screen.getByRole("button", { name: "Add a key at position 8" })).toBeInTheDocument();
+  });
+});
+
+describe("the volume keys on a phone, while playing", () => {
+  const grid = () => screen.getByRole("list", { name: "Keys of Stream" });
+  const mixer = () => screen.queryByRole("group", { name: "Volume" });
+  // The device's board: four scenes, then two faders down the right, three more scenes under the first ones.
+  const deviceBoard = () => [
+    scene(0, "Intro"),
+    scene(1, "Talk"),
+    scene(2, "Stream"),
+    scene(3, "Outro"),
+    volume(4, "Music", 3),
+    volume(5, "Mic", 3),
+    scene(6, "Monitor"),
+    scene(7, "Capture"),
+    scene(8, "Wide"),
+  ];
+
+  it("moves them out of the grid into a mixer beside it, so the grid keeps only the other keys", async () => {
+    setScreen(PHONE_SIDEWAYS);
+    await openDeck(deviceBoard(), { columns: 6, rows: 3 }, ["Mic"]);
+    const strip = mixer()!;
+    expect(within(strip).getAllByRole("slider").map((slider) => slider.getAttribute("aria-label"))).toEqual(["Music", "Mic"]);
+    expect(within(grid()).queryByRole("slider")).not.toBeInTheDocument();
+    expect(grid().style.getPropertyValue("--grid-columns")).toBe("4");
+    expect(grid().style.getPropertyValue("--grid-rows")).toBe("2");
+    // Each fader keeps its look: upright on its side, muted when OBS mutes the input.
+    const [music, mic] = within(strip).getAllByRole("slider").map((slider) => slider.closest(".deck-volume")!);
+    expect(music).toHaveClass("deck-volume-vertical");
+    expect(music).not.toHaveClass("deck-volume-muted");
+    expect(mic).toHaveClass("deck-volume-muted");
+    expect(within(strip).getByRole("slider", { name: "Music" })).toBeEnabled();
+  });
+
+  it("lays the faders under the keys when the phone is upright", async () => {
+    setScreen(PHONE_UPRIGHT);
+    await openDeck(deviceBoard(), { columns: 6, rows: 3 });
+    const music = within(mixer()!).getByRole("slider", { name: "Music" }).closest(".deck-volume");
+    expect(music).not.toHaveClass("deck-volume-vertical");
+  });
+
+  it("puts them back on their cells while editing, and on tablets", async () => {
+    setScreen(PHONE_SIDEWAYS);
+    const { user } = await openDeck(deviceBoard(), { columns: 6, rows: 3 });
+    await user.click(editToggle()!);
+    expect(mixer()).not.toBeInTheDocument();
+    expect(within(grid()).getAllByRole("slider")).toHaveLength(2);
+  });
+
+  it("keeps the tablet grid as it was", async () => {
+    setScreen(TABLET);
+    await openDeck(deviceBoard(), { columns: 6, rows: 3 });
+    expect(mixer()).not.toBeInTheDocument();
+    expect(within(grid()).getAllByRole("slider")).toHaveLength(2);
   });
 });

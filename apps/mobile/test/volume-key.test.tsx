@@ -83,7 +83,9 @@ describe("volume slider keys", () => {
 
   it("swaps the span when the page is drawn transposed on an upright phone", async () => {
     setScreen({ width: 390, height: 844 });
-    await openDeck([volume(1, 3, 1)]);
+    const { user } = await openDeck([volume(1, 3, 1)]);
+    // Played on a phone the slider sits in the mixer; editing puts it back on its cells.
+    await user.click(screen.getByRole("button", { name: "Edit keys" }));
     await screen.findByRole("slider", { name: "Music" }, { timeout: 5000 });
     // Stored row 0, column 1 is drawn on row 2, column 1, three columns wide.
     expect(cellOf(1)!.style.getPropertyValue("--cell-row")).toBe("2");
