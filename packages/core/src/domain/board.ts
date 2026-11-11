@@ -5,16 +5,17 @@ export const BOARD_COLUMNS = 5;
 export const BOARD_ROWS = 3;
 /** Keys per page of the default grid; a board's own page size is `keysPerPage(board)`. */
 export const KEYS_PER_PAGE = BOARD_COLUMNS * BOARD_ROWS;
-/** The grid sizes a user can pick. */
+/** The smallest grid any board can have. */
 export const MIN_BOARD_COLUMNS = 3;
-export const MAX_BOARD_COLUMNS = 8;
 export const MIN_BOARD_ROWS = 2;
-export const MAX_BOARD_ROWS = 5;
+/** The largest grid any board can have (a Voice board's); each kind has its own range (`BOARD_GRID_RANGES`). */
+export const MAX_BOARD_COLUMNS = 10;
+export const MAX_BOARD_ROWS = 8;
 /** Pages per board. */
 export const MAX_BOARD_PAGES = 100;
 /**
- * Key slots per board: a 0-based index across all pages. Fixed by the largest grid, so whether a slot
- * is valid never depends on the current grid and no stored key is dropped when it changes.
+ * Key slots per board: a 0-based index across all pages. Fixed by the largest grid of any kind, so whether
+ * a slot is valid never depends on the current grid and no stored key is dropped when it changes.
  */
 export const MAX_KEY_SLOTS = MAX_BOARD_COLUMNS * MAX_BOARD_ROWS * MAX_BOARD_PAGES;
 export const MAX_KEY_LABEL_LENGTH = 40;
@@ -200,7 +201,7 @@ export interface Board {
 
 export { InvalidBoardError };
 
-/** Keys per row and rows per page. Every board shares one grid. */
+/** Keys per row and rows per page. Every board of one kind shares one grid. */
 export interface BoardGrid {
   readonly columns: number;
   readonly rows: number;
@@ -208,17 +209,33 @@ export interface BoardGrid {
 
 export const DEFAULT_BOARD_GRID: BoardGrid = { columns: BOARD_COLUMNS, rows: BOARD_ROWS };
 
-export function isBoardGrid(value: unknown): value is BoardGrid {
-  if (typeof value !== "object" || value === null) return false;
-  const { columns, rows } = value as Record<string, unknown>;
-  return isIntegerIn(columns, MIN_BOARD_COLUMNS, MAX_BOARD_COLUMNS) && isIntegerIn(rows, MIN_BOARD_ROWS, MAX_BOARD_ROWS);
+/** The grid sizes a user can pick for each kind: Voice boards hold many more keys (vocabulary). */
+export interface BoardGridRange {
+  readonly minColumns: number;
+  readonly maxColumns: number;
+  readonly minRows: number;
+  readonly maxRows: number;
 }
 
-/** Validates untrusted input as a grid; throws `InvalidBoardError` with an English message. */
-export function parseBoardGrid(input: unknown): BoardGrid {
-  if (!isBoardGrid(input)) {
+export const BOARD_GRID_RANGES: Readonly<Record<BoardKind, BoardGridRange>> = {
+  deck: { minColumns: MIN_BOARD_COLUMNS, maxColumns: 8, minRows: MIN_BOARD_ROWS, maxRows: 5 },
+  voice: { minColumns: MIN_BOARD_COLUMNS, maxColumns: MAX_BOARD_COLUMNS, minRows: MIN_BOARD_ROWS, maxRows: MAX_BOARD_ROWS },
+};
+
+/** Whether `value` is a grid a board of `kind` may have. */
+export function isBoardGrid(value: unknown, kind: BoardKind): value is BoardGrid {
+  if (typeof value !== "object" || value === null) return false;
+  const { columns, rows } = value as Record<string, unknown>;
+  const range = BOARD_GRID_RANGES[kind];
+  return isIntegerIn(columns, range.minColumns, range.maxColumns) && isIntegerIn(rows, range.minRows, range.maxRows);
+}
+
+/** Validates untrusted input as the grid of a board of `kind`; throws `InvalidBoardError` with an English message. */
+export function parseBoardGrid(input: unknown, kind: BoardKind): BoardGrid {
+  if (!isBoardGrid(input, kind)) {
+    const range = BOARD_GRID_RANGES[kind];
     throw new InvalidBoardError(
-      `columns must be an integer from ${MIN_BOARD_COLUMNS} to ${MAX_BOARD_COLUMNS} and rows from ${MIN_BOARD_ROWS} to ${MAX_BOARD_ROWS}.`,
+      `A ${kind} board needs columns from ${range.minColumns} to ${range.maxColumns} and rows from ${range.minRows} to ${range.maxRows}.`,
     );
   }
   return { columns: input.columns, rows: input.rows };
@@ -229,9 +246,9 @@ export function keysPerPage(grid: BoardGrid): number {
   return grid.columns * grid.rows;
 }
 
-/** The grid every board shares: the first board's, or the default one when there is no board. */
-export function gridOfBoards(boards: readonly Board[]): BoardGrid {
-  const first = boards[0];
+/** The grid every board of `kind` shares: the first such board's, or the default one when there is none. */
+export function gridOfBoards(boards: readonly Board[], kind: BoardKind): BoardGrid {
+  const first = boards.find((board) => board.kind === kind);
   return first ? { columns: first.columns, rows: first.rows } : DEFAULT_BOARD_GRID;
 }
 
@@ -355,7 +372,7 @@ export function parseBoardId(id: unknown): string {
  */
 export function makeBoard(id: string, name: string, kind: BoardKind, keys: readonly Key[] = [], grid: BoardGrid = DEFAULT_BOARD_GRID): Board {
   const parsedKind = parseBoardKind(kind);
-  const { columns, rows } = parseBoardGrid(grid);
+  const { columns, rows } = parseBoardGrid(grid, parsedKind);
   for (const key of keys) assertActionAllowedOnBoard(parsedKind, key.action.type);
   return { id: parseBoardId(id), name: parseBoardName(name), kind: parsedKind, columns, rows, keys: sortKeys(keys) };
 }
@@ -369,8 +386,8 @@ interface StoredBoard {
   readonly id: string;
   readonly name: string;
   readonly kind: BoardKind | undefined;
-  /** The stored grid when valid, else the default one. */
-  readonly grid: BoardGrid;
+  /** The stored grid as read; checked against the board's kind once that is known. */
+  readonly grid: { readonly columns: unknown; readonly rows: unknown };
   readonly keys: readonly Key[];
 }
 
@@ -381,8 +398,9 @@ interface StoredBoard {
  * Boards stored before boards had a kind get one from their keys, and a board holding keys its kind
  * does not allow is split in two (see `boardsOfStoredBoard`), so no valid key is ever lost. Caption
  * keys stored on deck boards are read as they are, so loading never fails before
- * `moveCaptionKeysToVoice` moves them. Every board takes the first board's grid (its stored one when
- * valid, else 5 × 3), since all boards share one; a key span that does not fit falls back to 1 × 1.
+ * `moveCaptionKeysToVoice` moves them. Every board takes the grid of the first board of its kind (that
+ * board's stored one when valid for the kind, else 5 × 3), since boards of one kind share one; a key span
+ * that does not fit falls back to 1 × 1.
  * Reading the result again changes nothing.
  */
 export function readStoredBoards(value: unknown): Board[] {
@@ -396,10 +414,16 @@ export function readStoredBoards(value: unknown): Board[] {
       stored.push(board);
     }
   }
-  const grid = stored[0]?.grid ?? DEFAULT_BOARD_GRID;
+  // Boards of one kind share one grid: the first board of that kind's, when valid for the kind.
+  const grids: Partial<Record<BoardKind, BoardGrid>> = {};
+  for (const board of stored) {
+    const kind = storedKindOf(board);
+    grids[kind] ??= isBoardGrid(board.grid, kind) ? { columns: board.grid.columns, rows: board.grid.rows } : DEFAULT_BOARD_GRID;
+  }
+  const gridOf = (kind: BoardKind) => grids[kind] ?? DEFAULT_BOARD_GRID;
   const boards: Board[] = [];
   for (const board of stored) {
-    const read = boardsOfStoredBoard({ ...board, grid, keys: fitStoredKeySpans(board.keys, grid) }, ids);
+    const read = boardsOfStoredBoard(board, gridOf, ids).map((one) => ({ ...one, keys: fitStoredKeySpans(one.keys, one) }));
     // A split board is kept whole or not at all, so it is never stored half migrated.
     if (boards.length + read.length > MAX_STORED_BOARDS) break;
     boards.push(...read);
@@ -423,10 +447,10 @@ const SPLIT_SUFFIXES: Readonly<Record<BoardKind, { readonly id: string; readonly
  * caption key, and a voice board otherwise.
  * `takenIds` holds every board id in use; the id of a new board is added to it.
  */
-function boardsOfStoredBoard(board: StoredBoard, takenIds: Set<string>): Board[] {
-  const kind = board.kind ?? kindOfLegacyKeys(board.keys);
+function boardsOfStoredBoard(board: StoredBoard, gridOf: (kind: BoardKind) => BoardGrid, takenIds: Set<string>): Board[] {
+  const kind = storedKindOf(board);
   const moved = board.keys.filter((key) => !isActionReadOnBoard(kind, key.action.type));
-  if (moved.length === 0) return [makeStoredBoard(board.id, board.name, kind, board.keys, board.grid)];
+  if (moved.length === 0) return [makeStoredBoard(board.id, board.name, kind, board.keys, gridOf(kind))];
   const kept = board.keys.filter((key) => isActionReadOnBoard(kind, key.action.type));
   // Every action is allowed on at least one kind, so the other kind takes what this one refuses.
   const otherKind: BoardKind = kind === "voice" ? "deck" : "voice";
@@ -434,7 +458,12 @@ function boardsOfStoredBoard(board: StoredBoard, takenIds: Set<string>): Board[]
   const splitId = freeSplitId(board.id, suffixes.id, takenIds);
   takenIds.add(splitId);
   const splitName = `${truncate(board.name, MAX_BOARD_NAME_LENGTH - suffixes.name.length).trimEnd()}${suffixes.name}`;
-  return [makeStoredBoard(board.id, board.name, kind, kept, board.grid), makeBoard(splitId, splitName, otherKind, moved, board.grid)];
+  return [makeStoredBoard(board.id, board.name, kind, kept, gridOf(kind)), makeBoard(splitId, splitName, otherKind, moved, gridOf(otherKind))];
+}
+
+/** The kind a stored board is read as: its own, or the one its keys give a board stored before boards had one. */
+function storedKindOf(board: StoredBoard): BoardKind {
+  return board.kind ?? kindOfLegacyKeys(board.keys);
 }
 
 /** Like `makeBoard`, but also keeps the keys a kind only reads from storage (see `STORED_ONLY_CATEGORIES`). */
@@ -481,8 +510,7 @@ function readStoredBoard(value: unknown): StoredBoard | null {
         valid.push(key);
       }
     }
-    const grid = isBoardGrid({ columns, rows }) ? { columns: columns as number, rows: rows as number } : DEFAULT_BOARD_GRID;
-    return { id: parseBoardId(id), name: parseBoardName(name), kind: isBoardKind(kind) ? kind : undefined, grid, keys: valid };
+    return { id: parseBoardId(id), name: parseBoardName(name), kind: isBoardKind(kind) ? kind : undefined, grid: { columns, rows }, keys: valid };
   } catch {
     return null;
   }

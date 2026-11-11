@@ -15,6 +15,7 @@ import {
   type ObsSceneItem,
   type ObsStatus,
   type ObsStatusResponse,
+  type SetBoardGridRequest,
   type SetKeyRequest,
   type SpeakRequest,
   type SpeechCapabilities,
@@ -108,9 +109,10 @@ export class DesktopApiClient {
     return this.request("POST", `${keysPath(boardId)}/move`, { from, to }) as Promise<Board>;
   }
 
-  /** Gives every board the grid `columns` × `rows`; keys that no longer fit move ("grid-full" when there is no room). */
-  setBoardGrid(grid: BoardGrid): Promise<Board[]> {
-    return this.request("PUT", "/api/boards/grid", { columns: grid.columns, rows: grid.rows }) as Promise<Board[]>;
+  /** Gives every board of `kind` the grid `columns` × `rows`; keys that no longer fit move ("grid-full" when there is no room). */
+  setBoardGrid(kind: BoardKind, grid: BoardGrid): Promise<Board[]> {
+    const body: SetBoardGridRequest = { kind, columns: grid.columns, rows: grid.rows };
+    return this.request("PUT", "/api/boards/grid", body) as Promise<Board[]>;
   }
 
   /** Puts back the built-in communication board in `language`. */

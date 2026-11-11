@@ -20,7 +20,7 @@ export class BoardGridFullError extends Error {
  * `MAX_BOARD_PAGES`. Throws `BoardGridFullError` when there is no room for every key; no key is ever dropped.
  */
 export function reflowBoard(board: Board, grid: BoardGrid): Board {
-  const { columns, rows } = parseBoardGrid(grid);
+  const { columns, rows } = parseBoardGrid(grid, board.kind);
   const target = { columns, rows };
   const oldSize = keysPerPage(board);
   const newSize = columns * rows;

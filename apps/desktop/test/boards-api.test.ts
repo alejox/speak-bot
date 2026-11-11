@@ -203,14 +203,17 @@ describe("boards and actions API", () => {
     expect(await boards()).toHaveLength(MAX_BOARDS);
   });
 
-  it("sets the grid of every board, reflowing keys and broadcasting boards-changed", async () => {
+  it("sets the grid of every board of one kind, reflowing keys and broadcasting boards-changed", async () => {
     const client = await listen();
     // Slot 4 is row 0, column 4: it no longer fits in four columns.
     await send(`/api/boards/${DEFAULT_BOARD_ID}/keys/40`, "PUT", { action: { type: "voice.stop" } });
-    const response = await send("/api/boards/grid", "PUT", { columns: 6, rows: 4 });
+    const response = await send("/api/boards/grid", "PUT", { kind: "voice", columns: 6, rows: 4 });
     expect(response.status).toBe(200);
     const resized = (await response.json()) as Board[];
-    expect(resized.every((board) => board.columns === 6 && board.rows === 4)).toBe(true);
+    expect(resized.map(({ kind, columns, rows }) => [kind, columns, rows])).toEqual([
+      ["voice", 6, 4],
+      ["deck", 5, 3],
+    ]);
     expect(await boards()).toEqual(resized);
     // Page 2 (0-based), row 2, column 0 of 5 × 3 → the same place on a 6 × 4 page.
     expect(resized.find((board) => board.id === DEFAULT_BOARD_ID)!.keys.some((key) => key.slot === 2 * 24 + 2 * 6)).toBe(true);
@@ -219,14 +222,23 @@ describe("boards and actions API", () => {
 
     const created = (await (await send("/api/boards", "POST", { name: "New", kind: "voice" })).json()) as Board;
     expect(created).toMatchObject({ columns: 6, rows: 4 });
-    expect((await send("/api/boards/grid", "PUT", { columns: 9, rows: 4 })).status).toBe(400);
+    const deck = (await (await send("/api/boards", "POST", { name: "Scenes", kind: "deck" })).json()) as Board;
+    expect(deck).toMatchObject({ columns: 5, rows: 3 });
+    // Voice boards go up to 10 × 8; deck boards up to 8 × 5; a kind is required.
+    expect((await send("/api/boards/grid", "PUT", { kind: "voice", columns: 10, rows: 8 })).status).toBe(200);
+    for (const body of [{ kind: "deck", columns: 9, rows: 4 }, { kind: "voice", columns: 11, rows: 4 }, { columns: 6, rows: 4 }]) {
+      const refused = await send("/api/boards/grid", "PUT", body);
+      expect(refused.status).toBe(400);
+      expect(await refused.json()).toMatchObject({ code: "invalid-board" });
+    }
+    expect((await boards()).filter((board) => board.kind === "deck").every((board) => board.columns === 5 && board.rows === 3)).toBe(true);
   });
 
   it("answers 409 grid-full when the keys do not fit in the new grid", async () => {
     // A 3 × 2 grid holds 600 keys per board.
     const keys = Array.from({ length: 601 }, (_, slot) => ({ slot, action: { type: "obs.toggleStream" as const } }));
     await repository.update((current) => ({ boards: current.map((board) => (board.id === DEFAULT_DECK_BOARD_ID ? { ...board, keys } : board)), result: undefined }));
-    const response = await send("/api/boards/grid", "PUT", { columns: 3, rows: 2 });
+    const response = await send("/api/boards/grid", "PUT", { kind: "deck", columns: 3, rows: 2 });
     expect(response.status).toBe(409);
     expect(((await response.json()) as { code?: string }).code).toBe("grid-full");
     expect((await boards()).every((board) => board.columns === 5 && board.rows === 3)).toBe(true);

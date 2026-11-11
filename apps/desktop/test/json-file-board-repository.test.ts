@@ -31,10 +31,10 @@ describe("JsonFileBoardRepository", () => {
     expect((await readdir(dir)).filter((name) => name.endsWith(".tmp"))).toEqual([]);
   });
 
-  it("keeps the grid every board shares across instances", async () => {
+  it("keeps the grid boards of a kind share across instances", async () => {
     const repository = new JsonFileBoardRepository(file);
     await repository.update(() => ({ boards: [board("a", [{ slot: 4, action: { type: "voice.stop" } }]), board("b")], result: undefined }));
-    await setBoardGrid(repository, { columns: 6, rows: 4 });
+    await setBoardGrid(repository, { kind: "voice", columns: 6, rows: 4 });
     const stored = await new JsonFileBoardRepository(file).list();
     expect(stored.map(({ columns, rows }) => ({ columns, rows }))).toEqual([
       { columns: 6, rows: 4 },

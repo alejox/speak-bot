@@ -159,12 +159,12 @@ export function createApiHandler(deps: ApiDependencies) {
       },
     },
     {
-      /** Gives every board one grid, moving keys that no longer fit. */
+      /** Gives every board of one kind one grid, moving keys that no longer fit. */
       method: "PUT",
       path: "/api/boards/grid",
       handler: async (request, response) => {
-        const { columns, rows } = asObject(await readJsonBody(request));
-        const boards = await setBoardGrid(repository, { columns, rows });
+        const { kind, columns, rows } = asObject(await readJsonBody(request));
+        const boards = await setBoardGrid(repository, { kind, columns, rows });
         boardsChanged();
         sendJson(response, 200, boards);
       },

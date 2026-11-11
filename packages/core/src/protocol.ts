@@ -231,10 +231,12 @@ export interface MoveKeyRequest {
 }
 
 /**
- * PUT /api/boards/grid → Board[]: gives every board this grid (3–8 columns, 2–5 rows), moving keys
- * that no longer fit (see `reflowBoard`). No room for every key → 409 "grid-full".
+ * PUT /api/boards/grid → Board[]: gives every board of `kind` this grid, within that kind's range
+ * (`BOARD_GRID_RANGES`; 400 "invalid-board" otherwise), moving keys that no longer fit (see `reflowBoard`).
+ * Boards of the other kind keep theirs. No room for every key → 409 "grid-full".
  */
 export interface SetBoardGridRequest {
+  kind: BoardKind;
   columns: number;
   rows: number;
 }

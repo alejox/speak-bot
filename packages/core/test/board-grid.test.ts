@@ -29,18 +29,18 @@ const slotsOf = (target: Board): number[] => target.keys.map((entry) => entry.sl
 const textOf = (target: Board): string[] => target.keys.map((entry) => (entry.action.type === "voice.speak" ? entry.action.text : ""));
 
 describe("board grid", () => {
-  it("defaults to 5 × 3 and accepts 3–8 columns and 2–5 rows", () => {
+  it("defaults to 5 × 3 and accepts 3–8 columns and 2–5 rows on a deck board", () => {
     expect(DEFAULT_BOARD_GRID).toEqual({ columns: 5, rows: 3 });
     expect(makeBoard("a", "A", "voice")).toMatchObject({ columns: 5, rows: 3 });
-    expect(parseBoardGrid({ columns: 8, rows: 5 })).toEqual({ columns: 8, rows: 5 });
-    expect(parseBoardGrid({ columns: 3, rows: 2 })).toEqual({ columns: 3, rows: 2 });
+    expect(parseBoardGrid({ columns: 8, rows: 5 }, "deck")).toEqual({ columns: 8, rows: 5 });
+    expect(parseBoardGrid({ columns: 3, rows: 2 }, "deck")).toEqual({ columns: 3, rows: 2 });
     for (const bad of [{ columns: 2, rows: 3 }, { columns: 9, rows: 3 }, { columns: 5, rows: 1 }, { columns: 5, rows: 6 }, { columns: 5.5, rows: 3 }, null, "5x3"]) {
-      expect(() => parseBoardGrid(bad)).toThrow(InvalidBoardError);
+      expect(() => parseBoardGrid(bad, "deck")).toThrow(InvalidBoardError);
     }
   });
 
   it("bounds key slots by the largest grid, so no slot depends on the current size", () => {
-    expect(MAX_KEY_SLOTS).toBe(8 * 5 * MAX_BOARD_PAGES);
+    expect(MAX_KEY_SLOTS).toBe(10 * 8 * MAX_BOARD_PAGES);
     expect(isValidKeySlot(MAX_KEY_SLOTS - 1)).toBe(true);
     expect(isValidKeySlot(MAX_KEY_SLOTS)).toBe(false);
   });
@@ -49,21 +49,22 @@ describe("board grid", () => {
     const stored = [{ id: "a", name: "A", kind: "voice", columns: 6, rows: 4, keys: [key(20)] }];
     expect(readStoredBoards(stored)[0]).toMatchObject({ columns: 6, rows: 4, keys: [key(20)] });
     expect(readStoredBoards([{ id: "a", name: "A", kind: "voice", columns: 12, rows: 4, keys: [] }])[0]).toMatchObject({ columns: 5, rows: 3 });
+    expect(readStoredBoards([{ id: "a", name: "A", kind: "deck", columns: 9, rows: 4, keys: [] }])[0]).toMatchObject({ columns: 5, rows: 3 });
     expect(readStoredBoards([{ id: "a", name: "A", kind: "voice", keys: [] }])[0]).toMatchObject({ columns: 5, rows: 3 });
   });
 
-  it("gives every stored board the first board's size", () => {
+  it("gives every stored board the size of the first board of its kind", () => {
     const stored = [
       { id: "a", name: "A", kind: "voice", columns: 6, rows: 4, keys: [] },
       { id: "b", name: "B", kind: "deck", columns: 3, rows: 2, keys: [] },
-      // Split in two: both halves take the shared size.
+      // Split in two: each half takes the size of its kind.
       { id: "c", name: "C", columns: 7, rows: 5, keys: [key(0), { slot: 1, action: { type: "obs.toggleStream" } }] },
     ];
     expect(readStoredBoards(stored).map(({ id, columns, rows }) => ({ id, columns, rows }))).toEqual([
       { id: "a", columns: 6, rows: 4 },
-      { id: "b", columns: 6, rows: 4 },
+      { id: "b", columns: 3, rows: 2 },
       { id: "c", columns: 6, rows: 4 },
-      { id: "c-deck", columns: 6, rows: 4 },
+      { id: "c-deck", columns: 3, rows: 2 },
     ]);
   });
 });
@@ -121,12 +122,13 @@ describe("reflowBoard", () => {
 });
 
 describe("setBoardGrid", () => {
-  it("resizes every board in one write and returns them", async () => {
-    const repository = new InMemoryBoardRepository([board("a", [4]), makeBoard("d", "D", "deck", [{ slot: 0, action: { type: "obs.toggleStream" } }])]);
-    const boards = await setBoardGrid(repository, { columns: 4, rows: 2 });
+  it("resizes every board of the kind in one write and returns them all", async () => {
+    const repository = new InMemoryBoardRepository([board("a", [4]), makeBoard("d", "D", "deck", [{ slot: 0, action: { type: "obs.toggleStream" } }]), board("b", [0])]);
+    const boards = await setBoardGrid(repository, { kind: "voice", columns: 4, rows: 2 });
     expect(repository.writeCount).toBe(1);
     expect(boards.map(({ columns, rows }) => ({ columns, rows }))).toEqual([
       { columns: 4, rows: 2 },
+      { columns: 5, rows: 3 },
       { columns: 4, rows: 2 },
     ]);
     expect(slotsOf(boards[0]!)).toEqual([0]);
@@ -136,22 +138,22 @@ describe("setBoardGrid", () => {
   it("writes nothing when a board has no room or the size is invalid", async () => {
     const crowded = board("a", Array.from({ length: MAX_BOARD_PAGES * 15 }, (_, slot) => slot));
     const repository = new InMemoryBoardRepository([board("b", [0]), crowded]);
-    await expect(setBoardGrid(repository, { columns: 3, rows: 2 })).rejects.toThrow(BoardGridFullError);
-    await expect(setBoardGrid(repository, { columns: 9, rows: 2 })).rejects.toThrow(InvalidBoardError);
+    await expect(setBoardGrid(repository, { kind: "voice", columns: 3, rows: 2 })).rejects.toThrow(BoardGridFullError);
+    await expect(setBoardGrid(repository, { kind: "voice", columns: 11, rows: 2 })).rejects.toThrow(InvalidBoardError);
     expect(repository.writeCount).toBe(0);
   });
 
   it("writes nothing when the size does not change", async () => {
     const repository = new InMemoryBoardRepository([board("a", [0])]);
-    await setBoardGrid(repository, { columns: 5, rows: 3 });
+    await setBoardGrid(repository, { kind: "voice", columns: 5, rows: 3 });
     expect(repository.writeCount).toBe(0);
   });
 });
 
 describe("new boards take the current size", () => {
-  it("creates and restores boards with the shared grid", async () => {
+  it("creates and restores boards with the grid their kind shares", async () => {
     const repository = new InMemoryBoardRepository([board("a", [], 6, 4)]);
-    const created = await createBoard({ repository, generateId: sequentialIds("b") }, { name: "New", kind: "deck" });
+    const created = await createBoard({ repository, generateId: sequentialIds("b") }, { name: "New", kind: "voice" });
     expect(created).toMatchObject({ columns: 6, rows: 4 });
     const restored = await restoreDefaultBoard(repository, "en");
     expect(restored).toMatchObject({ columns: 6, rows: 4 });

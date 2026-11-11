@@ -62,7 +62,7 @@ export function moveCaptionKeysToVoice(
   let targetIndex = next.findIndex((board) => board.kind === "voice" && board.id === DEFAULT_BOARD_ID);
   if (targetIndex === -1) targetIndex = next.findIndex((board) => board.kind === "voice");
   if (targetIndex === -1 && next.length < MAX_STORED_BOARDS) {
-    const seed = buildDefaultBoard(language, gridOfBoards(next));
+    const seed = buildDefaultBoard(language, gridOfBoards(next, "voice"));
     const created = { ...seed, id: freeBoardId(seed.id, new Set(next.map((board) => board.id))) };
     // The communication board goes first, as when it is restored.
     next = [created, ...next];

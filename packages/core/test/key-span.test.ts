@@ -174,7 +174,7 @@ describe("grid reflow with spanning keys", () => {
   it("refuses the change when a block finds no room", async () => {
     const keys = Array.from({ length: 100 }, (_, page) => [volume(page * 15 + 4, 3, 1), ...[0, 1, 2, 3].map((column) => volume(page * 15 + column, 3, 1))]).flat();
     const repository = new InMemoryBoardRepository([deck(keys)]);
-    await expect(setBoardGrid(repository, { columns: 4, rows: 3 })).rejects.toThrow(BoardGridFullError);
+    await expect(setBoardGrid(repository, { kind: "deck", columns: 4, rows: 3 })).rejects.toThrow(BoardGridFullError);
     expect(repository.writeCount).toBe(0);
   });
 });

@@ -107,8 +107,8 @@ export function KeyEditorForm({ slot, existing, assignedType, boardKind, boards,
     else onTest(result.action);
   };
 
-  // Every board shares one grid, so a key can move to any slot of the pages a board may have.
-  const slotCount = keysPerPage(gridOfBoards(boards)) * MAX_BOARD_PAGES;
+  // Boards of one kind share one grid, so a key can move to any slot of the pages a board may have.
+  const slotCount = keysPerPage(gridOfBoards(boards, boardKind)) * MAX_BOARD_PAGES;
   const move = () => {
     const to = Number(moveTo) - 1;
     if (!Number.isInteger(to) || to < 0 || to >= slotCount || !onMove) return;

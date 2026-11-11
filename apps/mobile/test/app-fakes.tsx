@@ -190,7 +190,9 @@ export function desktopRoute(state: DesktopState) {
       }
       case "PUT /api/boards/grid": {
         if (state.gridFull) return { status: 409, body: { error: "No room.", code: "grid-full" } };
-        state.boards = state.boards.map((candidate) => reflowBoard(candidate, { columns: Number(body.columns), rows: Number(body.rows) }));
+        state.boards = state.boards.map((candidate) =>
+          candidate.kind === body.kind ? reflowBoard(candidate, { columns: Number(body.columns), rows: Number(body.rows) }) : candidate,
+        );
         return { body: state.boards };
       }
       case "GET /api/voices":

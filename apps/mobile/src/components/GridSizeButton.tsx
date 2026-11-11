@@ -1,4 +1,4 @@
-import { MAX_BOARD_COLUMNS, MAX_BOARD_ROWS, MIN_BOARD_COLUMNS, MIN_BOARD_ROWS, type Board } from "@speed-deck/core";
+import { BOARD_GRID_RANGES, type Board } from "@speed-deck/core";
 import { Grid3x3 } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
 import type { Boards } from "../app/use-boards";
@@ -6,18 +6,16 @@ import { useT } from "../i18n/I18nProvider";
 import { ModalDialog } from "./ModalDialog";
 
 const range = (min: number, max: number) => Array.from({ length: max - min + 1 }, (_, index) => min + index);
-const COLUMN_CHOICES = range(MIN_BOARD_COLUMNS, MAX_BOARD_COLUMNS);
-const ROW_CHOICES = range(MIN_BOARD_ROWS, MAX_BOARD_ROWS);
 
 interface GridSizeButtonProps {
-  /** The board shown; every board shares its grid. */
+  /** The board shown; every board of its kind shares its grid. */
   board: Board;
   boards: Boards;
   /** The current status message, repeated in the dialog's live region (where a refusal shows). */
   statusText: string;
 }
 
-/** A grid icon beside the board pill: it opens a dialog that sets the columns and rows of every board. */
+/** A grid icon beside the board pill: it opens a dialog that sets the columns and rows of every board of the shown board's kind. */
 export function GridSizeButton({ board, boards, statusText }: GridSizeButtonProps) {
   const t = useT();
   const [isOpen, setIsOpen] = useState(false);
@@ -37,6 +35,9 @@ function GridSizeDialog({ board, boards, statusText, onClose }: GridSizeButtonPr
   const [columns, setColumns] = useState(board.columns);
   const [rows, setRows] = useState(board.rows);
   const [isBusy, setIsBusy] = useState(false);
+  const { kind } = board;
+  const limits = BOARD_GRID_RANGES[kind];
+  const space = t(kind === "voice" ? "nav.voice" : "nav.deck");
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -44,7 +45,7 @@ function GridSizeDialog({ board, boards, statusText, onClose }: GridSizeButtonPr
     setIsBusy(true);
     void boards
       .change(
-        (store) => store.setGrid({ columns, rows }),
+        (store) => store.setGrid(kind, { columns, rows }),
         () => ({ key: "grid.saved", params: { columns, rows } }),
       )
       .then((resized) => {
@@ -55,12 +56,12 @@ function GridSizeDialog({ board, boards, statusText, onClose }: GridSizeButtonPr
   };
 
   return (
-    <ModalDialog title={t("grid.title")} onClose={onClose} statusText={statusText} className="modal-small">
+    <ModalDialog title={t("grid.title", { space })} onClose={onClose} statusText={statusText} className="modal-small">
       <form className="modal-form" onSubmit={submit} aria-describedby={ids.hint}>
         <div className="field">
           <label htmlFor={ids.columns}>{t("grid.columns")}</label>
           <select id={ids.columns} value={columns} onChange={(event) => setColumns(Number(event.target.value))}>
-            {COLUMN_CHOICES.map((value) => (
+            {range(limits.minColumns, limits.maxColumns).map((value) => (
               <option key={value} value={value}>
                 {value}
               </option>
@@ -70,7 +71,7 @@ function GridSizeDialog({ board, boards, statusText, onClose }: GridSizeButtonPr
         <div className="field">
           <label htmlFor={ids.rows}>{t("grid.rows")}</label>
           <select id={ids.rows} value={rows} onChange={(event) => setRows(Number(event.target.value))}>
-            {ROW_CHOICES.map((value) => (
+            {range(limits.minRows, limits.maxRows).map((value) => (
               <option key={value} value={value}>
                 {value}
               </option>
@@ -78,7 +79,7 @@ function GridSizeDialog({ board, boards, statusText, onClose }: GridSizeButtonPr
           </select>
         </div>
         <p id={ids.hint} className="field-hint">
-          {t("grid.hint")}
+          {t("grid.hint", { space })}
         </p>
         <div className="modal-actions">
           <button type="button" className="button" onClick={onClose}>

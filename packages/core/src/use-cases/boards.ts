@@ -65,13 +65,13 @@ export async function moveCaptionKeysToVoiceBoards(
   });
 }
 
-/** Creates an empty board of `kind` ("voice" or "deck") with the grid every board shares. */
+/** Creates an empty board of `kind` ("voice" or "deck") with the grid boards of that kind share. */
 export async function createBoard({ repository, generateId }: BoardDependencies, { name, kind }: { name: unknown; kind: unknown }): Promise<Board> {
   const parsedName = parseBoardName(name);
   const parsedKind = parseBoardKind(kind);
   const id = generateId();
   return repository.update((boards) => {
-    const board = makeBoard(id, parsedName, parsedKind, [], gridOfBoards(boards));
+    const board = makeBoard(id, parsedName, parsedKind, [], gridOfBoards(boards, parsedKind));
     if (boards.length >= MAX_BOARDS) throw new BoardLimitError();
     if (boards.some((other) => other.id === board.id)) throw new InvalidBoardError("A board with this id already exists.");
     return { boards: [...boards, board], result: board };
@@ -131,15 +131,14 @@ export async function moveKey(repository: BoardRepository, boardId: string, from
 
 /**
  * Puts back a built-in board in `language`: the communication board, or the deck board when `id` is
- * `DEFAULT_DECK_BOARD_ID`, with the grid every board shares. It is restored in place; when it was deleted, the communication board
+ * `DEFAULT_DECK_BOARD_ID`, with the grid boards of its kind share. It is restored in place; when it was deleted, the communication board
  * goes first and the deck board right after the communication board (last when there is none).
  * Rejects with `BoardLimitError` when it was deleted and there is no room for it.
  */
 export async function restoreDefaultBoard(repository: BoardRepository, language: UiLanguage, id: unknown = DEFAULT_BOARD_ID): Promise<Board> {
   if (id !== DEFAULT_BOARD_ID && id !== DEFAULT_DECK_BOARD_ID) throw new InvalidBoardError("boardId is not a built-in board.");
   return repository.update((boards) => {
-    const grid = gridOfBoards(boards);
-    const fresh = id === DEFAULT_BOARD_ID ? buildDefaultBoard(language, grid) : buildDefaultDeckBoard(language, grid);
+    const fresh = id === DEFAULT_BOARD_ID ? buildDefaultBoard(language, gridOfBoards(boards, "voice")) : buildDefaultDeckBoard(language, gridOfBoards(boards, "deck"));
     const index = boards.findIndex((board) => board.id === fresh.id);
     if (index !== -1) return { boards: boards.map((board, at) => (at === index ? fresh : board)), result: fresh };
     if (boards.length >= MAX_BOARDS) throw new BoardLimitError();
@@ -151,15 +150,18 @@ export async function restoreDefaultBoard(repository: BoardRepository, language:
 }
 
 /**
- * Gives every board the grid `input` (`{ columns, rows }`, validated) in one write, laying out each
- * board's keys with `reflowBoard`. Rejects with `BoardGridFullError`, writing nothing, when a board's
- * keys do not fit. Resolves with every board; writes nothing when the grid does not change.
+ * Gives every board of one kind the grid `input` (`{ kind, columns, rows }`, validated against that kind's
+ * range) in one write, laying out each board's keys with `reflowBoard`; boards of the other kind are left
+ * as they are. Rejects with `BoardGridFullError`, writing nothing, when a board's keys do not fit.
+ * Resolves with every board; writes nothing when the grid does not change.
  */
 export async function setBoardGrid(repository: BoardRepository, input: unknown): Promise<Board[]> {
-  const grid = parseBoardGrid(input);
+  const kind = parseBoardKind(typeof input === "object" && input !== null ? (input as { kind?: unknown }).kind : undefined);
+  const grid = parseBoardGrid(input, kind);
   return repository.update((boards) => {
-    if (boards.every((board) => board.columns === grid.columns && board.rows === grid.rows)) return { result: [...boards] };
-    const next = boards.map((board) => reflowBoard(board, grid));
+    const resized = boards.filter((board) => board.kind === kind);
+    if (resized.every((board) => board.columns === grid.columns && board.rows === grid.rows)) return { result: [...boards] };
+    const next = boards.map((board) => (board.kind === kind ? reflowBoard(board, grid) : board));
     return { boards: next, result: next };
   });
 }
