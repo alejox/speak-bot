@@ -3,7 +3,10 @@ package com.alejoxcode.speeddeck
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
+import android.widget.LinearLayout
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
@@ -22,6 +25,13 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 class ConnectActivity : AppCompatActivity() {
     private lateinit var addressField: EditText
     private lateinit var errorText: TextView
+    private lateinit var foundStatus: TextView
+    private lateinit var foundList: LinearLayout
+    private lateinit var discovery: DesktopDiscovery
+    private val handler = Handler(Looper.getMainLooper())
+    private val showNoneFound = Runnable {
+        if (discovery.current.isEmpty()) foundStatus.setText(R.string.connect_none_found)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,6 +40,9 @@ class ConnectActivity : AppCompatActivity() {
 
         addressField = findViewById(R.id.connect_address)
         errorText = findViewById(R.id.connect_error)
+        foundStatus = findViewById(R.id.connect_found_status)
+        foundList = findViewById(R.id.connect_found_list)
+        discovery = DesktopDiscovery(this, ::showDiscovered)
 
         if (savedInstanceState == null) {
             intent.getStringExtra(EXTRA_CURRENT_ADDRESS)?.let(addressField::setText)
@@ -47,6 +60,35 @@ class ConnectActivity : AppCompatActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        showDiscovered(discovery.current)
+        discovery.start()
+        handler.postDelayed(showNoneFound, NONE_FOUND_DELAY_MS)
+    }
+
+    override fun onStop() {
+        handler.removeCallbacks(showNoneFound)
+        discovery.stop()
+        super.onStop()
+    }
+
+    private fun showDiscovered(desktops: List<DiscoveredDesktop>) {
+        foundList.removeAllViews()
+        if (desktops.isEmpty()) {
+            foundStatus.visibility = View.VISIBLE
+            return
+        }
+        foundStatus.visibility = View.GONE
+        for (desktop in desktops) {
+            val button = layoutInflater.inflate(R.layout.item_discovered_desktop, foundList, false) as Button
+            button.text = getString(R.string.connect_found_item, desktop.name, desktop.address)
+            button.contentDescription = desktop.name
+            button.setOnClickListener { openDeck(SavedDesktop(desktop.address, desktop.id)) }
+            foundList.addView(button)
+        }
+    }
+
     private fun scanQrCode() {
         hideError()
         val options = GmsBarcodeScannerOptions.Builder()
@@ -56,7 +98,7 @@ class ConnectActivity : AppCompatActivity() {
         GmsBarcodeScanning.getClient(this, options).startScan()
             .addOnSuccessListener { barcode ->
                 val address = barcode.rawValue?.let(DesktopAddress::normalize)
-                if (address == null) showError(R.string.connect_invalid_qr) else openDeck(address)
+                if (address == null) showError(R.string.connect_invalid_qr) else openDeck(SavedDesktop(address, null))
             }
             .addOnFailureListener { error ->
                 val cancelled = error is MlKitException && error.errorCode == MlKitException.CANCELLED
@@ -70,12 +112,13 @@ class ConnectActivity : AppCompatActivity() {
             showError(R.string.connect_invalid_address)
             addressField.requestFocus()
         } else {
-            openDeck(address)
+            openDeck(SavedDesktop(address, null))
         }
     }
 
-    private fun openDeck(address: String) {
-        AddressStore(this).save(address)
+    /** The id is learned on the deck's first discovery when the computer was paired by QR or address. */
+    private fun openDeck(desktop: SavedDesktop) {
+        AddressStore(this).save(desktop)
         startActivity(Intent(this, DeckActivity::class.java))
         finish()
     }
@@ -99,6 +142,7 @@ class ConnectActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val NONE_FOUND_DELAY_MS = 5_000L
         private const val EXTRA_CURRENT_ADDRESS = "current_address"
 
         /** Opens the connect screen, pre-filling the address of the computer in use, if any. */

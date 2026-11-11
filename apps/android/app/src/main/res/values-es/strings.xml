@@ -2,12 +2,17 @@
 <resources>
     <string name="connect_title">Conectar con tu equipo</string>
     <string name="connect_intro">Abre Speed Deck en tu equipo y escanea el código QR que muestra. El teléfono debe estar en la misma red Wi-Fi.</string>
+    <string name="connect_found_title">Equipos en esta red</string>
+    <string name="connect_searching">Buscando equipos con Speed Deck…</string>
+    <string name="connect_none_found">Todavía no se encontró ningún equipo. Comprueba que Speed Deck esté abierto en tu equipo o escanea su código QR.</string>
     <string name="connect_scan">Escanear código QR</string>
     <string name="connect_manual_label">O escribe la dirección que aparece en tu equipo</string>
     <string name="connect_open">Conectar</string>
     <string name="connect_invalid_address">Escribe una dirección como 192.168.1.5 o 192.168.1.5:4545.</string>
     <string name="connect_invalid_qr">Ese código QR no es una dirección de Speed Deck. Escanea el código que muestra Speed Deck en tu equipo.</string>
     <string name="connect_scanner_unavailable">El escáner de QR no está disponible en este momento. Escribe la dirección.</string>
+
+    <string name="deck_searching">Buscando tu equipo en la red…</string>
 
     <string name="unreachable_title">No se puede conectar con tu equipo</string>
     <string name="unreachable_body">Comprueba que Speed Deck esté abierto en tu equipo y que el teléfono esté en la misma red Wi-Fi.</string>

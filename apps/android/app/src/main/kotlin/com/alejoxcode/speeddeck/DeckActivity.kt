@@ -27,42 +27,54 @@ import androidx.core.view.WindowInsetsControllerCompat
 /**
  * Full-screen WebView that shows the deck served by the saved desktop address.
  *
- * When the desktop cannot be reached, a native screen offers to retry or change computer.
+ * The saved computer is looked up on the network at launch and whenever it cannot be reached:
+ * when it shows up at a new IP address the deck follows it without asking. Only when that fails
+ * too, a native screen offers to retry or change computer.
  * The system back button on the deck's first page offers to change computer or exit.
  */
 class DeckActivity : AppCompatActivity() {
-    private lateinit var address: String
+    private lateinit var store: AddressStore
+    private lateinit var saved: SavedDesktop
+    private val address: String get() = saved.address
     private lateinit var webView: WebView
     private lateinit var unreachablePanel: View
+    private lateinit var searchingPanel: View
+    private var discovery: DesktopDiscovery? = null
 
     private val handler = Handler(Looper.getMainLooper())
     private val loadTimeout = Runnable { onDeckUnreachable() }
+    private val searchTimeout = Runnable { onSearchEnded() }
 
     /** Set by a retry so the failed attempt is not left in the back history. */
     private var clearHistoryWhenLoaded = false
     private var mainFrameFailed = false
+    /** The current address finished loading without an error. */
+    private var deckLoaded = false
+    /** The deck failed to load and the result of the network search decides what to show. */
+    private var waitingForSearch = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val saved = AddressStore(this).load()
-        if (saved == null) {
+        store = AddressStore(this)
+        saved = store.load() ?: run {
             startActivity(ConnectActivity.intent(this))
             finish()
             return
         }
-        address = saved
         setContentView(R.layout.activity_deck)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         hideSystemBars()
 
         webView = findViewById(R.id.deck_web_view)
         unreachablePanel = findViewById(R.id.deck_unreachable)
+        searchingPanel = findViewById(R.id.deck_searching)
         findViewById<TextView>(R.id.deck_unreachable_address).text = address
         findViewById<Button>(R.id.deck_retry).setOnClickListener { retry() }
         findViewById<Button>(R.id.deck_change_computer).setOnClickListener { changeComputer() }
         configureWebView()
         onBackPressedDispatcher.addCallback(this, backCallback)
 
+        startSearch()
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
             webView.loadUrl(address)
         }
@@ -83,8 +95,18 @@ class DeckActivity : AppCompatActivity() {
         super.onPause()
     }
 
+    override fun onStop() {
+        // Searching in the background would only drain the battery.
+        if (discovery != null) {
+            stopSearch()
+            if (waitingForSearch) showUnreachable()
+        }
+        super.onStop()
+    }
+
     override fun onDestroy() {
         handler.removeCallbacks(loadTimeout)
+        stopSearch()
         if (::webView.isInitialized) webView.destroy()
         super.onDestroy()
     }
@@ -108,19 +130,72 @@ class DeckActivity : AppCompatActivity() {
     }
 
     private fun retry() {
+        startSearch()
+        load(address)
+    }
+
+    private fun load(url: String) {
+        waitingForSearch = false
         unreachablePanel.visibility = View.GONE
+        searchingPanel.visibility = View.GONE
         webView.visibility = View.VISIBLE
         clearHistoryWhenLoaded = true
-        webView.loadUrl(address)
+        webView.stopLoading()
+        webView.loadUrl(url)
     }
 
     private fun onDeckUnreachable() {
         mainFrameFailed = true
+        deckLoaded = false
         handler.removeCallbacks(loadTimeout)
         webView.stopLoading()
         webView.visibility = View.INVISIBLE
+        // The computer may have a new IP address: look for it before giving up.
+        if (discovery == null) startSearch()
+        waitingForSearch = true
+        unreachablePanel.visibility = View.GONE
+        searchingPanel.visibility = View.VISIBLE
+    }
+
+    private fun showUnreachable() {
+        waitingForSearch = false
+        searchingPanel.visibility = View.GONE
         unreachablePanel.visibility = View.VISIBLE
         findViewById<Button>(R.id.deck_retry).requestFocus()
+    }
+
+    /** Looks for the saved computer on the network for a few seconds. */
+    private fun startSearch() {
+        val search = discovery ?: DesktopDiscovery(this, ::onDiscovered).also { discovery = it }
+        search.start()
+        handler.removeCallbacks(searchTimeout)
+        handler.postDelayed(searchTimeout, SEARCH_WINDOW_MS)
+    }
+
+    private fun stopSearch() {
+        handler.removeCallbacks(searchTimeout)
+        discovery?.stop()
+        discovery = null
+    }
+
+    private fun onSearchEnded() {
+        stopSearch()
+        if (waitingForSearch) showUnreachable()
+    }
+
+    private fun onDiscovered(desktops: List<DiscoveredDesktop>) {
+        val found = ReconnectRule.find(saved, desktops) ?: return
+        stopSearch()
+        val moved = ReconnectRule.addressChanged(saved, found)
+        if (moved && deckLoaded) return // The saved address works; keep it.
+        saved = SavedDesktop(found.address, found.id)
+        store.save(saved)
+        findViewById<TextView>(R.id.deck_unreachable_address).text = address
+        when {
+            moved -> load(address)
+            // Announced at the same address, yet the deck did not load: nothing else to try.
+            waitingForSearch -> showUnreachable()
+        }
     }
 
     private fun changeComputer() {
@@ -154,7 +229,7 @@ class DeckActivity : AppCompatActivity() {
 
     private val backCallback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
-            if (unreachablePanel.visibility != View.VISIBLE && webView.canGoBack()) {
+            if (webView.visibility == View.VISIBLE && webView.canGoBack()) {
                 webView.goBack()
             } else {
                 showLeaveMenu()
@@ -171,12 +246,14 @@ class DeckActivity : AppCompatActivity() {
 
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
             mainFrameFailed = false
+            deckLoaded = false
             handler.removeCallbacks(loadTimeout)
             handler.postDelayed(loadTimeout, LOAD_TIMEOUT_MS)
         }
 
         override fun onPageFinished(view: WebView, url: String?) {
             handler.removeCallbacks(loadTimeout)
+            deckLoaded = !mainFrameFailed
             if (!mainFrameFailed && clearHistoryWhenLoaded) {
                 clearHistoryWhenLoaded = false
                 view.clearHistory()
@@ -184,7 +261,8 @@ class DeckActivity : AppCompatActivity() {
         }
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-            if (request.isForMainFrame) onDeckUnreachable()
+            // A load abandoned for a new address may still report an error for the old one.
+            if (request.isForMainFrame && isDeckUrl(request.url)) onDeckUnreachable()
         }
 
         override fun onReceivedHttpError(
@@ -192,11 +270,13 @@ class DeckActivity : AppCompatActivity() {
             request: WebResourceRequest,
             errorResponse: WebResourceResponse,
         ) {
-            if (request.isForMainFrame) onDeckUnreachable()
+            if (request.isForMainFrame && isDeckUrl(request.url)) onDeckUnreachable()
         }
     }
 
     private companion object {
         const val LOAD_TIMEOUT_MS = 15_000L
+        /** How long to look for the saved computer on the network. */
+        const val SEARCH_WINDOW_MS = 6_000L
     }
 }

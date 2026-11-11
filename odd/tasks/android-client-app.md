@@ -15,7 +15,7 @@ A thin native Android shell (Kotlin, plain Views, no Capacitor):
 
 ## Scope
 - `apps/android/` Gradle project (+ thin `package.json` wrapper with non-default script names so root `npm run build` does not need Java).
-- No changes to the desktop server or the mobile web app.
+- T5 adds a LAN announcement to the desktop server; T6 adds an Android speech adapter to the mobile web app. Otherwise the desktop and web app are unchanged.
 - Out of scope: Play Console upload and signing keys (user-owned), iOS, Windows.
 
 ## Constraints
@@ -27,6 +27,8 @@ A thin native Android shell (Kotlin, plain Views, no Capacitor):
 - [x] T1 Scaffold the Gradle project and the WebView shell that opens a saved address (cleartext, back navigation, keep screen on); debug APK builds. Route: delegated (writer, new multi-file project). Commit `5b423f9`.
 - [x] T2 Connect screen: QR scan + manual entry, address validation with unit tests. Route: delegated. Commit `65481fb`.
 - [x] T3 Unreachable-desktop screen (retry / change computer) and a way to change computer from the deck. Route: delegated. Commit `82f7de8`.
+- [x] T5 Automatic discovery: the desktop announces itself on the LAN (mDNS/DNS-SD `_speeddeck._tcp` with a stable id), and the Android app finds computers without a QR, lists them on the connect screen, and reconnects to the same computer when its IP changes. Route: delegated. Why: the router changed the Mac's IP (.17 → .19) and the saved address broke the app. Commits `48d2a37` (desktop), see Progress for the Android commit.
+- [ ] T6 Voice without a computer: the app bundles the mobile web UI and can open it locally (no pairing) for the voice section, speaking through Android's native TextToSpeech (WebView has no speechSynthesis). Route: delegated. Requested by the user 2026-11-11.
 - [ ] T4 Release build: app icon, versioning, signed AAB from a user-provided keystore (documented, not committed). Route: delegated.
 
 ## Acceptance criteria
@@ -43,5 +45,9 @@ A thin native Android shell (Kotlin, plain Views, no Capacitor):
 - Pending: on-device acceptance (scan, relaunch, desktop-off retry) not yet run.
 - Root `package-lock.json` refreshed with the `@speed-deck/android` workspace entry.
 
+- T5 desktop: `bonjour-service` 1.4.4 (pure JS, multicast-dns; works on Windows/Linux too, inlined by esbuild so no bundle/builder changes). Port `ServiceAdvertiser` + adapter `createBonjourAdvertiser`; announced only when listening on 0.0.0.0/::. TXT `id` (UUID saved in `<dataDir>/desktop.json`), `name` (macOS ComputerName via `scutil`, else host name), `v=1`. `/api/health` adds optional `desktopId`. Verified with `dns-sd -L` on this Mac: TXT `id=… name=ProbeTest v=1` resolved.
+- T5 desktop tests: discovery tests (id file, announcement) and start-desktop advertising tests observed RED, then GREEN; desktop 276 tests pass.
+- T5 Android: `NsdManager` discovery (`DesktopDiscovery`, serial resolves, IPv4 only, no multicast lock or extra permissions needed). Pure `DiscoveredDesktop` / `ReconnectRule` with 12 JVM tests observed RED against `TODO()` stubs, then GREEN (25 tests total). Connect screen lists computers live; the deck searches 6 s at launch and on failure, follows the saved id to a new address (only if the current address has not loaded), and learns the id of QR-paired computers by address.
+
 ## Next step
-Try the debug APK on a phone, then T4.
+T5, then T6, then T4.

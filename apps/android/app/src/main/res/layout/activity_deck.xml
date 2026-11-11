@@ -10,6 +10,33 @@
         android:layout_height="match_parent"
         android:background="@color/deck_background" />
 
+    <LinearLayout
+        android:id="@+id/deck_searching"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/deck_background"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:visibility="gone">
+
+        <ProgressBar
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:indeterminate="true"
+            android:indeterminateTint="@color/deck_accent" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:accessibilityLiveRegion="polite"
+            android:gravity="center"
+            android:text="@string/deck_searching"
+            android:textColor="@color/deck_text"
+            android:textSize="20sp" />
+    </LinearLayout>
+
     <ScrollView
         android:id="@+id/deck_unreachable"
         android:layout_width="match_parent"

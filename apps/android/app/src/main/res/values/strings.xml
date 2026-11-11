@@ -4,6 +4,10 @@
 
     <string name="connect_title">Connect to your computer</string>
     <string name="connect_intro">Open Speed Deck on your computer, then scan the QR code it shows. Your phone must be on the same Wi-Fi network.</string>
+    <string name="connect_found_title">Computers on this network</string>
+    <string name="connect_searching">Looking for computers running Speed Deck…</string>
+    <string name="connect_none_found">No computers found yet. Make sure Speed Deck is open on your computer, or scan its QR code.</string>
+    <string name="connect_found_item" translatable="false">%1$s\n%2$s</string>
     <string name="connect_scan">Scan QR code</string>
     <string name="connect_manual_label">Or type the address shown on your computer</string>
     <string name="connect_address_hint" translatable="false">192.168.1.5:4545</string>
@@ -11,6 +15,8 @@
     <string name="connect_invalid_address">Enter an address like 192.168.1.5 or 192.168.1.5:4545.</string>
     <string name="connect_invalid_qr">That QR code is not a Speed Deck address. Scan the code shown by Speed Deck on your computer.</string>
     <string name="connect_scanner_unavailable">The QR scanner is not available right now. Type the address instead.</string>
+
+    <string name="deck_searching">Looking for your computer on the network…</string>
 
     <string name="unreachable_title">Can\'t reach your computer</string>
     <string name="unreachable_body">Make sure Speed Deck is open on your computer and that your phone is on the same Wi-Fi network.</string>
