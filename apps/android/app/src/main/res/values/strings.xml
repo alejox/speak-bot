@@ -3,7 +3,9 @@
     <string name="app_name" translatable="false">Speed Deck</string>
 
     <string name="connect_title">Connect to your computer</string>
-    <string name="connect_intro">Open Speed Deck on your computer, then scan the QR code it shows. Your phone must be on the same Wi-Fi network.</string>
+    <string name="connect_intro">Speak with this phone alone, or use Speed Deck on your computer. To use your computer, your phone must be on the same Wi-Fi network.</string>
+    <string name="connect_local">Speak without a computer</string>
+    <string name="connect_local_hint">Use this phone\'s voice and boards. You can connect to a computer later.</string>
     <string name="connect_found_title">Computers on this network</string>
     <string name="connect_searching">Looking for computers running Speed Deck…</string>
     <string name="connect_none_found">No computers found yet. Make sure Speed Deck is open on your computer, or scan its QR code.</string>

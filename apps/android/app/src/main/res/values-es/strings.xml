@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="connect_title">Conectar con tu equipo</string>
-    <string name="connect_intro">Abre Speed Deck en tu equipo y escanea el código QR que muestra. El teléfono debe estar en la misma red Wi-Fi.</string>
+    <string name="connect_intro">Habla solo con este teléfono o usa Speed Deck en tu equipo. Para usar tu equipo, el teléfono debe estar en la misma red Wi-Fi.</string>
+    <string name="connect_local">Hablar sin equipo</string>
+    <string name="connect_local_hint">Usa la voz y los tableros de este teléfono. Puedes conectarte a un equipo más tarde.</string>
     <string name="connect_found_title">Equipos en esta red</string>
     <string name="connect_searching">Buscando equipos con Speed Deck…</string>
     <string name="connect_none_found">Todavía no se encontró ningún equipo. Comprueba que Speed Deck esté abierto en tu equipo o escanea su código QR.</string>

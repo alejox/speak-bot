@@ -21,7 +21,10 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 
-/** Asks which computer serves the deck: by scanning its pairing QR code or typing its address. */
+/**
+ * Asks how to use the deck: speaking on this phone alone, or with a computer found on the network,
+ * scanned from its pairing QR code or typed by address.
+ */
 class ConnectActivity : AppCompatActivity() {
     private lateinit var addressField: EditText
     private lateinit var errorText: TextView
@@ -48,6 +51,7 @@ class ConnectActivity : AppCompatActivity() {
             intent.getStringExtra(EXTRA_CURRENT_ADDRESS)?.let(addressField::setText)
         }
 
+        findViewById<Button>(R.id.connect_local).setOnClickListener { openLocal() }
         findViewById<Button>(R.id.connect_scan).setOnClickListener { scanQrCode() }
         findViewById<Button>(R.id.connect_open).setOnClickListener { connectToTypedAddress() }
         addressField.setOnEditorActionListener { _, actionId, _ ->
@@ -114,6 +118,13 @@ class ConnectActivity : AppCompatActivity() {
         } else {
             openDeck(SavedDesktop(address, null))
         }
+    }
+
+    /** Opens the web app bundled in the APK; launches go straight there until a computer is chosen. */
+    private fun openLocal() {
+        AddressStore(this).chooseLocal()
+        startActivity(Intent(this, DeckActivity::class.java))
+        finish()
     }
 
     /** The id is learned on the deck's first discovery when the computer was paired by QR or address. */

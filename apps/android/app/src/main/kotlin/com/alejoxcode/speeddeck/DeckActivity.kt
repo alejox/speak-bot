@@ -25,7 +25,9 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
 /**
- * Full-screen WebView that shows the deck served by the saved desktop address.
+ * Full-screen WebView that shows the deck served by the saved desktop address, or the web app
+ * bundled in the APK when the user chose to speak without a computer ([LocalWebApp], speaking
+ * through [SpeechBridge]).
  *
  * The saved computer is looked up on the network at launch and whenever it cannot be reached:
  * when it shows up at a new IP address the deck follows it without asking. Only when that fails
@@ -34,8 +36,12 @@ import androidx.core.view.WindowInsetsControllerCompat
  */
 class DeckActivity : AppCompatActivity() {
     private lateinit var store: AddressStore
-    private lateinit var saved: SavedDesktop
-    private val address: String get() = saved.address
+    /** The computer serving the deck; null when the deck runs on this phone alone. */
+    private var saved: SavedDesktop? = null
+    private val local: Boolean get() = saved == null
+    private val address: String get() = saved?.address ?: LocalWebApp.URL
+    private var localWebApp: LocalWebApp? = null
+    private var speech: SpeechBridge? = null
     private lateinit var webView: WebView
     private lateinit var unreachablePanel: View
     private lateinit var searchingPanel: View
@@ -56,10 +62,14 @@ class DeckActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = AddressStore(this)
-        saved = store.load() ?: run {
-            startActivity(ConnectActivity.intent(this))
-            finish()
-            return
+        when (val target = store.launchTarget()) {
+            LaunchTarget.Connect -> {
+                startActivity(ConnectActivity.intent(this))
+                finish()
+                return
+            }
+            LaunchTarget.Local -> saved = null
+            is LaunchTarget.Computer -> saved = target.desktop
         }
         setContentView(R.layout.activity_deck)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -74,7 +84,7 @@ class DeckActivity : AppCompatActivity() {
         configureWebView()
         onBackPressedDispatcher.addCallback(this, backCallback)
 
-        startSearch()
+        if (!local) startSearch()
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
             webView.loadUrl(address)
         }
@@ -107,6 +117,7 @@ class DeckActivity : AppCompatActivity() {
     override fun onDestroy() {
         handler.removeCallbacks(loadTimeout)
         stopSearch()
+        speech?.shutdown()
         if (::webView.isInitialized) webView.destroy()
         super.onDestroy()
     }
@@ -117,6 +128,11 @@ class DeckActivity : AppCompatActivity() {
             javaScriptEnabled = true
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
+        }
+        if (local) {
+            localWebApp = LocalWebApp(this)
+            // Only the bundled app ever loads in this WebView: other links open outside the app.
+            speech = SpeechBridge(this, webView).also { webView.addJavascriptInterface(it, SpeechBridge.JS_NAME) }
         }
         webView.webViewClient = DeckWebViewClient()
     }
@@ -150,6 +166,10 @@ class DeckActivity : AppCompatActivity() {
         handler.removeCallbacks(loadTimeout)
         webView.stopLoading()
         webView.visibility = View.INVISIBLE
+        if (local) {
+            showUnreachable()
+            return
+        }
         // The computer may have a new IP address: look for it before giving up.
         if (discovery == null) startSearch()
         waitingForSearch = true
@@ -166,6 +186,7 @@ class DeckActivity : AppCompatActivity() {
 
     /** Looks for the saved computer on the network for a few seconds. */
     private fun startSearch() {
+        if (local) return
         val search = discovery ?: DesktopDiscovery(this, ::onDiscovered).also { discovery = it }
         search.start()
         handler.removeCallbacks(searchTimeout)
@@ -184,12 +205,12 @@ class DeckActivity : AppCompatActivity() {
     }
 
     private fun onDiscovered(desktops: List<DiscoveredDesktop>) {
-        val found = ReconnectRule.find(saved, desktops) ?: return
+        val current = saved ?: return
+        val found = ReconnectRule.find(current, desktops) ?: return
         stopSearch()
-        val moved = ReconnectRule.addressChanged(saved, found)
+        val moved = ReconnectRule.addressChanged(current, found)
         if (moved && deckLoaded) return // The saved address works; keep it.
-        saved = SavedDesktop(found.address, found.id)
-        store.save(saved)
+        saved = SavedDesktop(found.address, found.id).also(store::save)
         findViewById<TextView>(R.id.deck_unreachable_address).text = address
         when {
             moved -> load(address)
@@ -199,7 +220,7 @@ class DeckActivity : AppCompatActivity() {
     }
 
     private fun changeComputer() {
-        startActivity(ConnectActivity.intent(this, address))
+        startActivity(ConnectActivity.intent(this, saved?.address))
         finish()
     }
 
@@ -238,6 +259,9 @@ class DeckActivity : AppCompatActivity() {
     }
 
     private inner class DeckWebViewClient : WebViewClient() {
+        override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+            localWebApp?.intercept(request)
+
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
             if (isDeckUrl(request.url)) return false
             openExternally(request.url)

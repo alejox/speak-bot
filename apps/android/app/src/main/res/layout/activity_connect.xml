@@ -32,6 +32,26 @@
             android:textColor="@color/deck_text_muted"
             android:textSize="18sp" />
 
+        <Button
+            android:id="@+id/connect_local"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:backgroundTint="@color/deck_surface"
+            android:minHeight="64dp"
+            android:text="@string/connect_local"
+            android:textAllCaps="false"
+            android:textColor="@color/deck_text"
+            android:textSize="20sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/connect_local_hint"
+            android:textColor="@color/deck_text_muted"
+            android:textSize="16sp" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
