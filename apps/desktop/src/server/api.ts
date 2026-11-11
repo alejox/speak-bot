@@ -1,5 +1,6 @@
 import {
   assertKeySlot,
+  BoardGridFullError,
   BoardLimitError,
   BoardNotFoundError,
   clearKey,
@@ -20,6 +21,7 @@ import {
   parseAction,
   renameBoard,
   restoreDefaultBoard,
+  setBoardGrid,
   setKey,
   SlotOccupiedError,
   type ApiErrorCode,
@@ -142,6 +144,17 @@ export function createApiHandler(deps: ApiDependencies) {
         const board = await restoreDefaultBoard(repository, language, boardId ?? DEFAULT_BOARD_ID);
         boardsChanged();
         sendJson(response, 200, board);
+      },
+    },
+    {
+      /** Gives every board one grid, moving keys that no longer fit. */
+      method: "PUT",
+      path: "/api/boards/grid",
+      handler: async (request, response) => {
+        const { columns, rows } = asObject(await readJsonBody(request));
+        const boards = await setBoardGrid(repository, { columns, rows });
+        boardsChanged();
+        sendJson(response, 200, boards);
       },
     },
     {
@@ -387,6 +400,7 @@ function describeFailure(error: unknown): { status: number; message: string; cod
   if (error instanceof KeyNotFoundError) return { status: 404, message: error.message, code: "key-not-found" };
   if (error instanceof NothingToRepeatError) return { status: 404, message: error.message, code: "nothing-to-repeat" };
   if (error instanceof SlotOccupiedError) return { status: 409, message: error.message, code: "slot-occupied" };
+  if (error instanceof BoardGridFullError) return { status: 409, message: error.message, code: "grid-full" };
   if (error instanceof BoardLimitError) return { status: 409, message: error.message, code: "board-limit" };
   if (error instanceof LastBoardError) return { status: 409, message: error.message, code: "last-board" };
   if (error instanceof ObsUnavailableError) return { status: 409, message: error.message, code: "obs-unavailable" };

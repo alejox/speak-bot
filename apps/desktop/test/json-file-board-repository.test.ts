@@ -1,4 +1,4 @@
-import { DEFAULT_BOARD_ID, createBoard, listBoards, setKey, SlotOccupiedError, type Board } from "@speed-deck/core";
+import { DEFAULT_BOARD_ID, createBoard, listBoards, setBoardGrid, setKey, SlotOccupiedError, type Board } from "@speed-deck/core";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -29,6 +29,18 @@ describe("JsonFileBoardRepository", () => {
     expect(await new JsonFileBoardRepository(file).list()).toEqual([board("a", [{ slot: 2, action: { type: "voice.stop" } }])]);
     expect(JSON.parse(await readFile(file, "utf8"))).toEqual({ version: 1, boards: [board("a", [{ slot: 2, action: { type: "voice.stop" } }])] });
     expect((await readdir(dir)).filter((name) => name.endsWith(".tmp"))).toEqual([]);
+  });
+
+  it("keeps the grid every board shares across instances", async () => {
+    const repository = new JsonFileBoardRepository(file);
+    await repository.update(() => ({ boards: [board("a", [{ slot: 4, action: { type: "voice.stop" } }]), board("b")], result: undefined }));
+    await setBoardGrid(repository, { columns: 6, rows: 4 });
+    const stored = await new JsonFileBoardRepository(file).list();
+    expect(stored.map(({ columns, rows }) => ({ columns, rows }))).toEqual([
+      { columns: 6, rows: 4 },
+      { columns: 6, rows: 4 },
+    ]);
+    expect(stored[0]!.keys.map((key) => key.slot)).toEqual([4]);
   });
 
   it("drops invalid stored keys and boards on read", async () => {

@@ -19,12 +19,13 @@ describe("boards and actions API", () => {
   let baseUrl: string;
   let port: number;
   let settingsChanges: unknown[];
+  let repository: JsonFileBoardRepository;
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), "speed-deck-boards-api-"));
     synthesizer = new FakeSynthesizer();
     settingsChanges = [];
-    const repository = new JsonFileBoardRepository(join(dir, "boards.json"));
+    repository = new JsonFileBoardRepository(join(dir, "boards.json"));
     await prepareBoards(repository, { legacyPhrasesFile: join(dir, "phrases.json"), language: "es" });
     let id = 0;
     server = createDesktopServer({
@@ -177,6 +178,35 @@ describe("boards and actions API", () => {
     expect(await boards()).toHaveLength(MAX_BOARDS);
   });
 
+  it("sets the grid of every board, reflowing keys and broadcasting boards-changed", async () => {
+    const client = await listen();
+    // Slot 4 is row 0, column 4: it no longer fits in four columns.
+    await send(`/api/boards/${DEFAULT_BOARD_ID}/keys/40`, "PUT", { action: { type: "voice.stop" } });
+    const response = await send("/api/boards/grid", "PUT", { columns: 6, rows: 4 });
+    expect(response.status).toBe(200);
+    const resized = (await response.json()) as Board[];
+    expect(resized.every((board) => board.columns === 6 && board.rows === 4)).toBe(true);
+    expect(await boards()).toEqual(resized);
+    // Page 2 (0-based), row 2, column 0 of 5 × 3 → the same place on a 6 × 4 page.
+    expect(resized.find((board) => board.id === DEFAULT_BOARD_ID)!.keys.some((key) => key.slot === 2 * 24 + 2 * 6)).toBe(true);
+    expect((await client.next(2)).map((event) => event.type)).toEqual(["boards-changed", "boards-changed"]);
+    client.close();
+
+    const created = (await (await send("/api/boards", "POST", { name: "New", kind: "voice" })).json()) as Board;
+    expect(created).toMatchObject({ columns: 6, rows: 4 });
+    expect((await send("/api/boards/grid", "PUT", { columns: 9, rows: 4 })).status).toBe(400);
+  });
+
+  it("answers 409 grid-full when the keys do not fit in the new grid", async () => {
+    // A 3 × 2 grid holds 600 keys per board.
+    const keys = Array.from({ length: 601 }, (_, slot) => ({ slot, action: { type: "obs.toggleStream" as const } }));
+    await repository.update((current) => ({ boards: current.map((board) => (board.id === DEFAULT_DECK_BOARD_ID ? { ...board, keys } : board)), result: undefined }));
+    const response = await send("/api/boards/grid", "PUT", { columns: 3, rows: 2 });
+    expect(response.status).toBe(409);
+    expect(((await response.json()) as { code?: string }).code).toBe("grid-full");
+    expect((await boards()).every((board) => board.columns === 5 && board.rows === 3)).toBe(true);
+  });
+
   it("validates input and reports unknown boards", async () => {
     const cases: Array<[string, string, unknown, number, string?]> = [
       ["/api/boards", "POST", { name: "", kind: "voice" }, 400, "invalid-board"],
@@ -215,6 +245,7 @@ describe("boards and actions API", () => {
       ["/api/boards/communication/keys/40", "PUT"],
       ["/api/boards/communication/keys/move", "POST"],
       ["/api/boards/restore-default", "POST"],
+      ["/api/boards/grid", "PUT"],
       ["/api/actions/execute", "POST"],
     ] as const) {
       const response = await fetch(`${baseUrl}${path}`, { method, body: JSON.stringify({ name: "x" }) });

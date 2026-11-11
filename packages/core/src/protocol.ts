@@ -312,7 +312,8 @@ export type ApiErrorCode =
   | "obs-disabled"
   | "obs-request-failed"
   | "loopback-only"
-  | "board-limit";
+  | "board-limit"
+  | "grid-full";
 
 export interface ErrorResponse {
   /** Technical detail in English. */

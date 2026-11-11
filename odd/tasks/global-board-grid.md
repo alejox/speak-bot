@@ -1,0 +1,33 @@
+# Global board grid size
+
+## Objective
+Replace the fixed 5×3 board grid with one global, user-chosen size (columns 3–8, rows 2–5) that every board shares, chosen from a modal opened by a grid icon next to the board pill in the Deck header.
+
+## Problem / why
+The user wants more keys per page ("agregar más cuadros a la cuadrícula"). User decisions (2026-11-11): the size is global, not per board; it is set from a grid icon beside the "Deck" pill that opens a modal.
+
+## Design
+- The size lives in every `Board`'s existing `columns`/`rows` fields; all boards always share it. Changing it rewrites all boards in one atomic `BoardRepository.update`. New boards (create, restore default) take the current size.
+- `readStoredBoard` reads stored `columns`/`rows` when valid (3–8 / 2–5), else 5×3. Mixed stored sizes normalize to the first board's size.
+- `MAX_KEY_SLOTS` becomes a fixed upper bound (8 × 5 × `MAX_BOARD_PAGES` = 4000) so slot validation never depends on the grid and no stored key is dropped.
+- Page size = `columns × rows` of the board; navigation, the + slot, paging and the move-to bound use it.
+- Reflow on change: each key keeps its page, row and column when they fit the new grid; keys that no longer fit take the first free slot in reading order from their own page onward (new pages if needed, ≤ `MAX_BOARD_PAGES`). Growing never moves a key. If there is no room the change is refused.
+- Default communication keys and caption seed slots take the last slots of the page computed from the board's grid (with ≥ 5 columns this is today's last row).
+- Remote: `PUT /api/boards/grid {columns, rows}` → reflow + `boards-changed` broadcast. Phone-only: the local board repository.
+- CSS: `.deck-grid` gets `--grid-columns`/`--grid-rows`; the wide workspace sizes keys from them; narrow and dock layouts keep their responsive column counts.
+
+## Tasks
+- [x] T1 — Core: grid-aware board model (`makeBoard`, `readStoredBoard`, slot bound), navigation, defaults, caption migration, `setBoardGrid` use case with reflow; tests. Route: delegated (writer trigger: several non-trivial files). Done in 5041fcb — RED: new `packages/core/test/board-grid.test.ts` 14/15 failing; GREEN: core 154/154, desktop 157/157 (its hard-coded slot-1500 bound now uses `MAX_KEY_SLOTS`), root typecheck clean.
+- [x] T2 — Desktop: `PUT /api/boards/grid` and repository behavior; tests. Route: delegated (same writer). Done in T2 commit (see Progress) — RED: 3 API tests failing (grid route, 409 grid-full, JSON content type); GREEN: desktop 160/160, typecheck clean. Adds `ApiErrorCode` "grid-full".
+- [ ] T3 — Mobile: grid icon + modal next to the board pill, deck hook / local and remote stores, BoardPlayer + CSS driven by the board's grid, en/es strings; tests. Route: delegated (same writer).
+
+## Acceptance
+- Choosing e.g. 6×4 shows 24 keys per page on every board, on desktop and phone; existing keys keep their positions.
+- Shrinking reflows overflowing keys without losing any; impossible shrinks are refused with a message.
+- `npm run typecheck` and `npm test` pass.
+
+## Delivery
+Strategy: ask-on-risk. Forecast ≈ 600–800 authored lines across three work-unit commits on `feat/premium-ux-redesign`.
+
+## Progress
+- Prior unrelated UI fixes committed as ec2d106.
