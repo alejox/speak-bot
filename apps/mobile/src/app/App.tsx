@@ -1,4 +1,4 @@
-import { folderDepth, folderPath, isFolderBoard, keysPerPage, MAX_BOARD_PAGES, MAX_FOLDER_DEPTH, type ActionType, type Board, type BoardKind } from "@speed-deck/core";
+import { folderDepth, folderPath, isFolderBoard, keysPerPage, MAX_BOARD_PAGES, MAX_FOLDER_DEPTH, type ActionType, type Board, type BoardKind, visibleBoards } from "@speed-deck/core";
 import { LayoutGrid, MessageSquare, Settings, Smartphone, Video } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
@@ -423,6 +423,28 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   onDeleteKey={canEditBoard ? deck.clearKey : undefined}
                   onMoveKey={canEditBoard ? deck.moveKey : undefined}
                   compact={isCompactSpace}
+                  fitKeys={usesComposerSheet}
+                  // On a phone the Voice pager sits right before Write; "+" opens a new page ready for its first phrase.
+                  renderPager={
+                    usesComposerSheet
+                      ? (pager) => (
+                          <VoiceActions
+                            isSpeaking={speech.isSpeaking && !isComposerOpen}
+                            onWrite={() => setComposerOpen(true)}
+                            onStop={speech.stop}
+                            pager={{
+                              ...pager,
+                              onNewPage:
+                                pager.onNewPage &&
+                                (() => {
+                                  setEditingSpace(true);
+                                  pager.onNewPage?.();
+                                }),
+                            }}
+                          />
+                        )
+                      : undefined
+                  }
                   // The same speak path as a phrase key: on the computer when it speaks, else on this device.
                   // Deck boards carry the ad banner in the same row instead; Voice never shows ads.
                   strip={
@@ -437,8 +459,9 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                       <>
                         {isFolderBoard(board) ? (
                           <FolderBreadcrumb board={board} boards={deck.boards.boards} />
-                        ) : (
+                        ) : usesComposerSheet && visibleBoards(deck.spaceBoards).length < 2 && !isEditingSpace ? null : (
                           <BoardMenu
+                            trigger={usesComposerSheet ? "icon" : "pill"}
                             board={board}
                             offered={deck.spaceBoards}
                             boards={deck.boards}
@@ -455,7 +478,6 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                     )
                   }
                 />
-                {usesComposerSheet && <VoiceActions isSpeaking={speech.isSpeaking && !isComposerOpen} onWrite={() => setComposerOpen(true)} onStop={speech.stop} />}
               </div>
             </>
           </SectionView>

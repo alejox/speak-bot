@@ -38,6 +38,7 @@ export const en = {
   "composer.save": "Save as key",
   "composer.saveShort": "Save",
   "composer.write": "Write",
+  "voice.actions": "Voice actions",
 
   "quick.label": "Quick phrases",
   "recent.region": "Recent phrases",

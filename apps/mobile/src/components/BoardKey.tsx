@@ -44,6 +44,16 @@ type BoardKeyProps = BoardKeyView &
  * A key with its own color keeps it, with black or white text, whichever reads better.
  * Every state is drawn with a shape, an icon or words as well as a colour.
  */
+/**
+ * How many characters a label needs on a line (compact.css sizes a phone's key text from them): its
+ * longest word, which must never break, and half the label, so a phrase can show whole on two lines.
+ * At least 4, so short words do not blow the text up.
+ */
+function labelFit(label: string): CSSProperties {
+  const word = Math.max(4, ...label.split(/\s+/).map((part) => [...part].length));
+  return { "--word-chars": word, "--line-chars": Math.max(word, Math.ceil([...label].length / 2)) } as CSSProperties;
+}
+
 export const BoardKey = forwardRef<HTMLButtonElement, BoardKeyProps>(function BoardKey(
   { label, iconId, color, role = "phrase", danger = false, pressed, state, stateLabel, detail, speaking = false, offline = false, backwards = false, selected = false, className, style, title: givenTitle, ...button },
   ref,
@@ -88,7 +98,9 @@ export const BoardKey = forwardRef<HTMLButtonElement, BoardKeyProps>(function Bo
         </span>
       )}
       {iconId && <KeyIcon id={iconId} size={36} />}
-      <span className="deck-key-text">{label}</span>
+      <span className="deck-key-text" style={labelFit(label)}>
+        {label}
+      </span>
       {/* The spaces keep the words apart in the key's accessible name; the layout ignores them. The dot shows the state, the word names it. */}
       {stateLabel && (
         <>

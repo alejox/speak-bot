@@ -1,5 +1,5 @@
 import { BOARD_KINDS, DEFAULT_BOARD_NAMES, DEFAULT_DECK_BOARD_ID, DEFAULT_DECK_BOARD_NAMES, MAX_BOARD_NAME_LENGTH, visibleBoards, type Board, type UiLanguage } from "@speed-deck/core";
-import { ChevronDown, LayoutGrid, MessageSquare } from "lucide-react";
+import { ChevronDown, Layers, LayoutGrid, MessageSquare } from "lucide-react";
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { Boards } from "../app/use-boards";
 import { useT } from "../i18n/I18nProvider";
@@ -21,6 +21,8 @@ interface BoardMenuProps {
   statusText: string;
   /** Offers creating, renaming, deleting and restoring boards; without it the menu only switches boards. */
   canManage?: boolean;
+  /** "icon": a small icon-only button named Boards instead of the pill (the Voice space on a phone). */
+  trigger?: "pill" | "icon";
 }
 
 type Task = "create" | "rename" | "delete" | "restore";
@@ -29,7 +31,7 @@ type Task = "create" | "rename" | "delete" | "restore";
  * The board pill at the top of the deck: it names the board, and its menu switches boards and manages them
  * (new, rename, delete, restore the built-in board).
  */
-export function BoardMenu({ board, offered: offeredBoards, groupByKind = false, boards: boardsState, language, onSelect, statusText, canManage = true }: BoardMenuProps) {
+export function BoardMenu({ board, offered: offeredBoards, groupByKind = false, boards: boardsState, language, onSelect, statusText, canManage = true, trigger = "pill" }: BoardMenuProps) {
   const t = useT();
   const { change } = boardsState;
   // Folders are reached through their keys, never listed or counted as boards.
@@ -158,19 +160,34 @@ export function BoardMenu({ board, offered: offeredBoards, groupByKind = false, 
 
   return (
     <div ref={popover} className="board-menu">
-      <button
-        ref={button}
-        type="button"
-        className="board-pill"
-        aria-label={t("board.current", { name: board.name })}
-        aria-haspopup="menu"
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen((open) => !open)}
-      >
-        <KindIcon size={20} aria-hidden="true" />
-        <span className="board-pill-name">{board.name}</span>
-        <ChevronDown size={18} aria-hidden="true" className="board-pill-chevron" />
-      </button>
+      {trigger === "icon" ? (
+        <button
+          ref={button}
+          type="button"
+          className="button board-switch"
+          aria-label={t("boards.menu")}
+          title={board.name}
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          onClick={() => setIsOpen((open) => !open)}
+        >
+          <Layers size={22} aria-hidden="true" />
+        </button>
+      ) : (
+        <button
+          ref={button}
+          type="button"
+          className="board-pill"
+          aria-label={t("board.current", { name: board.name })}
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          onClick={() => setIsOpen((open) => !open)}
+        >
+          <KindIcon size={20} aria-hidden="true" />
+          <span className="board-pill-name">{board.name}</span>
+          <ChevronDown size={18} aria-hidden="true" className="board-pill-chevron" />
+        </button>
+      )}
       {isOpen && (
         <div className="popover board-menu-popover">
           <Menu label={t("boards.menu")} groups={canManage ? [...boardGroups, manage] : boardGroups} onClose={close} />

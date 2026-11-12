@@ -35,7 +35,9 @@ describe("the Voice space on a phone, while playing", () => {
     await openVoice();
     expect(editToggle()).toHaveAttribute("aria-pressed", "false");
     expect(screen.queryByRole("button", { name: "Grid size" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "New page" })).not.toBeInTheDocument();
+    // W5: the only page's "+" (New page) sits beside Write, never in the top bar.
+    expect(within(screen.getByRole("group", { name: "Voice actions" })).getByRole("button", { name: "New page" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "New page" })).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "Previous page" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Add a key/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Options for key/ })).not.toBeInTheDocument();

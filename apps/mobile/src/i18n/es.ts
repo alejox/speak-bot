@@ -41,6 +41,7 @@ export const es: Messages = {
   "composer.save": "Guardar como tecla",
   "composer.saveShort": "Guardar",
   "composer.write": "Escribir",
+  "voice.actions": "Acciones de voz",
 
   "quick.label": "Frases rápidas",
   "recent.region": "Frases recientes",

@@ -332,3 +332,111 @@
     grid-auto-flow: row;
   }
 }
+
+/*
+ * Voice on a phone (.deck-fit): no board pill (a 48px Boards icon with several boards) and no pager in
+ * the bar (it sits before Write), so on its side the quick phrases get the rest of the row.
+ */
+.deck-compact .board-switch {
+  width: var(--compact-target);
+  min-width: var(--compact-target);
+  height: var(--compact-target);
+  padding: 0;
+  border-radius: var(--radius-lg);
+}
+
+.app-space .deck-compact.deck-fit.deck-with-strip {
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "header strip"
+    "grid grid";
+  column-gap: var(--space-2);
+}
+
+.app-space .deck-compact.deck-fit .deck-strip {
+  align-self: center;
+  min-width: 0;
+}
+
+.app-space .deck-compact.deck-fit .deck-header:empty {
+  display: none;
+}
+
+/*
+ * The quick phrases on a phone: a row of their own that never overlaps or clips. Each chip is as wide as
+ * its word (at least a 48px target) and they share what is left; when they still do not fit, the row
+ * scrolls sideways and snaps to a chip.
+ */
+.deck-compact .quick-phrases {
+  position: relative;
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.deck-compact .quick-phrases::-webkit-scrollbar {
+  display: none;
+}
+
+.deck-compact .quick-phrase {
+  flex: 1 0 auto;
+  min-width: var(--compact-target);
+  max-width: 14rem;
+  min-height: var(--compact-target);
+  padding-inline: var(--space-2);
+  scroll-snap-align: start;
+}
+
+/*
+ * The fitted page (playing Voice on a phone, BoardPlayer + fitKeyGrid): the keys in reading order on the
+ * columns and rows that make them largest, each as wide and tall as measured (a key may be wider than tall).
+ */
+.app-space .deck-compact .deck-grid[data-layout="fit"] {
+  grid-template-columns: repeat(var(--grid-columns), var(--fit-key-width, minmax(0, 1fr)));
+  grid-auto-rows: var(--fit-key-height, auto);
+  justify-content: center;
+  align-content: center;
+}
+
+.app-space .deck-compact .deck-grid[data-layout="fit"] li {
+  container-type: size;
+}
+
+.app-space .deck-compact .deck-grid[data-layout="fit"] .deck-key {
+  height: 100%;
+  aspect-ratio: auto;
+  gap: clamp(1px, 4cqmin, var(--space-2));
+  padding: clamp(4px, 7cqmin, var(--space-3));
+  border-radius: clamp(8px, 12cqmin, var(--radius-xl));
+}
+
+.app-space .deck-compact .deck-grid[data-layout="fit"] .deck-key .key-icon {
+  width: clamp(14px, 22cqmin, 36px);
+  height: clamp(14px, 22cqmin, 36px);
+}
+
+/*
+ * Voice key labels on a phone never break inside a word. The text shrinks until its longest word
+ * (--word-chars, from BoardKey) fits the key, and further, down to 15px, so a phrase shows whole on two
+ * lines (--line-chars); never below 12px. Then two lines at most with an ellipsis; the key's name and
+ * tooltip keep the whole phrase. One character of the UI font is about 0.55em wide; a
+ * line of words with their spaces about 0.62em per character.
+ */
+.app-space .deck-compact.deck-fit .deck-key .deck-key-text {
+  --text-room: calc(100cqi - 1.25rem);
+  --word-fit: calc(var(--text-room) / (var(--word-chars, 8) * 0.55));
+  --line-fit: max(15px, calc(var(--text-room) / (var(--line-chars, 8) * 0.62)));
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
+  font-size: clamp(12px, min(15cqi, var(--word-fit), var(--line-fit)), var(--text-lg));
+}
+
+.app-space .deck-compact.deck-fit .deck-grid[data-layout="fit"] .deck-key .deck-key-text {
+  font-size: clamp(12px, min(17cqmin, var(--word-fit), var(--line-fit)), var(--text-2xl));
+}
