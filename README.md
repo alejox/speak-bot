@@ -330,6 +330,48 @@ CI runs tests, typecheck and build on Linux, macOS and Windows (`.github/workflo
 - **Desktop installers**: push a version tag (`git tag v0.1.0 && git push origin v0.1.0`). `.github/workflows/release.yml` builds the installers on all three systems and attaches them to a GitHub Release. Run `npm run build && npm run pack -w @speed-deck/electron` to build an unpacked app locally.
 - **Phone app**: every push to `main` deploys the PWA to GitHub Pages (`.github/workflows/pages.yml`).
 
+### Publishing to Google Play
+
+The Android app (`apps/android`, application id `com.alejoxcode.speeddeck`) is free with ads and sells one one-time product, `remove_ads`, through Google Play Billing. Inside the Android app, removing ads is only ever offered through Google Play.
+
+1. **Create the upload keystore** (once, on your own computer; keep it and its passwords out of the repository and backed up):
+
+   ```sh
+   keytool -genkeypair -v \
+     -keystore <path>/speed-deck-upload.jks \
+     -alias <key-alias> \
+     -keyalg RSA -keysize 2048 -validity 10000
+   ```
+
+   `keytool` comes with the JDK and asks for the passwords and your name. Use Play App Signing in Play Console, so this key is only the upload key.
+
+2. **Tell the build where the key is**: create `apps/android/keystore.properties` (git-ignored, like `*.jks` and `*.keystore`):
+
+   ```properties
+   storeFile=<absolute path, or a path relative to apps/android>/speed-deck-upload.jks
+   storePassword=<keystore password>
+   keyAlias=<key-alias>
+   keyPassword=<key password>
+   ```
+
+   Any value missing from the file is read from `SPEED_DECK_UPLOAD_STORE_FILE`, `SPEED_DECK_UPLOAD_STORE_PASSWORD`, `SPEED_DECK_UPLOAD_KEY_ALIAS` and `SPEED_DECK_UPLOAD_KEY_PASSWORD` (for CI). With none of the four set, the bundle is built **unsigned** and Google Play refuses it; with only some set, the build stops and names what is missing.
+
+3. **Set the version** in `apps/android/gradle.properties`: `speedDeck.versionCode` must grow with every upload; `speedDeck.versionName` is what people see.
+
+4. **Build the bundle** (JDK 21 and the Android SDK are needed):
+
+   ```sh
+   npm run android:bundle -w @speed-deck/android
+   ```
+
+   It builds the web app, bundles it into the app and writes `apps/android/app/build/outputs/bundle/release/app-release.aab`.
+
+5. **Upload before creating the product**: Play Console only lets you create in-app products once a build that contains the Billing library has been uploaded. Upload the `.aab` to a track (internal testing is enough), then create the one-time product with the id `remove_ads` in Play Console's one-time products page (under **Monetize with Play**; menu names change over time) and activate it. Until then the app says purchases are not available.
+
+6. **Add licence testers**: in Play Console's **License testing** settings, add the Google accounts that will test. Have them install the app from the testing track's Play link; their purchases use Google Play's test payment methods and are not charged. The real purchase can only be tried on a build delivered by Google Play.
+
+The purchase is restored by Google Play itself: the app asks what the Google account owns at start, when it comes back to the screen and on **Restore purchase**, so it follows the account to a reinstall or another phone. The last answer is kept on the phone, so ads stay hidden offline; a refunded purchase brings them back the next time Google Play answers.
+
 ## Notes
 
 - Voices come from the operating system, so the available voices and their quality vary by device.
