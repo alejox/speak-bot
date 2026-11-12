@@ -41,3 +41,14 @@ User decisions 2026-11-11: everything free with ads; pay once (USD 12) to remove
 
 ## Next step
 - User: create the Lemon Squeezy store/product and the feed, then fill `apps/desktop/src/config/monetization.ts` or the env vars. Manual check in the packaged app: sponsor link and Buy open in the system browser.
+
+## Superseded 2026-11-12: Google Play purchase replaces the licence key
+Owner decision: the Google Play one-time product `remove_ads` (Android app) is the only way to remove ads; Lemon Squeezy is removed. Everything above about licence keys, `/api/license`, the checkout and the USD 12 price no longer describes the product.
+
+- [x] P1 — Route: delegated writer. A phone that owns `remove_ads` reports to its computer (`POST /api/ads/report` with a per-installation device id and maker+model name); the computer stores grants in `<dataDir>/ads-grants.json` and is ad-free while one exists; a definitive `not-owned` from the same device removes its grant; `GET /api/ads` and the `ads-changed` event replace the licence contract. Licence port, adapter, manager, store, endpoints, config, UI, strings and tests deleted; an old `license.json` is ignored. Evidence: RED in core (4), desktop, Android (4) and web (8) then GREEN; parent re-ran `npm run typecheck`, `npm test` (core 228, desktop 300, electron 24, mobile 548), `./gradlew test bundleRelease`. Commit recorded in git log on `feat/play-billing`.
+
+Known limits (accepted):
+- The computer trusts the phone's report; it does not verify the purchase with Google (needs a backend and Play Developer API credentials). Any LAN client the request guard admits can post a report.
+- A grant is removed only when the same installation reports `not-owned`; a refunded phone that never reconnects, or a reinstalled one, leaves its grant. There is no UI to revoke a grant (delete `ads-grants.json`).
+- People without the Android app (computer only, iPhone PWA) cannot remove ads.
+- Not verified on a device: the real purchase, the report after a real purchase, refund handling, device name and id on real hardware.

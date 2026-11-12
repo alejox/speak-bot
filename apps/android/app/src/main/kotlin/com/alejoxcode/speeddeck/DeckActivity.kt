@@ -169,13 +169,14 @@ class DeckActivity : AppCompatActivity() {
         // The WebView has no speechSynthesis, so "speak on this device" needs the bridge in both modes.
         // Only the bundled app or the user's own computer ever loads here: other links open outside the app.
         speech = SpeechBridge(this, webView).also { webView.addJavascriptInterface(it, SpeechBridge.JS_NAME) }
-        // Vibrates when the phone loses the computer (or gets it back) and names that computer in the banner.
+        // Vibrates when the phone loses the computer (or gets it back), names that computer in the banner
+        // and identifies this phone to the computer when it reports its "remove ads" purchase.
         device = DeviceBridge(this) { saved?.name }.also { webView.addJavascriptInterface(it, DeviceBridge.JS_NAME) }
         attachBilling()
         webView.webViewClient = DeckWebViewClient()
     }
 
-    /** "Remove ads" is bought on Google Play in both modes; the computer's own licence is another matter. */
+    /** "Remove ads" is bought on Google Play in both modes; the web app tells the computer it is connected to. */
     private fun attachBilling() {
         lateinit var bridge: BillingBridge
         val store = RemoveAdsBilling(this) { state -> bridge.notifyChanged(state) }

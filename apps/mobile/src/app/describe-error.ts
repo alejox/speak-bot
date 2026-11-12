@@ -30,11 +30,6 @@ const CODE_MESSAGES: Partial<Record<ApiErrorCode, MessageKey>> = {
   "app-not-found": "errorCode.appNotFound",
   "apps-unsupported": "errorCode.appsUnsupported",
   "app-open-failed": "errorCode.appOpenFailed",
-  "license-invalid": "errorCode.licenseInvalid",
-  "license-wrong-product": "errorCode.licenseWrongProduct",
-  "license-limit": "errorCode.licenseLimit",
-  "license-offline": "errorCode.licenseOffline",
-  "license-disabled": "errorCode.licenseDisabled",
 };
 
 /** Explains a failed board, key, action or OBS request in the interface language, wherever it ran. */

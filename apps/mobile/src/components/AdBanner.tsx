@@ -5,7 +5,7 @@ interface AdBannerProps {
   /** The sponsor, or null for the house message that leads to removing ads. */
   ad: AdCreative | null;
   onRemoveAds: () => void;
-  /** The house message where an app store sells "remove ads" (its own price or none); the default names the license price. */
+  /** The house message where an app store sells "remove ads", with the store's own price; the default names no price. */
   houseText?: string;
 }
 

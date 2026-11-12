@@ -8,7 +8,7 @@ export interface ExternalLinkPolicy {
 }
 
 /**
- * Keeps the window on the app's own pages. Sponsor and checkout links open in the system browser,
+ * Keeps the window on the app's own pages. Sponsor links open in the system browser,
  * and only when they are https: other schemes (http, file, custom protocols) are never handed to the OS.
  */
 export function externalLinkPolicy(origin: string): ExternalLinkPolicy {

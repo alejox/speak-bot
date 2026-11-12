@@ -17,13 +17,9 @@ import {
   deleteBoard,
   DESKTOP_SERVER_NAME,
   InvalidBoardError,
-  InvalidLicenseKeyError,
-  LicenseActivationLimitError,
-  LicenseServiceUnavailableError,
-  LicensingDisabledError,
-  WrongLicenseProductError,
   isSpeakMode,
   isUiLanguage,
+  parseAdsPurchaseReport,
   KeyNotFoundError,
   LastBoardError,
   MAX_OBS_VOLUME_MUL,
@@ -42,12 +38,12 @@ import {
   SlotOccupiedError,
   SpeechQueueFullError,
   type AdResponse,
+  type AdsResponse,
   type ApiErrorCode,
   type ApplicationLauncher,
   type BoardRepository,
   type DesktopSettings,
   type HealthResponse,
-  type LicenseResponse,
   type ObsController,
   type ObsInputVolumeResponse,
   type ObsStatusResponse,
@@ -62,7 +58,7 @@ import { InvalidSettingsError, isValidRate, toPublicSettings, type JsonFileSetti
 import type { DesktopSpeechSynthesizer } from "../adapters/tts/process-speech-synthesizer";
 import { ClientActionError, createActionExecutor, NothingToRepeatError, type SpeechOverrides } from "./action-executor";
 import type { AdFeed } from "../ads/ad-feed";
-import type { LicenseManager } from "../license/license-manager";
+import type { AdsGrants } from "../ads/ads-grants";
 import { applyObsSettings, ObsDisabledError } from "./obs-settings";
 import { asObject, HttpError, readJsonBody, sendEmpty, sendJson } from "./http-utils";
 import type { OverlayAudio } from "./overlay-audio";
@@ -88,17 +84,15 @@ export interface ApiDependencies {
   obs?: ObsController;
   /** Lists and opens the applications of this computer; absent means it cannot. */
   apps?: ApplicationLauncher;
-  /** The "remove ads" license; absent means ads always show and keys cannot be activated. */
-  license?: LicenseManager;
+  /** The phones whose "remove ads" purchase removes the ads here; absent means ads always show. */
+  adsGrants?: AdsGrants;
   /** The cached sponsor banner; absent means the house banner always shows. */
   ads?: AdFeed;
   /** Plays voice clips on the OBS overlays; absent means the voice only goes to the speakers. */
   overlayAudio?: OverlayAudio;
 }
 
-/** The longest license key accepted; Lemon Squeezy keys are UUIDs. */
-const MAX_LICENSE_KEY_LENGTH = 200;
-const NO_LICENSE: LicenseResponse = { adsFree: false, canActivate: false };
+const ADS_SHOWN: AdsResponse = { adsFree: false };
 
 type Params = Record<string, string>;
 type Handler = (request: IncomingMessage, response: ServerResponse, params: Params) => Promise<void>;
@@ -384,32 +378,23 @@ export function createApiHandler(deps: ApiDependencies) {
       },
     },
 
-    // ---- Remove-ads license (changes are broadcast as license-changed by the server) ----
+    // ---- Whether ads are removed (changes are broadcast as ads-changed by the server) ----
     {
       method: "GET",
-      path: "/api/license",
-      handler: async (_request, response) => sendJson(response, 200, (await deps.license?.status()) ?? NO_LICENSE),
+      path: "/api/ads",
+      handler: async (_request, response) => sendJson(response, 200, (await deps.adsGrants?.status()) ?? ADS_SHOWN),
     },
     {
-      /** The key is typed on the computer only: phones show the status. */
-      method: "PUT",
-      path: "/api/license",
+      /**
+       * A phone says whether it owns "remove ads". Paired phones are on the network, so this is not limited
+       * to this computer: like pressing keys, anyone the request guard lets in may send it.
+       */
+      method: "POST",
+      path: "/api/ads/report",
       handler: async (request, response) => {
-        requireLoopback(request);
-        const { key } = asObject(await readJsonBody(request));
-        if (typeof key !== "string" || key.trim() === "" || key.trim().length > MAX_LICENSE_KEY_LENGTH || /[\u0000-\u001f]/.test(key)) {
-          throw new HttpError(400, "key must be a license key.");
-        }
-        if (!deps.license) throw new LicensingDisabledError();
-        sendJson(response, 200, await deps.license.activate(key));
-      },
-    },
-    {
-      method: "DELETE",
-      path: "/api/license",
-      handler: async (request, response) => {
-        requireLoopback(request);
-        sendJson(response, 200, deps.license ? await deps.license.remove() : NO_LICENSE);
+        const report = parseAdsPurchaseReport(asObject(await readJsonBody(request)));
+        if (!report) throw new HttpError(400, "deviceId, deviceName and entitlement must be a valid purchase report.");
+        sendJson(response, 200, deps.adsGrants ? await deps.adsGrants.report(report) : ADS_SHOWN);
       },
     },
 
@@ -608,11 +593,6 @@ function describeFailure(error: unknown): { status: number; message: string; cod
   if (error instanceof ApplicationNotListedError) return { status: 404, message: error.message, code: "app-not-found" };
   if (error instanceof ApplicationsUnsupportedError) return { status: 409, message: error.message, code: "apps-unsupported" };
   if (error instanceof ApplicationOpenFailedError) return { status: 502, message: error.message, code: "app-open-failed" };
-  if (error instanceof InvalidLicenseKeyError) return { status: 400, message: error.message, code: "license-invalid" };
-  if (error instanceof WrongLicenseProductError) return { status: 400, message: error.message, code: "license-wrong-product" };
-  if (error instanceof LicenseActivationLimitError) return { status: 409, message: error.message, code: "license-limit" };
-  if (error instanceof LicenseServiceUnavailableError) return { status: 503, message: error.message, code: "license-offline" };
-  if (error instanceof LicensingDisabledError) return { status: 409, message: error.message, code: "license-disabled" };
   if (error instanceof ObsRequestError) return { status: 502, message: error.message, code: "obs-request-failed" };
   return null;
 }

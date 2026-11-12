@@ -107,7 +107,7 @@ function createWindow(port: number): BrowserWindow {
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
 
-  // Links to other sites (sponsors, checkout) open in the default browser, only when https, never inside the app.
+  // Links to other sites (sponsors) open in the default browser, only when https, never inside the app.
   const links = externalLinkPolicy(origin);
   created.webContents.setWindowOpenHandler(({ url }) => {
     openExternal(links.open(url));

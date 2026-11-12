@@ -32,8 +32,8 @@ describe("isServerEvent", () => {
       { type: "obs-state", state: { currentScene: null, mutedInputs: [], streaming: false, recording: false, hiddenSources: [{ sceneName: "Main", sourceName: "Cam" }] }, at: 14 },
       { type: "obs-state", state: { currentScene: null, mutedInputs: [], streaming: false, recording: false, monitoredInputs: ["Mic"] }, at: 14 },
       { type: "settings-changed", settings: { voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true }, at: 15 },
-      { type: "license-changed", license: { adsFree: true, canActivate: true, maskedKey: "••••4D51", lastValidatedAt: 3 }, at: 16 },
-      { type: "license-changed", license: { adsFree: false, canActivate: false }, at: 17 },
+      { type: "ads-changed", ads: { adsFree: true, grantedBy: { deviceName: "Pixel 8", grantedAt: 3 } }, at: 16 },
+      { type: "ads-changed", ads: { adsFree: false }, at: 17 },
     ];
     for (const event of events) expect(isServerEvent(event)).toBe(true);
   });
@@ -42,8 +42,10 @@ describe("isServerEvent", () => {
     expect(isServerEvent(null)).toBe(false);
     expect(isServerEvent("caption")).toBe(false);
     expect(isServerEvent({ type: "caption", at: 1 })).toBe(false);
-    expect(isServerEvent({ type: "license-changed", at: 1 })).toBe(false);
-    expect(isServerEvent({ type: "license-changed", license: { adsFree: "yes", canActivate: true }, at: 1 })).toBe(false);
+    expect(isServerEvent({ type: "ads-changed", at: 1 })).toBe(false);
+    expect(isServerEvent({ type: "ads-changed", ads: { adsFree: "yes" }, at: 1 })).toBe(false);
+    expect(isServerEvent({ type: "ads-changed", ads: { adsFree: true, grantedBy: { deviceName: 5, grantedAt: 3 } }, at: 1 })).toBe(false);
+    expect(isServerEvent({ type: "license-changed", license: { adsFree: true, canActivate: true }, at: 1 })).toBe(false);
     expect(isServerEvent({ type: "speaking", state: "paused", at: 1 })).toBe(false);
     expect(isServerEvent({ type: "unknown", at: 1 })).toBe(false);
     expect(isServerEvent({ type: "boards-changed" })).toBe(false);
@@ -112,5 +114,35 @@ describe("voice output", () => {
     expect(isOverlayClipReport({ type: "clip-paused", id })).toBe(false);
     expect(isOverlayClipReport({ type: "clip-ended", id: "../../etc" })).toBe(false);
     expect(isOverlayClipReport(null)).toBe(false);
+  });
+});
+
+describe("parseAdsPurchaseReport", () => {
+  const report = { deviceId: "device-pixel-0001", deviceName: "Pixel 8", entitlement: "owned" };
+
+  it("accepts a report, trimming the name and dropping unknown fields", async () => {
+    const { parseAdsPurchaseReport } = await import("../src/protocol");
+    expect(parseAdsPurchaseReport({ ...report, deviceName: "  Pixel 8 ", extra: 1 })).toEqual(report);
+    for (const entitlement of ["unknown", "not-owned", "pending", "owned"]) {
+      expect(parseAdsPurchaseReport({ ...report, entitlement })).toEqual({ ...report, entitlement });
+    }
+  });
+
+  it("rejects anything that is not a bounded id, a bounded name and a known entitlement", async () => {
+    const { parseAdsPurchaseReport, MAX_ADS_DEVICE_ID_LENGTH, MAX_ADS_DEVICE_NAME_LENGTH } = await import("../src/protocol");
+    const invalid: unknown[] = [
+      null,
+      "owned",
+      [],
+      { ...report, deviceId: "short" },
+      { ...report, deviceId: "with space 0001" },
+      { ...report, deviceId: "x".repeat(MAX_ADS_DEVICE_ID_LENGTH + 1) },
+      { ...report, deviceId: 12345678 },
+      { ...report, deviceName: "" },
+      { ...report, deviceName: "line\nbreak" },
+      { ...report, deviceName: "n".repeat(MAX_ADS_DEVICE_NAME_LENGTH + 1) },
+      { ...report, entitlement: "gold" },
+    ];
+    for (const value of invalid) expect(parseAdsPurchaseReport(value)).toBeNull();
   });
 });

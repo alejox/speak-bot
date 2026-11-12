@@ -143,16 +143,6 @@ export {
 } from "./ports/application-launcher";
 export type { AdsEntitlement, AdsPurchase, AdsPurchaseState } from "./ports/ads-purchase";
 export {
-  InvalidLicenseKeyError,
-  LicenseActivationLimitError,
-  LicenseServiceUnavailableError,
-  LicensingDisabledError,
-  maskLicenseKey,
-  WrongLicenseProductError,
-  type LicenseActivation,
-  type LicenseService,
-} from "./ports/license-service";
-export {
   MAX_OBS_VOLUME_MUL,
   ObsRequestError,
   ObsUnavailableError,
@@ -228,13 +218,18 @@ export {
   UI_LANGUAGES,
   MAX_SPEAK_TEXT_LENGTH,
   voiceLanguageOf,
-  type ActivateLicenseRequest,
+  isAdsResponse,
+  MAX_ADS_DEVICE_ID_LENGTH,
+  MAX_ADS_DEVICE_NAME_LENGTH,
+  parseAdsPurchaseReport,
   type AdCreative,
   type AdResponse,
   type ApiErrorCode,
   type ApplicationsResponse,
-  type LicenseChangedEvent,
-  type LicenseResponse,
+  type AdsChangedEvent,
+  type AdsGrantSummary,
+  type AdsPurchaseReport,
+  type AdsResponse,
   type AudioDevice,
   type CaptionClearEvent,
   type CaptionEvent,

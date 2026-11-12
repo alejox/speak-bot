@@ -113,7 +113,7 @@ There is no separate edit mode: a tap always runs a key.
 - **Voz**: where to speak and the output device (when the computer app is available), the voice and the speed. The voice list shows the voices of the language Speed Deck speaks; check **Mostrar voces en todos los idiomas** to see every voice, grouped by language. **Probar voz** says a short sentence with the selected voice and speed.
 - **Apariencia**: **Tema** (system, light or dark) and **Tamaño del texto** (normal, large or extra large). Both are saved per device.
 - **Idioma**: the interface language.
-- **Quitar anuncios**: the **Deck** shows a small banner above the keys (never **Voz**). On the computer, buy a key with **Comprar** and paste it in **Clave de licencia**; ads go away there and on every paired phone at once. A paired phone only shows the status. A phone without the computer app always shows the banner.
+- **Quitar anuncios**: the **Deck** shows a small banner above the keys (never **Voz**). Ads are removed by buying **Quitar anuncios** in the Speed Deck app for Android, on Google Play. A phone that owns it tells the computer it is connected to, and the banner goes away on both at once, and on every other phone connected to that computer. On the computer this section shows the status and the phone that removed the ads; nothing is sold there. A phone's browser without the Android app always shows the banner.
 
 ### Phone as a remote
 
@@ -276,20 +276,14 @@ Boards and settings are stored in:
 - **Windows**: `%APPDATA%\speed-deck`
 - **Linux**: `$XDG_CONFIG_HOME/speed-deck` (or `~/.config/speed-deck`)
 
-### Ads and the remove-ads license
+### Ads and removing them
 
-Every feature is free; the **Deck** shows a small banner above the keys (never in **Voz**). A one-time purchase removes it on the computer and on every paired phone. Speed Deck comes set up for the published [Lemon Squeezy](https://www.lemonsqueezy.com) store (store `520786`, product `1517249`), its checkout page and the published feed (`https://www.alejoxcode.com/speeddeck/banner.json`), so **Comprar** and activating a key work out of the box on the computer. These ids and URLs are public; no license key is built in.
+Every feature is free; the **Deck** shows a small banner above the keys (never in **Voz**). One purchase removes it, in one place: **Quitar anuncios** in the Speed Deck app for Android, sold by Google Play (see [Publishing the Android app](#publishing-to-google-play)). Nothing is sold on the computer.
 
-To use your own store or feed, change `apps/desktop/src/config/monetization.ts` or set environment variables. An empty variable turns its feature off (no store: keys cannot be activated; no feed: only the "Quita los anuncios" house banner):
+- **How the computer loses its ads**: when the Android app is connected to a computer and Google Play says the account owns `remove_ads`, the app reports it to that computer (`POST /api/ads/report` with an id of the app installation and the phone's maker and model). The computer saves the grant in `ads-grants.json` in the data folder and is ad-free from then on, also when the phone is off or away, together with every phone connected to it. The app reports again each time it connects and whenever Google Play's answer changes; if it reports that the purchase is no longer owned (a refund), its grant is removed and the banner comes back unless another phone's grant remains. `GET /api/ads` answers `{ "adsFree": true, "grantedBy": { "deviceName": "…", "grantedAt": 1760000000000 } }` or `{ "adsFree": false }`, and changes reach every open client as an `ads-changed` event.
+- **Trust**: the computer takes the phone's word; it does not check the purchase with Google. Anyone who can reach the server on your network can send that report, as they can press keys.
+- **Sponsor banner**: comes from the published feed (`https://www.alejoxcode.com/speeddeck/banner.json`). To use your own, change `apps/desktop/src/config/monetization.ts` or set `SPEED_DECK_AD_FEED_URL` to an https URL; an empty value leaves only the "Quita los anuncios" house banner.
 
-| Env var                               | What it is                                                        | When empty                   |
-| ------------------------------------- | ----------------------------------------------------------------- | ---------------------------- |
-| `SPEED_DECK_LEMON_SQUEEZY_STORE_ID`   | Your Lemon Squeezy store id                                       | Keys cannot be activated     |
-| `SPEED_DECK_LEMON_SQUEEZY_PRODUCT_ID` | The "remove ads" product id; keys of other products are refused   | Keys cannot be activated     |
-| `SPEED_DECK_CHECKOUT_URL`             | https checkout link, opened in the system browser                 | No **Comprar** button            |
-| `SPEED_DECK_AD_FEED_URL`              | https URL of the sponsor feed                                     | House banner only            |
-
-- **License**: the key is activated from the computer's **Ajustes → Quitar anuncios** with the [License API](https://docs.lemonsqueezy.com/api/license-api) (only the key and the computer name are sent). It is saved in `license.json` in the data folder and checked at start and every 24 hours. If Lemon Squeezy cannot be reached, the saved status is kept; if it says the key is expired or disabled, the banner comes back. **Quitar licencia** frees the activation.
 - **Sponsor feed**: fetched at start and every 6 hours, over https without following redirects. The last good creative is cached in the `ad` folder of the data folder; a failed or invalid fetch keeps it, and `"ad": null` removes it. The feed has one of two shapes. The simple one:
 
 ```json
@@ -332,7 +326,7 @@ CI runs tests, typecheck and build on Linux, macOS and Windows (`.github/workflo
 
 ### Publishing to Google Play
 
-The Android app (`apps/android`, application id `com.alejoxcode.speeddeck`) is free with ads and sells one one-time product, `remove_ads`, through Google Play Billing. Inside the Android app, removing ads is only ever offered through Google Play.
+The Android app (`apps/android`, application id `com.alejoxcode.speeddeck`) is free with ads and sells one one-time product, `remove_ads`, through Google Play Billing. It is the only way to remove ads: a phone that owns it also removes them on the computer it connects to (see [Ads and removing them](#ads-and-removing-them)).
 
 1. **Create the upload keystore** (once, on your own computer; keep it and its passwords out of the repository and backed up):
 
@@ -368,7 +362,7 @@ The Android app (`apps/android`, application id `com.alejoxcode.speeddeck`) is f
 
 5. **Upload before creating the product**: Play Console only lets you create in-app products once a build that contains the Billing library has been uploaded. Upload the `.aab` to a track (internal testing is enough), then create the one-time product with the id `remove_ads` in Play Console's one-time products page (under **Monetize with Play**; menu names change over time) and activate it. Until then the app says purchases are not available.
 
-6. **Add licence testers**: in Play Console's **License testing** settings, add the Google accounts that will test. Have them install the app from the testing track's Play link; their purchases use Google Play's test payment methods and are not charged. The real purchase can only be tried on a build delivered by Google Play.
+6. **Add test accounts**: in Play Console's **License testing** settings (Google's name for its purchase testers list), add the Google accounts that will test. Have them install the app from the testing track's Play link; their purchases use Google Play's test payment methods and are not charged. The real purchase can only be tried on a build delivered by Google Play.
 
 The purchase is restored by Google Play itself: the app asks what the Google account owns at start, when it comes back to the screen and on **Restore purchase**, so it follows the account to a reinstall or another phone. The last answer is kept on the phone, so ads stay hidden offline; a refunded purchase brings them back the next time Google Play answers.
 

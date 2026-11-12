@@ -140,10 +140,8 @@ export interface DesktopState {
   gridFull?: boolean;
   /** OBS input volumes (multipliers) by input name; any other input answers 502 "obs-request-failed". */
   volumes?: Record<string, number>;
-  /** GET /api/license; ads show and keys can be activated unless a test sets it. */
-  license?: Record<string, unknown>;
-  /** When set, PUT /api/license answers with it instead of activating. */
-  licenseError?: { status: number; body: unknown };
+  /** The phones whose purchase removed the computer's ads (GET /api/ads); none, so ads show, unless a test sets them. */
+  adsGrants?: Array<{ deviceId: string; deviceName: string }>;
   /** How many GET /api/health answer 503 before the desktop answers (a phone whose Wi-Fi is still waking up). */
   healthFailures?: number;
   /** GET /api/voice/status: whether an OBS overlay can play the voice (false unless a test sets it). */
@@ -172,6 +170,12 @@ export function desktopState(overrides: Partial<DesktopState> = {}): DesktopStat
     execute: {},
     ...overrides,
   };
+}
+
+/** GET /api/ads as the real server answers it: ad-free while a grant exists, named after the first one. */
+function adsOf(state: DesktopState) {
+  const first = state.adsGrants?.[0];
+  return first ? { adsFree: true, grantedBy: { deviceName: first.deviceName, grantedAt: 1 } } : { adsFree: false };
 }
 
 const KEY_PATH = /^\/api\/boards\/([^/]+)\/keys\/(\d+)$/;
@@ -254,17 +258,16 @@ export function desktopRoute(state: DesktopState) {
           : { status: 409, body: { error: "OBS is not connected.", code: "obs-unavailable" } };
       case "POST /api/obs/connect":
         return { body: { status: "connected" } };
-      case "GET /api/license":
-        return { body: state.license ?? { adsFree: false, canActivate: true } };
-      case "PUT /api/license": {
-        if (state.licenseError) return state.licenseError;
-        const key = String(body.key);
-        state.license = { ...(state.license ?? {}), adsFree: true, canActivate: true, maskedKey: `••••${key.slice(-4)}`, lastValidatedAt: 1 };
-        return { body: state.license };
+      case "GET /api/ads":
+        return { body: adsOf(state) };
+      case "POST /api/ads/report": {
+        const { deviceId, deviceName, entitlement } = body as { deviceId: string; deviceName: string; entitlement: string };
+        const others = (state.adsGrants ?? []).filter((grant) => grant.deviceId !== deviceId);
+        const own = (state.adsGrants ?? []).filter((grant) => grant.deviceId === deviceId);
+        if (entitlement === "owned") state.adsGrants = own.length ? state.adsGrants : [...others, { deviceId, deviceName }];
+        else if (entitlement === "not-owned") state.adsGrants = others;
+        return { body: adsOf(state) };
       }
-      case "DELETE /api/license":
-        state.license = { adsFree: false, canActivate: true, ...(state.license?.checkoutUrl ? { checkoutUrl: state.license.checkoutUrl } : {}) };
-        return { body: state.license };
       case "GET /api/ad":
         return { body: { ad: state.ad ?? null } };
     }

@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { hostname as osHostname } from "node:os";
 import type { JsonFileSettingsStore } from "../adapters/json-file-settings-store";
 import type { AdFeed } from "../ads/ad-feed";
-import type { LicenseManager } from "../license/license-manager";
+import type { AdsGrants } from "../ads/ads-grants";
 import type { DesktopSpeechSynthesizer } from "../adapters/tts/process-speech-synthesizer";
 import { createApiHandler } from "./api";
 import { EventHub } from "./event-hub";
@@ -38,8 +38,8 @@ export interface DesktopServerDependencies {
   obs?: ObsController;
   /** Lists and opens the applications of this computer for "open application" keys. */
   apps?: ApplicationLauncher;
-  /** The "remove ads" license; its changes are broadcast as license-changed. */
-  license?: LicenseManager;
+  /** The phones whose "remove ads" purchase removes the ads here; changes are broadcast as ads-changed. */
+  adsGrants?: AdsGrants;
   /** The cached sponsor banner served at /api/ad. */
   ads?: AdFeed;
   /** Plays voice clips on the OBS overlays; absent means the voice only goes to the speakers. */
@@ -70,7 +70,7 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
     else hub.broadcast({ type: "obs-input-volume", inputName: event.inputName, volumeMul: event.volumeMul, at: now() });
   });
 
-  const stopLicenseEvents = deps.license?.subscribe((license) => hub.broadcast({ type: "license-changed", license, at: now() }));
+  const stopAdsEvents = deps.adsGrants?.subscribe((ads) => hub.broadcast({ type: "ads-changed", ads, at: now() }));
   const stopOverlayEvents = deps.overlayAudio?.onConnectedChange((connected) => hub.broadcast({ type: "overlay-audio", connected, at: now() }));
 
   const httpServer = createServer((request, response) => {
@@ -113,7 +113,7 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
     },
     close: async () => {
       stopObsEvents?.();
-      stopLicenseEvents?.();
+      stopAdsEvents?.();
       stopOverlayEvents?.();
       await hub.close();
       httpServer.closeAllConnections();

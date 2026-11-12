@@ -149,7 +149,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const composer = useRef<ComposerHandle>(null);
   // On a phone the composer waits in a sheet, opened from the Write button.
   const [isComposerOpen, setComposerOpen] = useState(false);
-  const monetization = useMonetization(services.desktop, target, services.adsPurchase);
+  const monetization = useMonetization(services.desktop, target, services.adsPurchase, services.deviceIdentity);
   // Set when the house banner leads to Settings, so focus lands on the Remove ads group.
   const [focusRemoveAds, setFocusRemoveAds] = useState(false);
   // Losing the computer shows a banner everywhere and, unless turned off on this device, vibrates.
@@ -172,30 +172,6 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const openRemoveAds = () => {
     select("settings");
     setFocusRemoveAds(true);
-  };
-  const activateLicense = async (key: string) => {
-    if (key.trim() === "") {
-      setStatus({ key: "ads.settings.typeKey" });
-      return false;
-    }
-    try {
-      await monetization.activate(key.trim());
-      setStatus({ key: "ads.settings.activated" });
-      return true;
-    } catch (error) {
-      setStatus(describeRequestError(error));
-      return false;
-    }
-  };
-  const removeLicense = async () => {
-    try {
-      await monetization.remove();
-      setStatus({ key: "ads.settings.removedLicense" });
-      return true;
-    } catch (error) {
-      setStatus(describeRequestError(error));
-      return false;
-    }
   };
   const store = monetization.store;
   // Inside the Android app "remove ads" is sold by Google Play: its price when known, never a fixed one.
@@ -565,9 +541,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
             >
               <RemoveAdsSettings
                 mode={monetization.mode}
-                license={monetization.license}
-                onActivate={activateLicense}
-                onRemove={removeLicense}
+                ads={monetization.ads}
                 focusHeading={focusRemoveAds}
                 store={store && storeBuyLabel ? { ...store, buyLabel: storeBuyLabel, onPurchase: purchaseOnStore, onRestore: restoreFromStore } : null}
               />

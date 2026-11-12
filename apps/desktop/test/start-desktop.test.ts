@@ -1,5 +1,5 @@
 import { DEFAULT_PHRASES_BY_LANGUAGE, type Board } from "@speed-deck/core";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -9,8 +9,8 @@ import { startDesktop, type RunningDesktop } from "../src/start-desktop";
 import { FakeAdvertiser } from "./discovery/fake-advertiser";
 import { FakeObsClient, obsResponses } from "./fake-obs-client";
 
-/** No sponsor feed and no license store, so starting the desktop in a test never reaches the network. */
-const OFFLINE_ENV = { SPEED_DECK_AD_FEED_URL: "", SPEED_DECK_LEMON_SQUEEZY_STORE_ID: "", SPEED_DECK_LEMON_SQUEEZY_PRODUCT_ID: "", SPEED_DECK_CHECKOUT_URL: "" };
+/** No sponsor feed, so starting the desktop in a test never reaches the network. */
+const OFFLINE_ENV = { SPEED_DECK_AD_FEED_URL: "" };
 
 describe("startDesktop", () => {
   let dir: string | undefined;
@@ -21,6 +21,27 @@ describe("startDesktop", () => {
     await desktop?.close();
     await new Promise<void>((resolve) => (blocker ? blocker.close(() => resolve()) : resolve()));
     if (dir) await rm(dir, { recursive: true, force: true });
+  });
+
+  it("stays ad-free after a restart once a phone reported its remove-ads purchase", async () => {
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-start-"));
+    const start = () => startDesktop({ argv: ["--port", "0", "--host", "127.0.0.1", "--data-dir", dir!], env: OFFLINE_ENV });
+    // A key file saved by an older version removes nothing and is left where it is.
+    const oldKeyFile = join(dir, "license.json");
+    await writeFile(oldKeyFile, JSON.stringify({ key: "38B1460A-5104-4067-A91D-77B872934D51", instanceId: "inst-1", status: "active", lastValidatedAt: 1 }));
+    desktop = await start();
+    expect(await (await fetch(`http://127.0.0.1:${desktop.port}/api/ads`)).json()).toEqual({ adsFree: false });
+    expect(await readFile(oldKeyFile, "utf8")).toContain("inst-1");
+    const reported = await fetch(`http://127.0.0.1:${desktop.port}/api/ads/report`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ deviceId: "device-pixel-0001", deviceName: "Pixel 8", entitlement: "owned" }),
+    });
+    expect(reported.status).toBe(200);
+    await desktop.close();
+
+    desktop = await start();
+    expect(await (await fetch(`http://127.0.0.1:${desktop.port}/api/ads`)).json()).toMatchObject({ adsFree: true, grantedBy: { deviceName: "Pixel 8" } });
   });
 
   it("falls back to the next port when the configured one is busy and serves the API there", async () => {

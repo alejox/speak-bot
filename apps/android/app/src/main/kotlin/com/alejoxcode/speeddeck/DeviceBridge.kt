@@ -8,11 +8,15 @@ import android.os.VibratorManager
 import android.webkit.JavascriptInterface
 
 /**
- * Gives the web app the phone's vibrator and the saved computer's name, as `window.SpeedDeckAndroidDevice`.
- * The web side is `createDeviceSignals`. Every page in the WebView can call it, so the pattern is bounded
- * ([VibrationPattern]) and only the name of the computer the user chose is shared.
+ * Gives the web app the phone's vibrator, the saved computer's name and what identifies this phone to that
+ * computer, as `window.SpeedDeckAndroidDevice`. The web side is `createDeviceSignals` and
+ * `findDeviceIdentity`. Every page in the WebView can call it, so the pattern is bounded
+ * ([VibrationPattern]) and only the name of the computer the user chose, this installation's random id
+ * and the phone's maker and model are shared.
  */
 class DeviceBridge(context: Context, private val computerName: () -> String?) {
+    private val deviceIds = DeviceIdStore(context)
+
     private val vibrator: Vibrator? =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             context.getSystemService(VibratorManager::class.java)?.defaultVibrator
@@ -33,6 +37,14 @@ class DeviceBridge(context: Context, private val computerName: () -> String?) {
     /** Empty when the computer was paired by QR or address and has not been seen on the network yet. */
     @JavascriptInterface
     fun computerName(): String = computerName.invoke().orEmpty()
+
+    /** A random id of this installation: the same on every launch and for every computer. */
+    @JavascriptInterface
+    fun deviceId(): String = deviceIds.loadOrCreate()
+
+    /** The phone's maker and model, e.g. "Samsung SM-S921B". */
+    @JavascriptInterface
+    fun deviceName(): String = DeviceName.describe(Build.MANUFACTURER, Build.MODEL)
 
     companion object {
         const val JS_NAME = "SpeedDeckAndroidDevice"
