@@ -1,6 +1,7 @@
 import { makeBoard, type Action, type Board, type Key } from "@speed-deck/core";
 import { screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { goTo } from "./i18n-helpers";
 import { boardOf, desktopState, renderLocalApp, renderRemoteApp, setScreen, speakKey, writes } from "./app-fakes";
 
 /*
@@ -54,7 +55,7 @@ describe("the Voice status line on a phone", () => {
 });
 
 describe("the Edit keys toggle on a phone's Voice space", () => {
-  it.each([PHONE_SIDEWAYS, PHONE_UPRIGHT])("sits among the Voice actions with a gear at $width x $height", async (size) => {
+  it.each([PHONE_SIDEWAYS, PHONE_UPRIGHT])("sits among the Voice actions with an edit (square-pen) icon, not a gear, at $width x $height", async (size) => {
     setScreen(size);
     const { user } = renderLocalApp({ boards: [withCommands()] });
     await screen.findByRole("button", { name: "Hello" }, { timeout: 5000 });
@@ -62,10 +63,25 @@ describe("the Edit keys toggle on a phone's Voice space", () => {
     const toggle = within(actions).getByRole("button", { name: "Edit keys" });
     expect(screen.getAllByRole("button", { name: "Edit keys" })).toHaveLength(1);
     expect(toggle).toHaveAttribute("aria-pressed", "false");
-    expect(toggle.querySelector("svg.lucide-settings")).not.toBeNull();
+    // W7: the gear belongs to Settings in the rail; Edit keys reads as editing the layout.
+    expect(toggle.querySelector("svg.lucide-settings")).toBeNull();
+    expect(toggle.querySelector("svg.lucide-square-pen")).not.toBeNull();
     await user.click(toggle);
-    expect(within(screen.getByRole("group", { name: "Voice actions" })).getByRole("button", { name: "Edit keys" })).toHaveAttribute("aria-pressed", "true");
+    const pressed = within(screen.getByRole("group", { name: "Voice actions" })).getByRole("button", { name: "Edit keys" });
+    expect(pressed).toHaveAttribute("aria-pressed", "true");
+    expect(pressed.querySelector("svg.lucide-square-pen")).not.toBeNull();
     expect(screen.getByRole("button", { name: "Grid size" })).toBeInTheDocument();
+  });
+
+  it("uses the same edit icon in the Deck's top bar", async () => {
+    setScreen(PHONE_SIDEWAYS);
+    const { user } = renderLocalApp({ boards: [withCommands(), boardOf("stream", "Stream", [], "deck")] });
+    await screen.findByRole("button", { name: "Hello" }, { timeout: 5000 });
+    await goTo(user, "Deck");
+    await screen.findByRole("button", { name: "Board: Stream" });
+    const toggle = screen.getByRole("button", { name: "Edit keys" });
+    expect(toggle.querySelector("svg.lucide-settings")).toBeNull();
+    expect(toggle.querySelector("svg.lucide-square-pen")).not.toBeNull();
   });
 
   it("is named Editar teclas in Spanish", async () => {

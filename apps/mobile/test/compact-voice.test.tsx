@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 describe("the Voice space on a phone, while playing", () => {
-  it.each([PHONE_SIDEWAYS, PHONE_SHORT, PHONE_UPRIGHT])("shows only the phrase keys and the quick phrases at $width x $height", async (size) => {
+  it.each([PHONE_SIDEWAYS, PHONE_SHORT, PHONE_UPRIGHT])("shows only the phrase keys, no quick-phrase chips, at $width x $height", async (size) => {
     setScreen(size);
     await openVoice();
     expect(editToggle()).toHaveAttribute("aria-pressed", "false");
@@ -43,7 +43,9 @@ describe("the Voice space on a phone, while playing", () => {
     expect(screen.queryByRole("button", { name: /^Options for key/ })).not.toBeInTheDocument();
     // No empty slots: only the three keys are drawn.
     expect(within(grid()).getAllByRole("listitem")).toHaveLength(3);
-    expect(screen.getByRole("group", { name: "Quick phrases" })).toBeInTheDocument();
+    // W7: only full keys on a phone, like the Deck; the chips' row goes and the keys get its height.
+    expect(screen.queryByRole("group", { name: "Quick phrases" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Yes" })).not.toBeInTheDocument();
   });
 
   it("still speaks a phrase key with one tap", async () => {
@@ -78,6 +80,7 @@ describe("the Voice space on a phone, while playing", () => {
     await openVoice();
     expect(editToggle()).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Grid size" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Quick phrases" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Add a key/ })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Text to speak" })).toBeInTheDocument();
   });

@@ -67,7 +67,7 @@
   height: var(--compact-target);
 }
 
-/* Edit keys: a quiet gear while playing; while editing it is filled with the accent. */
+/* Edit keys: a quiet square-pen while playing; while editing it is filled with the accent. */
 .edit-keys-toggle {
   border-radius: var(--radius-lg);
   background: var(--color-surface);

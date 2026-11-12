@@ -1,4 +1,4 @@
-import { Settings } from "lucide-react";
+import { SquarePen } from "lucide-react";
 import { useT } from "../i18n/I18nProvider";
 
 interface EditKeysToggleProps {
@@ -21,7 +21,7 @@ export function EditKeysToggle({ isEditing, onChange }: EditKeysToggleProps) {
       title={t("deck.editKeys")}
       onClick={() => onChange(!isEditing)}
     >
-      <Settings size={20} aria-hidden="true" />
+      <SquarePen size={20} aria-hidden="true" />
     </button>
   );
 }

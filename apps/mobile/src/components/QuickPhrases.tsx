@@ -9,7 +9,7 @@ interface QuickPhrasesProps {
 }
 
 /**
- * Four short answers above the keys of every Voice board and page, always in the same place and order so
+ * Four short answers above the keys of every Voice board and page (not on a phone, where the grid holds only full keys), always in the same place and order so
  * they can be found without looking. They are not keys: they take no slot and never move.
  */
 export function QuickPhrases({ language, onSpeak }: QuickPhrasesProps) {

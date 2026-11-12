@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, PenLine, Plus, Settings, Square } from "lucide-react";
+import { ChevronLeft, ChevronRight, PenLine, Plus, Square, SquarePen } from "lucide-react";
 import { useT } from "../i18n/I18nProvider";
 import type { PagerControls } from "./BoardPlayer";
 
@@ -36,7 +36,7 @@ export function VoiceActions({ isSpeaking, onWrite, onStop, pager, editKeys }: V
           title={t("deck.editKeys")}
           onClick={() => editKeys.onChange(!editKeys.isEditing)}
         >
-          <Settings size={ICON_SIZE} aria-hidden="true" focusable="false" />
+          <SquarePen size={ICON_SIZE} aria-hidden="true" focusable="false" />
         </button>
       )}
       {isSpeaking && (

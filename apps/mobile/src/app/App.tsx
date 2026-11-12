@@ -449,9 +449,10 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   }
                   // The same speak path as a phrase key: on the computer when it speaks, else on this device.
                   // Deck boards carry the ad banner in the same row instead; Voice never shows ads.
+                  // On a phone the Voice grid holds only full keys, like the Deck: no chip row, the keys get its height.
                   strip={
                     space === "voice" ? (
-                      <QuickPhrases language={target.voiceLanguage ?? language} onSpeak={(phrase) => confirmed.run({ type: "voice.speak", text: phrase })} />
+                      !usesComposerSheet && <QuickPhrases language={target.voiceLanguage ?? language} onSpeak={(phrase) => confirmed.run({ type: "voice.speak", text: phrase })} />
                     ) : (
                       monetization.showsBanner && <AdBanner ad={monetization.ad} onRemoveAds={openRemoveAds} />
                     )

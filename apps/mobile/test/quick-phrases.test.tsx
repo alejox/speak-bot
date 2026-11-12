@@ -65,11 +65,14 @@ describe("quick phrases", () => {
     expect(within(screen.getByRole("group", { name: "Frases rápidas" })).getAllByRole("button").map((button) => button.textContent)).toEqual(["Sí", "No", "Espera", "Gracias"]);
   });
 
-  it("are not transposed with the board on a phone held upright", async () => {
-    setScreen({ width: 390, height: 844 });
+  it.each([
+    { width: 390, height: 844 },
+    { width: 915, height: 412 },
+  ])("are not drawn on a phone at $width x $height: the Voice grid holds only full keys", async (size) => {
+    setScreen(size);
     renderLocalApp({ boards: boards() });
     await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
-    expect(stripTexts()).toEqual(["Yes", "No", "Wait", "Thanks"]);
+    expect(screen.queryByRole("group", { name: "Quick phrases" })).not.toBeInTheDocument();
   });
 
   it("are not shown in the Deck", async () => {
