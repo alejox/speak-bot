@@ -67,30 +67,15 @@ describe("App in Computer mode", () => {
     expect(executed(requests)).toHaveLength(1);
   });
 
-  it("toggles captions and the voice language on the desktop, showing the new state", async () => {
-    const state = desktopState({ boards: buildDefaultBoards("en") });
-    state.execute["captions.toggle"] = { body: { ok: true, captionsVisible: false } };
-    state.execute["voice.toggleLanguage"] = { body: { ok: true, voiceLanguage: "es" } };
-    const { user } = renderRemoteApp({ state });
-
-    // The voice and caption commands are both in the Voice space.
-    const language = await screen.findByRole("button", { name: /^Voice language/ });
-    await user.click(language);
-    await waitFor(() => expect(language).toHaveTextContent("Voice: Español"));
-
-    const captions = await screen.findByRole("button", { name: /^Captions/ });
-    expect(captions).toHaveAttribute("aria-pressed", "true");
-    await user.click(captions);
-    await waitFor(() => expect(captions).toHaveAttribute("aria-pressed", "false"));
-    expect(screen.getByRole("status")).toHaveTextContent("Captions hidden in OBS.");
-  });
-
   it("explains desktop refusals in the interface language", async () => {
     const state = desktopState();
-    state.execute["voice.repeat"] = { status: 404, body: { error: "Nothing.", code: "nothing-to-repeat" } };
+    state.boards = [boardOf("main", "Main", [speakKey(0, "Hello")]), boardOf("show", "Show", [{ slot: 0, action: { type: "obs.switchScene", sceneName: "Gone" } }], "deck")];
+    state.execute["obs.switchScene"] = { status: 502, body: { error: "No such scene.", code: "obs-request-failed" } };
     const { user } = renderRemoteApp({ state });
-    await user.click(await screen.findByRole("button", { name: "Repeat" }));
-    expect(await screen.findByText("Nothing has been said yet to repeat.")).toBeInTheDocument();
+    await screen.findByRole("button", { name: "Hello" });
+    await goTo(user, "Deck");
+    await user.click(await screen.findByRole("button", { name: /^Gone/ }));
+    expect(await screen.findByText("OBS could not do that. Check that the name exists.")).toBeInTheDocument();
   });
 
   it("keeps Stop enabled while the desktop speaks, whoever started it", async () => {
@@ -185,7 +170,7 @@ describe("App in Computer mode", () => {
   it("speaks on this device when chosen, keeping the computer's boards and deck, and persists the choice", async () => {
     const state = desktopState({
       boards: [
-        boardOf("main", "Main", [speakKey(0, "Hello"), { slot: 1, action: { type: "voice.repeat" } }]),
+        boardOf("main", "Main", [speakKey(0, "Hello")]),
         boardOf("show", "Show", [{ slot: 0, action: { type: "obs.switchScene", sceneName: "BRB" } }], "deck"),
       ],
     });
@@ -201,11 +186,9 @@ describe("App in Computer mode", () => {
     await user.click(await screen.findByRole("button", { name: "Hello" }));
     expect(screen.queryByRole("button", { name: "Local phrase" })).not.toBeInTheDocument();
     expect(local.texts).toEqual(["Hello"]);
-    await user.click(screen.getByRole("button", { name: "Repeat" }));
-    expect(local.texts).toEqual(["Hello", "Hello"]);
     await user.type(screen.getByLabelText("Text to speak"), "Typed here");
     await user.click(screen.getByRole("button", { name: "Speak" }));
-    expect(local.texts).toEqual(["Hello", "Hello", "Typed here"]);
+    expect(local.texts).toEqual(["Hello", "Typed here"]);
     expect(executed(requests)).toEqual([]);
     expect(requests.filter((request) => request.url === "/api/speak")).toEqual([]);
 

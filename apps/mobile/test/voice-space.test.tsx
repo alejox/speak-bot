@@ -16,9 +16,9 @@ describe("Voice keys", () => {
   });
 
   it("keep the action icon on command and navigation keys", async () => {
-    const keys = [speakKey(0, "Hello"), { slot: 1, action: { type: "voice.stop" as const } }, { slot: 2, action: { type: "nav.goToPage" as const, page: 2 } }];
+    const keys = [speakKey(0, "Hello"), { slot: 1, action: { type: "nav.nextPage" as const } }, { slot: 2, action: { type: "nav.goToPage" as const, page: 2 } }];
     renderLocalApp({ boards: [boardOf("main", "Main", keys)] });
-    expect(iconOf(await screen.findByRole("button", { name: "Stop voice" }))).not.toBeNull();
+    expect(iconOf(await screen.findByRole("button", { name: "Next page" }))).not.toBeNull();
     expect(iconOf(screen.getByRole("button", { name: "Page 2" }))).not.toBeNull();
   });
 

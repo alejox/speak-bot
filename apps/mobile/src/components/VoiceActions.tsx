@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, PenLine, Plus, Square } from "lucide-react";
+import { ChevronLeft, ChevronRight, PenLine, Plus, Settings, Square } from "lucide-react";
 import { useT } from "../i18n/I18nProvider";
 import type { PagerControls } from "./BoardPlayer";
 
@@ -10,13 +10,15 @@ interface VoiceActionsProps {
   onStop: () => void;
   /** The board's pages: back, on (or a new page on the last one), right before Write. */
   pager?: PagerControls;
+  /** The Edit keys toggle, first in the column; absent where the keys cannot be edited. */
+  editKeys?: { isEditing: boolean; onChange: (isEditing: boolean) => void };
 }
 
 /**
  * Presentational: the Voice space's actions on a phone, in the corner beside the keys (never over them):
- * Stop while speech is playing, the page buttons, then Write, which opens the composer sheet.
+ * Edit keys, Stop while speech is playing, the page buttons, then Write, which opens the composer sheet.
  */
-export function VoiceActions({ isSpeaking, onWrite, onStop, pager }: VoiceActionsProps) {
+export function VoiceActions({ isSpeaking, onWrite, onStop, pager, editKeys }: VoiceActionsProps) {
   const t = useT();
   return (
     <div className="voice-actions" role="group" aria-label={t("voice.actions")}>
@@ -24,6 +26,18 @@ export function VoiceActions({ isSpeaking, onWrite, onStop, pager }: VoiceAction
         <span className="visually-hidden" aria-live="polite">
           {t("board.page", { page: pager.page + 1, count: pager.count })}
         </span>
+      )}
+      {editKeys && (
+        <button
+          type="button"
+          className="button voice-action voice-action-page voice-action-edit"
+          aria-label={t("deck.editKeys")}
+          aria-pressed={editKeys.isEditing}
+          title={t("deck.editKeys")}
+          onClick={() => editKeys.onChange(!editKeys.isEditing)}
+        >
+          <Settings size={ICON_SIZE} aria-hidden="true" focusable="false" />
+        </button>
       )}
       {isSpeaking && (
         <button type="button" className="button voice-action voice-action-stop" onClick={onStop}>

@@ -62,8 +62,8 @@ describe("a space below the inspector width", () => {
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
     await editKeys(user);
     expect(screen.getByText("Page 1 of 1")).toHaveClass("visually-hidden");
-    // What the composer says back stays on screen there.
-    expect(screen.getAllByRole("status").find((element) => element.classList.contains("status"))).not.toHaveClass("visually-hidden");
+    // The status line stays for screen readers only: a line appearing above the keys would move them (W6).
+    expect(screen.getAllByRole("status").find((element) => element.classList.contains("status"))).toHaveClass("visually-hidden");
   });
 
   it.each([PHONE_UPRIGHT, PHONE_SIDEWAYS, TABLET_UPRIGHT])("still edits a key in the dialog at $width x $height", async (size) => {

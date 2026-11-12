@@ -23,6 +23,7 @@ import type { KeyInput } from "../adapters/board-stores";
 import type { ObsServices } from "../app/composition-root";
 import { draftAction, draftOf, draftToKey, KEY_COLOR_PRESETS, type KeyDraft } from "../app/key-draft";
 import { hasOnState } from "../app/key-presentation";
+import { isHiddenOnBoard } from "../app/voice-keys";
 import { useT } from "../i18n/I18nProvider";
 import type { Message, MessageKey } from "../i18n/messages";
 import { ActionParamsFields } from "./ActionParamsFields";
@@ -148,8 +149,14 @@ export function KeyEditorForm({
   const showsFixedAction = (fixedAction || isFolderKey) && draft.actionType !== "";
   // A key saved before its action's category left this kind (captions on a deck board) keeps showing its
   // action, alone, so editing the key never loses it; the rest of the list is what the kind offers.
-  const offeredCategories = allowedActionCategories(boardKind);
-  const keptType = existing && !offeredCategories.includes(ACTION_REGISTRY[existing.action.type].category) ? existing.action.type : undefined;
+  // Actions this kind no longer shows (captions, Repeat… on Voice) are not offered either, nor their empty categories.
+  const offeredType = (type: ActionType, category: string) =>
+    ACTION_REGISTRY[type].userSelectable && !isHiddenOnBoard(boardKind, type) && ACTION_REGISTRY[type].category === category && (type !== "nav.openFolder" || offersFolder);
+  const offeredCategories = allowedActionCategories(boardKind).filter((category) => ACTION_TYPES.some((type) => offeredType(type, category)));
+  const keptType =
+    existing && (!allowedActionCategories(boardKind).includes(ACTION_REGISTRY[existing.action.type].category) || isHiddenOnBoard(boardKind, existing.action.type))
+      ? existing.action.type
+      : undefined;
   const number = slot + 1;
 
   return (
@@ -180,9 +187,7 @@ export function KeyEditorForm({
             {keptType && <option value={keptType}>{t(ACTION_REGISTRY[keptType].labelKey as MessageKey)}</option>}
             {offeredCategories.map((category) => (
               <optgroup key={category} label={t(`category.${category}`)}>
-                {ACTION_TYPES.filter(
-                  (type) => ACTION_REGISTRY[type].userSelectable && ACTION_REGISTRY[type].category === category && (type !== "nav.openFolder" || offersFolder),
-                ).map((type) => (
+                {ACTION_TYPES.filter((type) => offeredType(type, category)).map((type) => (
                   <option key={type} value={type}>
                     {t(ACTION_REGISTRY[type].labelKey as MessageKey)}
                   </option>

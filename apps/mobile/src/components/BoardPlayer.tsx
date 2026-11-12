@@ -6,6 +6,7 @@ import type { KeyRun } from "../app/use-key-runner";
 import { KEY_STATE_LABELS, keyFillColor, keyLabel, keyLook, presentKey, type KeyContext } from "../app/key-presentation";
 import { displayedCellIndexes } from "../app/board-display";
 import { fitKeyGrid } from "../app/fit-key-grid";
+import { hiddenKeySlots } from "../app/voice-keys";
 import type { InputVolumeServices } from "../app/use-input-volume";
 import { PORTRAIT_BOARD_QUERY, useMediaQuery } from "../app/use-media-query";
 import { useT } from "../i18n/I18nProvider";
@@ -175,13 +176,15 @@ export function BoardPlayer({
   const pageCount = board ? boardPageCount(board) : 1;
   const showsNewPage = canEdit && board !== null && newPage?.boardId === board.id && newPage.page === pageCount;
   const page = showsNewPage ? pageCount : (position?.page ?? 0);
-  const keys = board ? keysOnPage(board, page) : [];
   // Keys per page: the board's columns × rows.
   const pageSize = board ? keysPerPage(board) : 0;
   // Cells covered by a key spanning several cells: not drawn, never offered for a new key.
   const covered = board ? coveredSlots(board) : new Set<number>();
+  // Keys this kind of board no longer shows (kept as stored): drawn as blank places, never offered for a new key.
+  const hidden = new Set(board ? hiddenKeySlots(board) : []);
+  const keys = board ? keysOnPage(board, page).map((key, index) => (hidden.has(page * pageSize + index) ? undefined : key)) : [];
   // One + per page; others (the inspector's Add key) add at the same slot.
-  const plusIndex = addIndexOnPage(keys.map((key, index) => key !== undefined || covered.has(page * pageSize + index)));
+  const plusIndex = addIndexOnPage(keys.map((key, index) => key !== undefined || covered.has(page * pageSize + index) || hidden.has(page * pageSize + index)));
   const addSlot = board && plusIndex >= 0 ? page * pageSize + plusIndex : null;
 
   useEffect(() => {

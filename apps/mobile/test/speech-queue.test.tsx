@@ -2,13 +2,13 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { boardOf, desktopState, renderLocalApp, renderRemoteApp, speakKey } from "./app-fakes";
 
-const boards = () => [boardOf("main", "Main", [speakKey(0, "Hello"), { slot: 1, action: { type: "voice.repeat" } }, { slot: 2, action: { type: "voice.stop" } }])];
+const boards = () => [boardOf("main", "Main", [speakKey(0, "Hello")])];
 const field = () => screen.getByRole("textbox", { name: "Text to speak" });
 const type = (text: string) => fireEvent.change(field(), { target: { value: text } });
 const speakButton = () => screen.getByRole("button", { name: "Speak" });
 
 describe("typed text waits its turn; everything else interrupts", () => {
-  it("queues what the composer says and interrupts from keys, quick phrases, recent phrases and repeat", async () => {
+  it("queues what the composer says and interrupts from keys, quick phrases and recent phrases", async () => {
     const { synthesizer } = renderLocalApp({ boards: boards() });
     await screen.findByRole("button", { name: "Hello" }, { timeout: 5000 });
     const modes = () => synthesizer.spoken.map((entry) => `${entry.text}: ${entry.options?.mode ?? "interrupt"}`);
@@ -20,8 +20,7 @@ describe("typed text waits its turn; everything else interrupts", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hello" }));
     fireEvent.click(within(screen.getByRole("group", { name: "Quick phrases" })).getByRole("button", { name: "Yes" }));
     fireEvent.click(within(screen.getByRole("region", { name: "Recent phrases" })).getByRole("button", { name: "Typed" }));
-    fireEvent.click(screen.getByRole("button", { name: "Repeat" }));
-    expect(modes()).toEqual(["Typed: queue", "Entered: queue", "Hello: interrupt", "Yes: interrupt", "Typed: interrupt", "Typed: interrupt"]);
+    expect(modes()).toEqual(["Typed: queue", "Entered: queue", "Hello: interrupt", "Yes: interrupt", "Typed: interrupt"]);
 
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
     expect(synthesizer.cancelled).toBeGreaterThan(0);

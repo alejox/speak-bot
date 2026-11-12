@@ -67,7 +67,7 @@
   height: var(--compact-target);
 }
 
-/* Edit keys: a quiet pencil while playing; while editing it is filled with the accent and shows a check. */
+/* Edit keys: a quiet gear while playing; while editing it is filled with the accent. */
 .edit-keys-toggle {
   border-radius: var(--radius-lg);
   background: var(--color-surface);
@@ -257,6 +257,13 @@
   font-weight: var(--weight-semibold);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-2);
+}
+
+/* Edit keys among the Voice actions: filled with the accent while editing, like the top-bar toggle. */
+.voice-actions .voice-action-edit[aria-pressed="true"],
+.voice-actions .voice-action-edit[aria-pressed="true"]:hover {
+  color: var(--color-on-accent);
+  background: var(--color-accent);
 }
 
 .voice-action-stop {

@@ -1,4 +1,4 @@
-import { Check, Pencil } from "lucide-react";
+import { Settings } from "lucide-react";
 import { useT } from "../i18n/I18nProvider";
 
 interface EditKeysToggleProps {
@@ -12,7 +12,6 @@ interface EditKeysToggleProps {
  */
 export function EditKeysToggle({ isEditing, onChange }: EditKeysToggleProps) {
   const t = useT();
-  const Icon = isEditing ? Check : Pencil;
   return (
     <button
       type="button"
@@ -22,7 +21,7 @@ export function EditKeysToggle({ isEditing, onChange }: EditKeysToggleProps) {
       title={t("deck.editKeys")}
       onClick={() => onChange(!isEditing)}
     >
-      <Icon size={20} aria-hidden="true" />
+      <Settings size={20} aria-hidden="true" />
     </button>
   );
 }

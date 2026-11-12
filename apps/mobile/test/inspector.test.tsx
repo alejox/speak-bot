@@ -47,11 +47,11 @@ describe("key inspector on wide screens", () => {
   it("saves an action without parameters from the + at once and selects the new key", async () => {
     const { user } = renderLocalApp({ boards: [boardOf("main", "Main", [speakKey(0, "Hello")])] });
     await user.click(await screen.findByRole("button", { name: "Add a key at position 2" }));
-    await user.click(within(screen.getByRole("dialog", { name: "Add key 2" })).getByRole("button", { name: "Stop voice" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Add key 2" })).getByRole("button", { name: "Next page" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(inspector()).toHaveAccessibleName("Key 2");
-    expect(within(inspector()).getByRole("combobox", { name: "Action" })).toHaveDisplayValue("Stop voice");
-    expect(within(grid()).getByRole("button", { name: "Stop voice" })).toHaveClass("deck-key-selected");
+    expect(within(inspector()).getByRole("combobox", { name: "Action" })).toHaveDisplayValue("Next page");
+    expect(within(grid()).getByRole("button", { name: "Next page" })).toHaveClass("deck-key-selected");
   });
 
   it("takes an action with parameters from the picker to the panel for its details", async () => {

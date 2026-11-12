@@ -89,8 +89,8 @@ describe("editing in the player, without a board editor", () => {
     await user.click(screen.getByRole("button", { name: "New page" }));
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
     await user.click(within(grid()).getByRole("button", { name: "Add a key at position 16" }));
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Stop voice" }));
-    await waitFor(() => expect(within(grid()).getByRole("button", { name: "Stop voice" })).toBeInTheDocument());
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Next page" }));
+    await waitFor(() => expect(within(grid()).getByRole("button", { name: "Next page" })).toBeInTheDocument());
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Previous page" }));
     expect(screen.getByRole("button", { name: "A" })).toBeInTheDocument();

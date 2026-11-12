@@ -91,15 +91,6 @@ describe("Deck keys live state", () => {
     expect(screen.getByRole("button", { name: "Main" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("shows captions as on while they are visible, on the Voice board", async () => {
-    const state = desktopState({ boards: boards() });
-    const { emit } = renderRemoteApp({ state });
-    const captions = await screen.findByRole("button", { name: "Captions On" });
-    expect(captions).toHaveAttribute("aria-pressed", "true");
-    act(() => emit({ type: "captions-visibility", visible: false }));
-    expect(screen.getByRole("button", { name: "Captions" })).toHaveAttribute("aria-pressed", "false");
-  });
-
   it("keeps the reason on a key that is offline", async () => {
     const { emit } = await openDeck();
     act(() => emit({ type: "obs-status", status: "error", code: "connection-lost" }));

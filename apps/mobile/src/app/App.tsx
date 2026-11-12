@@ -274,7 +274,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   // status and notes live in the indicator. Wide screens (the workspace) also dock the side panel, where the
   // Voice composer moves; below that the composer stays above the keys, with the status line under the header.
   const isWorkspace = isWide && space !== null;
-  const hidesStatus = isWorkspace || space === "deck";
+  // A phone's space keeps its status for screen readers too: a line appearing above the keys would move them.
+  const hidesStatus = isWorkspace || space === "deck" || (isPhoneSized && space !== null);
   const railNav = navCollapsed || isShortSidebar;
   // A space on a phone: only what playing needs. Larger windows keep every editing tool at hand, as before.
   const isCompactSpace = isPhoneSized && space !== null;
@@ -432,6 +433,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                             isSpeaking={speech.isSpeaking && !isComposerOpen}
                             onWrite={() => setComposerOpen(true)}
                             onStop={speech.stop}
+                            editKeys={maySpaceBeEdited ? { isEditing: isEditingSpace, onChange: setEditingSpace } : undefined}
                             pager={{
                               ...pager,
                               onNewPage:
@@ -455,11 +457,13 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                     )
                   }
                   toolbar={
-                    board && (
+                    board &&
+                    // Playing Voice on a phone with one board leaves the top bar empty: no row at all, the keys get it.
+                    !(usesComposerSheet && !isEditingSpace && !isFolderBoard(board) && visibleBoards(deck.spaceBoards).length < 2) && (
                       <>
                         {isFolderBoard(board) ? (
                           <FolderBreadcrumb board={board} boards={deck.boards.boards} />
-                        ) : usesComposerSheet && visibleBoards(deck.spaceBoards).length < 2 && !isEditingSpace ? null : (
+                        ) : (
                           <BoardMenu
                             trigger={usesComposerSheet ? "icon" : "pill"}
                             board={board}
@@ -473,7 +477,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                         )}
                         {canEditBoard && <GridSizeButton board={board} boards={deck.boards} statusText={statusText} />}
                         {deckIndicator}
-                        {isCompactSpace && maySpaceBeEdited && <EditKeysToggle isEditing={isEditingSpace} onChange={setEditingSpace} />}
+                        {/* Voice on a phone keeps it among its actions, beside the keys. */}
+                        {isCompactSpace && maySpaceBeEdited && !usesComposerSheet && <EditKeysToggle isEditing={isEditingSpace} onChange={setEditingSpace} />}
                       </>
                     )
                   }

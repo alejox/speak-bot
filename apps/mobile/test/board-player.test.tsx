@@ -30,11 +30,13 @@ function drag(source: Element, target: Element) {
 describe("board player in phone-only mode", () => {
   afterEach(() => vi.useRealTimers());
 
-  it("creates the Communication board on a new device and shows a page of 15 keys", async () => {
+  it("creates the Communication board on a new device: its phrases on a page of 15 slots, its voice commands out of sight", async () => {
     renderLocalApp();
     expect(await screen.findByRole("button", { name: "Hello" })).toBeInTheDocument();
     expect(boardPill()).toHaveAccessibleName("Board: Communication");
+    // The seeded Stop, Repeat, caption and language keys stay stored but show as blank places on Voice boards.
     expect(within(grid()).getAllByRole("listitem")).toHaveLength(15);
+    expect(within(grid()).queryByRole("button", { name: "Repeat" })).not.toBeInTheDocument();
     expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
   });
 
@@ -44,36 +46,6 @@ describe("board player in phone-only mode", () => {
     fireEvent.click(key);
     // No await between the tap and speak().
     expect(synthesizer.texts).toEqual(["Hello"]);
-  });
-
-  it("disables caption keys without the desktop and says why", async () => {
-    renderLocalApp({ boards: [buildDefaultBoard("en")] });
-    const clear = await screen.findByRole("button", { name: "Clear caption" });
-    expect(clear).toHaveAttribute("aria-disabled", "true");
-    expect(clear).toHaveAccessibleDescription("Needs the computer app.");
-  });
-
-  it("switches the voice language with its key and shows the current one", async () => {
-    const { synthesizer, user } = renderLocalApp();
-    const language = await screen.findByRole("button", { name: /^Voice language/ });
-    expect(language).toHaveTextContent("Voice: English");
-    await user.click(language);
-    expect(language).toHaveTextContent("Voice: Español");
-    expect(screen.getByRole("status")).toHaveTextContent("Voice language: Español.");
-    await user.click(screen.getByRole("button", { name: "Hello" }));
-    expect(synthesizer.spoken.at(-1)?.options?.voiceId).toBe("monica");
-  });
-
-  it("stops and repeats speech on this device", async () => {
-    const { synthesizer, user } = renderLocalApp();
-    await user.click(await screen.findByRole("button", { name: "Repeat" }));
-    expect(screen.getByRole("status")).toHaveTextContent("Nothing has been said yet to repeat.");
-    await user.click(screen.getByRole("button", { name: "Hello" }));
-    await user.click(screen.getByRole("button", { name: "Repeat" }));
-    expect(synthesizer.texts).toEqual(["Hello", "Hello"]);
-    await user.click(screen.getByRole("button", { name: "Stop voice" }));
-    expect(synthesizer.cancelled).toBeGreaterThan(0);
-    expect(screen.getByRole("status")).toHaveTextContent("Voice stopped.");
   });
 
   it("runs navigation keys in this client and remembers the page", async () => {
@@ -149,10 +121,11 @@ describe("key editing in the player", () => {
     await screen.findByRole("button", { name: "Hello" });
     await user.click(screen.getByRole("button", { name: "Add a key at position 2" }));
     const dialog = screen.getByRole("dialog", { name: "Add key 2" });
-    expect(within(dialog).getAllByRole("region").map((group) => group.getAttribute("aria-label"))).toEqual(["Voice", "Captions", "Navigation"]);
-    await user.click(within(dialog).getByRole("button", { name: "Stop voice" }));
+    // Voice offers phrases and navigation; captions, Stop, Repeat and the language key are gone.
+    expect(within(dialog).getAllByRole("region").map((group) => group.getAttribute("aria-label"))).toEqual(["Voice", "Navigation"]);
+    await user.click(within(dialog).getByRole("button", { name: "Next page" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(within(grid()).getByRole("button", { name: "Stop voice" })).toBeInTheDocument();
+    expect(within(grid()).getByRole("button", { name: "Next page" })).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Key saved.");
   });
 
