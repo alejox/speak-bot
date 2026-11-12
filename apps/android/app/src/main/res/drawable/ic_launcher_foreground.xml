@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Launcher icon foreground: the logo's key grid, over the dark tile colour of the background layer.
+  Drawn from apps/electron/build/icon.svg (512 units). The key panel is scaled to 0.14 dp per unit and
+  centred, so its corners stay 31.2dp from the centre: inside the 66dp-wide circle every launcher mask keeps.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.14"
+        android:scaleY="0.14"
+        android:translateX="18.16"
+        android:translateY="16.76">
+        <path android:fillColor="#1E293B" android:pathData="M112,140h288a40,40 0 0 1 40,40v172a40,40 0 0 1 -40,40h-288a40,40 0 0 1 -40,-40v-172a40,40 0 0 1 40,-40z" />
+        <path android:fillColor="#3B82F6" android:pathData="M120,168h52a20,20 0 0 1 20,20v48a20,20 0 0 1 -20,20h-52a20,20 0 0 1 -20,-20v-48a20,20 0 0 1 20,-20z" />
+        <path android:fillColor="#334155" android:pathData="M230,168h52a20,20 0 0 1 20,20v48a20,20 0 0 1 -20,20h-52a20,20 0 0 1 -20,-20v-48a20,20 0 0 1 20,-20z" />
+        <path android:fillColor="#334155" android:pathData="M340,168h52a20,20 0 0 1 20,20v48a20,20 0 0 1 -20,20h-52a20,20 0 0 1 -20,-20v-48a20,20 0 0 1 20,-20z" />
+        <path android:fillColor="#334155" android:pathData="M120,276h52a20,20 0 0 1 20,20v48a20,20 0 0 1 -20,20h-52a20,20 0 0 1 -20,-20v-48a20,20 0 0 1 20,-20z" />
+        <path android:fillColor="#22C55E" android:pathData="M230,276h52a20,20 0 0 1 20,20v48a20,20 0 0 1 -20,20h-52a20,20 0 0 1 -20,-20v-48a20,20 0 0 1 20,-20z" />
+        <path android:fillColor="#334155" android:pathData="M340,276h52a20,20 0 0 1 20,20v48a20,20 0 0 1 -20,20h-52a20,20 0 0 1 -20,-20v-48a20,20 0 0 1 20,-20z" />
+        <!-- The voice waveform on the blue key. -->
+        <path
+            android:pathData="M132,196v32M146,186v52M160,196v32"
+            android:strokeColor="#FFFFFF"
+            android:strokeLineCap="round"
+            android:strokeWidth="9" />
+    </group>
+</vector>
