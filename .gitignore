@@ -10,5 +10,10 @@ coverage/
 .env.*
 !.env.example
 
+# Android upload key and its passwords (never commit them)
+keystore.properties
+*.jks
+*.keystore
+
 # Electron installers
 apps/electron/release/

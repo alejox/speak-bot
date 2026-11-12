@@ -149,7 +149,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const composer = useRef<ComposerHandle>(null);
   // On a phone the composer waits in a sheet, opened from the Write button.
   const [isComposerOpen, setComposerOpen] = useState(false);
-  const monetization = useMonetization(services.desktop, target);
+  const monetization = useMonetization(services.desktop, target, services.adsPurchase);
   // Set when the house banner leads to Settings, so focus lands on the Remove ads group.
   const [focusRemoveAds, setFocusRemoveAds] = useState(false);
   // Losing the computer shows a banner everywhere and, unless turned off on this device, vibrates.
@@ -196,6 +196,17 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
       setStatus(describeRequestError(error));
       return false;
     }
+  };
+  const store = monetization.store;
+  // Inside the Android app "remove ads" is sold by Google Play: its price when known, never a fixed one.
+  const storeBuyLabel = store ? (store.state.price ? t("ads.store.buy", { price: store.state.price }) : t("ads.store.buyNoPrice")) : undefined;
+  const purchaseOnStore = () => {
+    if (store && !store.purchase()) setStatus({ key: "ads.store.failed" });
+  };
+  const restoreFromStore = () => {
+    if (!store) return;
+    store.restore();
+    setStatus({ key: "ads.store.checking" });
   };
   const spaces = useSpaceDecks(target, speech, language, positionStores, select, setStatus);
 
@@ -454,7 +465,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                     space === "voice" ? (
                       !usesComposerSheet && <QuickPhrases language={target.voiceLanguage ?? language} onSpeak={(phrase) => confirmed.run({ type: "voice.speak", text: phrase })} />
                     ) : (
-                      monetization.showsBanner && <AdBanner ad={monetization.ad} onRemoveAds={openRemoveAds} />
+                      monetization.showsBanner && <AdBanner ad={monetization.ad} onRemoveAds={openRemoveAds} houseText={storeBuyLabel} />
                     )
                   }
                   toolbar={
@@ -558,6 +569,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                 onActivate={activateLicense}
                 onRemove={removeLicense}
                 focusHeading={focusRemoveAds}
+                store={store && storeBuyLabel ? { ...store, buyLabel: storeBuyLabel, onPurchase: purchaseOnStore, onRestore: restoreFromStore } : null}
               />
             </SettingsPanel>
           </SectionView>

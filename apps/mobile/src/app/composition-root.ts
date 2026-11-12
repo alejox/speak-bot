@@ -1,4 +1,5 @@
 import type {
+  AdsPurchase,
   KeyRef,
   MultiActionEvent,
   Action,
@@ -19,6 +20,7 @@ import type {
   UiLanguage,
   Application,
 } from "@speed-deck/core";
+import { findAndroidAdsPurchase } from "../adapters/android-ads-purchase";
 import { AndroidSpeechSynthesizer, findAndroidSpeechBridge } from "../adapters/android-speech-synthesizer";
 import { createLocalBoardStore, createRemoteBoardStore, type BoardStore } from "../adapters/board-stores";
 import { getLocalStorage, migrateLegacyStorageKeys } from "../adapters/browser-storage";
@@ -139,6 +141,8 @@ export interface AppServices {
   device?: DeviceSignals;
   /** Whether this device vibrates when it loses the computer; without it, this browser's storage. */
   connectionAlerts?: ConnectionAlertsStore;
+  /** "Remove ads" as the app store sells it; present only inside the Android app (Google Play). */
+  adsPurchase?: AdsPurchase;
 }
 
 export interface DesktopServicesOptions {
@@ -242,6 +246,7 @@ export function createAppServices(): AppServices {
     servedFrom: globalThis.location?.hostname ?? "",
     device: createDeviceSignals(globalThis),
     connectionAlerts: new LocalStorageConnectionAlertsStore(),
+    adsPurchase: findAndroidAdsPurchase(globalThis),
   };
 }
 

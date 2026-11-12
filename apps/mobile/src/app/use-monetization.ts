@@ -1,4 +1,4 @@
-import type { AdCreative, LicenseResponse } from "@speed-deck/core";
+import type { AdCreative, AdsPurchase, AdsPurchaseState, LicenseResponse } from "@speed-deck/core";
 import { useCallback, useEffect, useState } from "react";
 import type { DesktopServices } from "./composition-root";
 import type { SpeechTarget } from "./use-speech-target";
@@ -23,6 +23,21 @@ export interface Monetization {
   /** Rejects with the desktop's refusal (DesktopRequestError with a "license-*" code). */
   activate: (key: string) => Promise<LicenseResponse>;
   remove: () => Promise<LicenseResponse>;
+  /**
+   * "Remove ads" on the app store (Google Play inside the Android app), or null where the app is not
+   * sold through a store. When present, it replaces the computer's license as the way to remove ads here.
+   */
+  store: StorePurchase | null;
+}
+
+export interface StorePurchase {
+  state: AdsPurchaseState;
+  /** Ads are off because the computer serving this page has a license. */
+  adsFreeByComputer: boolean;
+  /** Opens the store's purchase flow; false when it could not be started. */
+  purchase: () => boolean;
+  /** Asks the store again what this account owns. */
+  restore: () => void;
 }
 
 type LicenseState = { status: "loading" } | { status: "loaded"; license: LicenseResponse } | { status: "failed" };
@@ -30,11 +45,20 @@ type LicenseState = { status: "loading" } | { status: "loaded"; license: License
 const noLicense = () => Promise.reject(new Error("No computer app."));
 
 /** Container logic: the license status and sponsor banner, following license changes on the computer. */
-export function useMonetization(desktop: DesktopServices | undefined, target: SpeechTarget): Monetization {
+export function useMonetization(desktop: DesktopServices | undefined, target: SpeechTarget, adsPurchase?: AdsPurchase): Monetization {
   const available = desktop !== undefined && target.isDesktopAvailable;
   const mode: MonetizationMode | null = target.detection === "pending" ? null : !available ? "phone-only" : target.isOnComputer ? "computer" : "paired";
   const [licenseState, setLicenseState] = useState<LicenseState>({ status: "loading" });
   const [ad, setAd] = useState<AdCreative | null>(null);
+  const [storeState, setStoreState] = useState<AdsPurchaseState | null>(() => adsPurchase?.getState() ?? null);
+
+  useEffect(() => {
+    if (!adsPurchase) return setStoreState(null);
+    const stop = adsPurchase.onChanged(setStoreState);
+    // The store may have answered between the first render and this subscription.
+    setStoreState(adsPurchase.getState());
+    return () => void stop();
+  }, [adsPurchase]);
 
   useEffect(() => {
     if (!available || !desktop) return;
@@ -72,6 +96,16 @@ export function useMonetization(desktop: DesktopServices | undefined, target: Sp
 
   const license = licenseState.status === "loaded" ? licenseState.license : null;
   const showsBanner =
-    mode === "phone-only" || (mode !== null && (licenseState.status === "failed" || (licenseState.status === "loaded" && !licenseState.license.adsFree)));
-  return { mode, license: mode === "phone-only" ? null : license, ad: mode === "phone-only" ? null : ad, showsBanner, activate, remove };
+    storeState?.entitlement !== "owned" &&
+    (mode === "phone-only" || (mode !== null && (licenseState.status === "failed" || (licenseState.status === "loaded" && !licenseState.license.adsFree))));
+  const store: StorePurchase | null =
+    adsPurchase && storeState
+      ? {
+          state: storeState,
+          adsFreeByComputer: mode !== null && mode !== "phone-only" && license?.adsFree === true,
+          purchase: () => adsPurchase.purchase(),
+          restore: () => adsPurchase.restore(),
+        }
+      : null;
+  return { mode, license: mode === "phone-only" ? null : license, ad: mode === "phone-only" ? null : ad, showsBanner, activate, remove, store };
 }

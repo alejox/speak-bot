@@ -165,6 +165,14 @@
   text-decoration: none;
 }
 
+/* An app-store build: the purchase and Restore purchase side by side, wrapping on a narrow phone. */
+.remove-ads-store {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
 .remove-ads-form {
   margin-bottom: var(--space-3);
 }

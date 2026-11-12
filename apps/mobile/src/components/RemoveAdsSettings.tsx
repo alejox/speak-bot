@@ -1,4 +1,4 @@
-import type { LicenseResponse } from "@speed-deck/core";
+import type { AdsPurchaseState, LicenseResponse } from "@speed-deck/core";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import type { MonetizationMode } from "../app/use-monetization";
 import { useT } from "../i18n/I18nProvider";
@@ -11,13 +11,52 @@ interface RemoveAdsSettingsProps {
   onRemove: () => Promise<boolean>;
   /** Moves focus to the heading once shown (arriving from the banner). */
   focusHeading?: boolean;
+  /**
+   * Set inside an app-store build (the Android app on Google Play): the store's purchase replaces everything
+   * about the computer's license, which a store app may not sell or point to.
+   */
+  store?: StoreRemoveAds | null;
+}
+
+export interface StoreRemoveAds {
+  state: AdsPurchaseState;
+  /** Ads are already off because the computer serving this page has a license. */
+  adsFreeByComputer: boolean;
+  /** The purchase button's text, with the store's price when it is known. */
+  buyLabel: string;
+  onPurchase: () => void;
+  onRestore: () => void;
+}
+
+/** The store's flow: status, the purchase with the store's price, a pending payment, restore, or why it cannot be bought. */
+function StoreRemoveAdsFlow({ state, adsFreeByComputer, buyLabel, onPurchase, onRestore }: StoreRemoveAds) {
+  const t = useT();
+  if (state.entitlement === "owned") return <p className="remove-ads-status">{t("ads.store.owned")}</p>;
+  const pending = state.entitlement === "pending";
+  return (
+    <>
+      <p className="remove-ads-status">{pending ? t("ads.store.pending") : adsFreeByComputer ? t("ads.store.byComputer") : t("ads.settings.shown")}</p>
+      {!pending && !state.available && <p className="field-hint">{t("ads.store.unavailable")}</p>}
+      <div className="remove-ads-store">
+        {!pending && state.available && (
+          <button type="button" className="button button-primary" onClick={onPurchase}>
+            {buyLabel}
+          </button>
+        )}
+        <button type="button" className="button" onClick={onRestore}>
+          {t("ads.store.restore")}
+        </button>
+      </div>
+    </>
+  );
 }
 
 /**
  * Presentational: Settings → Remove ads. On the computer: the status, a Buy link, the key field and
  * Remove license. On a paired phone: the status only. Without the computer app: why ads stay.
+ * In an app-store build: only the store's purchase.
  */
-export function RemoveAdsSettings({ mode, license, onActivate, onRemove, focusHeading = false }: RemoveAdsSettingsProps) {
+export function RemoveAdsSettings({ mode, license, onActivate, onRemove, focusHeading = false, store = null }: RemoveAdsSettingsProps) {
   const t = useT();
   const titleId = useId();
   const keyId = useId();
@@ -48,7 +87,9 @@ export function RemoveAdsSettings({ mode, license, onActivate, onRemove, focusHe
       <h3 id={titleId} ref={heading} tabIndex={-1}>
         {t("ads.settings.title")}
       </h3>
-      {mode === null ? null : mode === "phone-only" ? (
+      {store ? (
+        <StoreRemoveAdsFlow {...store} />
+      ) : mode === null ? null : mode === "phone-only" ? (
         <p className="field-hint">{t("ads.settings.needsComputer")}</p>
       ) : (
         <>

@@ -141,6 +141,7 @@ export {
   type Application,
   type ApplicationLauncher,
 } from "./ports/application-launcher";
+export type { AdsEntitlement, AdsPurchase, AdsPurchaseState } from "./ports/ads-purchase";
 export {
   InvalidLicenseKeyError,
   LicenseActivationLimitError,
