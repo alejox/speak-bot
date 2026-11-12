@@ -30,12 +30,12 @@ function drag(source: Element, target: Element) {
 describe("board player in phone-only mode", () => {
   afterEach(() => vi.useRealTimers());
 
-  it("creates the Communication board on a new device: its phrases on a page of 15 slots, its voice commands out of sight", async () => {
+  it("creates the Communication board on a new device: its eight phrases on a page of 10 slots, no voice commands", async () => {
     renderLocalApp();
     expect(await screen.findByRole("button", { name: "Hello" })).toBeInTheDocument();
     expect(boardPill()).toHaveAccessibleName("Board: Communication");
-    // The seeded Stop, Repeat, caption and language keys stay stored but show as blank places on Voice boards.
-    expect(within(grid()).getAllByRole("listitem")).toHaveLength(15);
+    // The seed holds phrases only: no Stop, Repeat, caption or language keys, and no empty row.
+    expect(within(grid()).getAllByRole("listitem")).toHaveLength(10);
     expect(within(grid()).queryByRole("button", { name: "Repeat" })).not.toBeInTheDocument();
     expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
   });

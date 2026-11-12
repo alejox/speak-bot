@@ -7,7 +7,6 @@ import {
   boardFromPhrases,
   buildDefaultBoard,
   clearKey,
-  COMMUNICATION_KEYS,
   createBoard,
   createKey,
   DEFAULT_BOARD_ID,
@@ -153,37 +152,39 @@ describe("readStoredBoards", () => {
 });
 
 describe("default and migrated boards", () => {
-  it("builds the Comunicación board with phrases first and the voice commands on the last row", () => {
+  const REMOVED_VOICE_KEYS = ["captions.clear", "captions.toggle", "voice.repeat", "voice.stop", "voice.toggleLanguage"];
+
+  it("builds the Comunicación board with only the default phrases, filling its rows", () => {
     const es = buildDefaultBoard("es");
     expect(es.id).toBe(DEFAULT_BOARD_ID);
     expect(es.name).toBe("Comunicación");
     expect(DEFAULT_BOARD_NAMES.en).toBe("Communication");
-    const phrases = es.keys.filter((key) => key.action.type === "voice.speak");
-    expect(phrases.map((key) => (key.action as { text: string }).text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
-    expect(phrases.map((key) => key.slot)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
-    const actions = es.keys.filter((key) => key.action.type !== "voice.speak");
-    expect(actions.map((key) => key.slot)).toEqual([10, 11, 12, 13, 14]);
-    expect(actions.map((key) => key.action)).toEqual(COMMUNICATION_KEYS.map((key) => key.action));
-    expect(COMMUNICATION_KEYS.map((key) => key.action.type)).toEqual(["voice.stop", "voice.repeat", "captions.clear", "captions.toggle", "voice.toggleLanguage"]);
+    expect(es.keys.map((key) => (key.action as { text: string }).text)).toEqual([...DEFAULT_PHRASES_BY_LANGUAGE.es]);
+    expect(es.keys.map((key) => key.slot)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(es.keys.every((key) => key.action.type === "voice.speak")).toBe(true);
+    // No empty row on a fresh board: the last row holds at least one phrase.
+    expect(Math.floor((es.keys.length - 1) / es.columns)).toBe(es.rows - 1);
     expect(buildDefaultBoard("en").keys[0]!.action).toEqual(speak("Hello"));
+  });
+
+  it("seeds none of the caption, repeat, stop and language keys, though they stay valid actions", () => {
+    for (const language of ["es", "en"] as const) {
+      const types = buildDefaultBoard(language).keys.map((key) => key.action.type);
+      expect(types.filter((type) => REMOVED_VOICE_KEYS.includes(type))).toEqual([]);
+    }
+    for (const type of REMOVED_VOICE_KEYS) expect(parseAction({ type })).toEqual({ type });
   });
 
   const phrase = (slot: number, text: string, label?: string): Phrase => ({ id: `p${slot}`, text, slot, createdAt: slot, ...(label ? { label } : {}) });
 
-  it("migrates phrases keeping their slots and puts actions on the free last row", () => {
+  it("migrates phrases keeping their slots and adds no command keys", () => {
     const migrated = boardFromPhrases([phrase(0, "Hola", "Hi"), phrase(7, "Agua")], "es");
     expect(migrated.name).toBe("Comunicación");
-    expect(migrated.keys.slice(0, 2)).toEqual([
+    expect(migrated.keys).toEqual([
       { slot: 0, label: "Hi", action: speak("Hola") },
       { slot: 7, action: speak("Agua") },
     ]);
-    expect(migrated.keys.slice(2).map((key) => key.slot)).toEqual([10, 11, 12, 13, 14]);
-  });
-
-  it("puts the actions on the next page whose last row is free", () => {
-    const migrated = boardFromPhrases([phrase(12, "Hola"), phrase(27, "Busy")], "en");
-    const actionSlots = migrated.keys.filter((key) => key.action.type !== "voice.speak").map((key) => key.slot);
-    expect(actionSlots).toEqual([3 * KEYS_PER_PAGE - 5, 3 * KEYS_PER_PAGE - 4, 3 * KEYS_PER_PAGE - 3, 3 * KEYS_PER_PAGE - 2, 3 * KEYS_PER_PAGE - 1]);
+    expect(boardFromPhrases([phrase(12, "Hola"), phrase(27, "Busy")], "en").keys.map((key) => key.slot)).toEqual([12, 27]);
   });
 
   it("shortens labels that are too long for a key", () => {

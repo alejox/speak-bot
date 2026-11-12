@@ -86,7 +86,7 @@ describe("moveCaptionKeysToVoice", () => {
   });
 
   it("drops a caption key from the deck when the voice board already has one of the same action", () => {
-    const voice = buildDefaultBoard("es");
+    const voice = board(DEFAULT_BOARD_ID, "voice", [{ slot: 0, action: speak("Hola") }, { slot: 12, action: clear }, { slot: 13, action: toggle }]);
     const { boards, report } = moveCaptionKeysToVoice([voice, oldDeck()], "es");
     expect(boards[0]).toEqual(voice);
     expect(boards[1]!.keys.map((key) => key.slot)).toEqual([0, 1]);
@@ -97,11 +97,17 @@ describe("moveCaptionKeysToVoice", () => {
     ]);
   });
 
-  it("creates the default communication board (with its caption keys) when there is no voice board", () => {
+  it("creates the default communication board when there is no voice board and moves the caption keys onto their old slots", () => {
     const { boards, report } = moveCaptionKeysToVoice([oldDeck()], "es");
-    expect(boards).toEqual([buildDefaultBoard("es"), board("deck", "deck", oldDeck().keys.slice(0, 2))]);
+    const seed = buildDefaultBoard("es", { columns: 5, rows: 3 });
+    const [, , cleared, toggled] = oldDeck().keys;
+    expect(boards).toEqual([{ ...seed, keys: [...seed.keys, { ...cleared!, slot: 12 }, { ...toggled!, slot: 13 }] }, board("deck", "deck", oldDeck().keys.slice(0, 2))]);
     expect(report.createdBoardId).toBe(DEFAULT_BOARD_ID);
-    expect(report.dropped.map((drop) => drop.actionType)).toEqual(["captions.clear", "captions.toggle"]);
+    expect(report.dropped).toEqual([]);
+    expect(report.moved.map((move) => [move.actionType, move.toSlot])).toEqual([
+      ["captions.clear", 12],
+      ["captions.toggle", 13],
+    ]);
   });
 
   it("puts a key on the next free slot, then on a new page, when the first page is full", () => {

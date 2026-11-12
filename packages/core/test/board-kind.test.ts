@@ -245,16 +245,10 @@ describe("stored boards whose kind does not allow some of their keys", () => {
 });
 
 describe("default boards", () => {
-  it("ships a voice board with the voice commands and the caption keys in the slots they always had", () => {
+  it("ships a voice board of phrases only, on two rows of five", () => {
     const voice = buildDefaultBoard("en");
-    expect(voice).toMatchObject({ id: DEFAULT_BOARD_ID, kind: "voice", name: "Communication" });
-    expect(voice.keys.filter((key) => key.action.type !== "voice.speak").map((key) => [key.slot, key.action.type])).toEqual([
-      [10, "voice.stop"],
-      [11, "voice.repeat"],
-      [12, "captions.clear"],
-      [13, "captions.toggle"],
-      [14, "voice.toggleLanguage"],
-    ]);
+    expect(voice).toMatchObject({ id: DEFAULT_BOARD_ID, kind: "voice", name: "Communication", columns: 5, rows: 2 });
+    expect(voice.keys.every((key) => key.action.type === "voice.speak")).toBe(true);
     expect(voice.keys.every((key) => isActionAllowedOnBoard("voice", key.action.type))).toBe(true);
   });
 
@@ -282,11 +276,6 @@ describe("default boards", () => {
     const [voice, deck] = await listBoards(migrated);
     expect(voice!.keys.map((key) => [key.slot, key.action.type])).toEqual([
       [3, "voice.speak"],
-      [10, "voice.stop"],
-      [11, "voice.repeat"],
-      [12, "captions.clear"],
-      [13, "captions.toggle"],
-      [14, "voice.toggleLanguage"],
     ]);
     expect(deck).toEqual(buildDefaultDeckBoard("es"));
   });
@@ -295,7 +284,8 @@ describe("default boards", () => {
     const repository = new InMemoryBoardRepository([board(DEFAULT_BOARD_ID, "voice", [], "Mine"), board(DEFAULT_DECK_BOARD_ID, "deck", [], "My deck"), board("x", "voice")]);
     expect(await restoreDefaultBoard(repository, "en", DEFAULT_DECK_BOARD_ID)).toEqual(buildDefaultDeckBoard("en"));
     expect((await listBoards(repository)).map((b) => b.name)).toEqual(["Mine", "Deck", "x"]);
-    expect(await restoreDefaultBoard(repository, "en")).toEqual(buildDefaultBoard("en"));
+    // The restored board keeps the grid every voice board shares.
+    expect(await restoreDefaultBoard(repository, "en")).toEqual(buildDefaultBoard("en", { columns: 5, rows: 3 }));
     expect((await listBoards(repository)).map((b) => b.name)).toEqual(["Communication", "Deck", "x"]);
     await expect(restoreDefaultBoard(repository, "en", "x")).rejects.toThrow(InvalidBoardError);
   });

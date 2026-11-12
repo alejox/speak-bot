@@ -82,12 +82,12 @@ describe("boards and actions API", () => {
 
   it("lists the communication and deck boards on first run", async () => {
     const [board, deck] = await boards();
-    expect(board).toMatchObject({ id: DEFAULT_BOARD_ID, name: "Comunicación", kind: "voice", columns: 5, rows: 3 });
+    expect(board).toMatchObject({ id: DEFAULT_BOARD_ID, name: "Comunicación", kind: "voice", columns: 5, rows: 2 });
     expect(board!.keys[0]).toEqual({ slot: 0, action: { type: "voice.speak", text: "Hola" } });
     expect(deck).toMatchObject({ id: DEFAULT_DECK_BOARD_ID, name: "Deck", kind: "deck" });
     expect(deck!.keys.map((key) => key.action.type)).toEqual(["obs.toggleStream", "obs.toggleRecord"]);
-    // Captions belong to Voice: the communication board holds their keys.
-    expect(board!.keys.filter((key) => key.action.type.startsWith("captions.")).map((key) => key.slot)).toEqual([12, 13]);
+    // The communication board seeds phrases only: no caption, repeat, stop or language keys.
+    expect(board!.keys.every((key) => key.action.type === "voice.speak")).toBe(true);
   });
 
   it("creates, renames and deletes boards, broadcasting boards-changed, but keeps the last one", async () => {
@@ -215,8 +215,8 @@ describe("boards and actions API", () => {
       ["deck", 5, 3],
     ]);
     expect(await boards()).toEqual(resized);
-    // Page 2 (0-based), row 2, column 0 of 5 × 3 → the same place on a 6 × 4 page.
-    expect(resized.find((board) => board.id === DEFAULT_BOARD_ID)!.keys.some((key) => key.slot === 2 * 24 + 2 * 6)).toBe(true);
+    // Page 4 (0-based), row 0, column 0 of the seeded 5 × 2 → the same place on a 6 × 4 page.
+    expect(resized.find((board) => board.id === DEFAULT_BOARD_ID)!.keys.some((key) => key.slot === 4 * 24)).toBe(true);
     expect((await client.next(2)).map((event) => event.type)).toEqual(["boards-changed", "boards-changed"]);
     client.close();
 
@@ -241,7 +241,10 @@ describe("boards and actions API", () => {
     const response = await send("/api/boards/grid", "PUT", { kind: "deck", columns: 3, rows: 2 });
     expect(response.status).toBe(409);
     expect(((await response.json()) as { code?: string }).code).toBe("grid-full");
-    expect((await boards()).every((board) => board.columns === 5 && board.rows === 3)).toBe(true);
+    expect((await boards()).map(({ kind, columns, rows }) => [kind, columns, rows])).toEqual([
+      ["voice", 5, 2],
+      ["deck", 5, 3],
+    ]);
   });
 
   it("validates input and reports unknown boards", async () => {

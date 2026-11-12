@@ -1,7 +1,7 @@
 import type { UiLanguage } from "../protocol";
 import type { Action } from "./actions";
 import type { Phrase } from "./phrase";
-import { DEFAULT_BOARD_GRID, keysPerPage, MAX_BOARD_PAGES, MAX_KEY_LABEL_LENGTH, makeBoard, type Board, type BoardGrid, type Key } from "./board";
+import { DEFAULT_BOARD_GRID, MAX_KEY_LABEL_LENGTH, makeBoard, type Board, type BoardGrid, type Key } from "./board";
 import { DEFAULT_PHRASES_BY_LANGUAGE } from "../use-cases/phrases";
 
 /** Id of the built-in communication board, so it can be restored in place. */
@@ -23,9 +23,10 @@ export const DEFAULT_DECK_BOARD_NAMES: Readonly<Record<UiLanguage, string>> = {
 };
 
 /**
- * The voice and caption commands on the last five slots of a page of the communication board, by
- * position among those slots: their column on the last row when the grid has five columns. The
- * caption keys are back in the columns they had before boards had a kind, now that captions belong to Voice.
+ * Where the voice and caption commands sat on the last five slots of a page of the communication
+ * board seeded by older versions, by position among those slots: their column on the last row when the
+ * grid has five columns. New boards no longer get these keys (Voice spaces do not show them), but a
+ * caption key moved from a deck board onto a voice board still prefers its old slot here.
  */
 export const COMMUNICATION_KEYS: readonly { readonly column: number; readonly action: Action }[] = [
   { column: 0, action: { type: "voice.stop" } },
@@ -35,16 +36,19 @@ export const COMMUNICATION_KEYS: readonly { readonly column: number; readonly ac
   { column: 4, action: { type: "voice.toggleLanguage" } },
 ];
 
+/** The grid of the communication board for a new install: two rows of five, which its eight default phrases fill without an empty row. */
+export const DEFAULT_VOICE_BOARD_GRID: BoardGrid = { columns: 5, rows: 2 };
+
 /** The actions on the built-in deck board, from its first slot: the OBS actions that need no parameters. */
 export const DEFAULT_DECK_ACTIONS: readonly Action[] = [
   { type: "obs.toggleStream" },
   { type: "obs.toggleRecord" },
 ];
 
-/** The communication (voice) board for a new install: the default phrases plus the voice and caption commands. */
-export function buildDefaultBoard(language: UiLanguage, grid: BoardGrid = DEFAULT_BOARD_GRID): Board {
-  const phraseKeys: Key[] = DEFAULT_PHRASES_BY_LANGUAGE[language].map((text, slot) => ({ slot, action: { type: "voice.speak", text } }));
-  return withCommunicationKeys(phraseKeys, language, grid);
+/** The communication (voice) board for a new install: the default phrases, from its first slot. */
+export function buildDefaultBoard(language: UiLanguage, grid: BoardGrid = DEFAULT_VOICE_BOARD_GRID): Board {
+  const keys: Key[] = DEFAULT_PHRASES_BY_LANGUAGE[language].map((text, slot) => ({ slot, action: { type: "voice.speak", text } }));
+  return makeBoard(DEFAULT_BOARD_ID, DEFAULT_BOARD_NAMES[language], "voice", keys, grid);
 }
 
 /** The deck board for a new install. */
@@ -59,8 +63,8 @@ export function buildDefaultBoards(language: UiLanguage): Board[] {
 }
 
 /**
- * The communication board built from phrases saved by older versions. Phrases keep their slots; the
- * voice commands go on the last five slots of the first page where they are free.
+ * The communication board built from phrases saved by older versions. Phrases keep their slots, on the
+ * five-by-three grid those versions laid them out on.
  */
 export function boardFromPhrases(phrases: readonly Phrase[], language: UiLanguage): Board {
   const keys = phrases.map((phrase): Key => {
@@ -68,26 +72,10 @@ export function boardFromPhrases(phrases: readonly Phrase[], language: UiLanguag
     const action: Action = { type: "voice.speak", text: phrase.text.trim() };
     return label ? { slot: phrase.slot, label, action } : { slot: phrase.slot, action };
   });
-  return withCommunicationKeys(keys, language);
+  return makeBoard(DEFAULT_BOARD_ID, DEFAULT_BOARD_NAMES[language], "voice", keys, DEFAULT_BOARD_GRID);
 }
 
-function withCommunicationKeys(keys: Key[], language: UiLanguage, grid: BoardGrid = DEFAULT_BOARD_GRID): Board {
-  const start = commandSlotsStart(new Set(keys.map((key) => key.slot)), keysPerPage(grid));
-  const commandKeys = start === null ? [] : COMMUNICATION_KEYS.map(({ column, action }): Key => ({ slot: start + column, action }));
-  return makeBoard(DEFAULT_BOARD_ID, DEFAULT_BOARD_NAMES[language], "voice", [...keys, ...commandKeys], grid);
-}
-
-/** First slot of the communication commands on a page of `pageSize` keys: its last `COMMUNICATION_KEYS.length` slots. */
+/** First slot of the old communication commands on a page of `pageSize` keys: its last `COMMUNICATION_KEYS.length` slots. */
 export function communicationKeysStart(pageSize: number, page = 0): number {
   return (page + 1) * pageSize - COMMUNICATION_KEYS.length;
-}
-
-/** Start of the last slots of the first page where they are all free, or null when every page is busy. */
-function commandSlotsStart(used: ReadonlySet<number>, pageSize: number): number | null {
-  for (let page = 0; page < MAX_BOARD_PAGES; page += 1) {
-    const start = communicationKeysStart(pageSize, page);
-    const slots = COMMUNICATION_KEYS.map((_, index) => start + index);
-    if (slots.every((slot) => !used.has(slot))) return start;
-  }
-  return null;
 }

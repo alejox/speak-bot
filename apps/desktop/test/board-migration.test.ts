@@ -44,12 +44,12 @@ describe("prepareBoards", () => {
     const [board, deck] = await repository.list();
     expect(deck).toMatchObject({ id: "deck", kind: "deck" });
     expect(board!.name).toBe("Comunicación");
-    expect(board!.keys.slice(0, 3)).toEqual([
+    expect(board!.keys).toEqual([
       { slot: 0, label: "Saludo", action: { type: "voice.speak", text: "Hola" } },
       { slot: 1, action: { type: "voice.speak", text: "Agua" } },
       { slot: 9, action: { type: "voice.speak", text: "Gracias" } },
     ]);
-    expect(board!.keys.slice(3).map((key) => key.slot)).toEqual([10, 11, 12, 13, 14]);
+    expect(board).toMatchObject({ columns: 5, rows: 3 });
 
     const files = await readdir(dir);
     expect(files).not.toContain("phrases.json");

@@ -159,13 +159,13 @@ describe("new boards take the current size", () => {
     expect(restored).toMatchObject({ columns: 6, rows: 4 });
   });
 
-  it("puts the communication keys on the last slots of a page of the board's grid", () => {
-    const wide = buildDefaultBoard("en", { columns: 6, rows: 4 });
-    const commands = wide.keys.filter((entry) => entry.action.type !== "voice.speak").map((entry) => entry.slot);
-    expect(commands).toEqual([19, 20, 21, 22, 23]);
-    const narrow = buildDefaultBoard("en", { columns: 4, rows: 3 });
-    const narrowCommands = narrow.keys.filter((entry) => entry.action.type !== "voice.speak").map((entry) => entry.slot);
-    expect(narrowCommands.every((slot) => slot % 12 >= 7)).toBe(true);
+  it("lays the default phrases from the first slot on any grid, with no command keys", () => {
+    for (const grid of [{ columns: 6, rows: 4 }, { columns: 4, rows: 3 }]) {
+      const seeded = buildDefaultBoard("en", grid);
+      expect(seeded).toMatchObject(grid);
+      expect(seeded.keys.map((entry) => entry.slot)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+      expect(seeded.keys.every((entry) => entry.action.type === "voice.speak")).toBe(true);
+    }
   });
 
   it("seeds moved caption keys on the last slots of the voice board's page", () => {
