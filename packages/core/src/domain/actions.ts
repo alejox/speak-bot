@@ -46,6 +46,8 @@ export type Action =
   | { readonly type: "nav.folderBack" }
   | { readonly type: "obs.switchScene"; readonly sceneName: string }
   | { readonly type: "obs.toggleMute"; readonly inputName: string }
+  /** Turns OBS audio monitoring of an input on ("monitor and output") or off ("none"). */
+  | { readonly type: "obs.toggleMonitor"; readonly inputName: string }
   | { readonly type: "obs.toggleStream" }
   | { readonly type: "obs.toggleRecord" }
   | { readonly type: "obs.toggleSourceVisibility"; readonly sceneName: string; readonly sourceName: string }
@@ -169,6 +171,7 @@ export const ACTION_REGISTRY: { readonly [T in ActionType]: ActionDefinition } =
   "nav.folderBack": define("nav.folderBack", "navigation", "arrow-left", { runsOn: "client", userSelectable: false }),
   "obs.switchScene": define("obs.switchScene", "obs", "scene", { requiresObs: true, params: [sceneParam] }),
   "obs.toggleMute": define("obs.toggleMute", "obs", "mic", { requiresObs: true, params: [inputParam] }),
+  "obs.toggleMonitor": define("obs.toggleMonitor", "obs", "headphones", { requiresObs: true, params: [inputParam] }),
   "obs.toggleStream": define("obs.toggleStream", "obs", "broadcast", { requiresObs: true }),
   "obs.toggleRecord": define("obs.toggleRecord", "obs", "record", { requiresObs: true }),
   "obs.toggleSourceVisibility": define("obs.toggleSourceVisibility", "obs", "eye", {

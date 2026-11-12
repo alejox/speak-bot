@@ -23,7 +23,7 @@ export interface ObsSceneSource {
   readonly sourceName: string;
 }
 
-/** What deck keys reflect: the program scene, muted inputs, whether OBS streams or records and which sources are hidden. */
+/** What deck keys reflect: the program scene, muted and monitored inputs, whether OBS streams or records and which sources are hidden. */
 export interface ObsState {
   readonly currentScene: string | null;
   readonly mutedInputs: readonly string[];
@@ -31,6 +31,8 @@ export interface ObsState {
   readonly recording: boolean;
   /** Scene items hidden in OBS; missing when unknown (OBS could not list them, or an older desktop). */
   readonly hiddenSources?: readonly ObsSceneSource[];
+  /** Inputs OBS monitors (monitor only, or monitor and output); missing when unknown (an older desktop). */
+  readonly monitoredInputs?: readonly string[];
 }
 
 export interface ObsInput {
@@ -83,6 +85,8 @@ export interface ObsController {
   listSceneItems(sceneName: string): Promise<ObsSceneItem[]>;
   switchScene(sceneName: string): Promise<void>;
   toggleMute(inputName: string): Promise<void>;
+  /** Monitoring off ("none") turns on as "monitor and output"; any monitoring turns off. */
+  toggleMonitor(inputName: string): Promise<void>;
   toggleStream(): Promise<void>;
   toggleRecord(): Promise<void>;
   toggleSourceVisibility(sceneName: string, sourceName: string): Promise<void>;

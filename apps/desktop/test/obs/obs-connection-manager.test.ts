@@ -37,7 +37,14 @@ describe("ObsConnectionManager", () => {
 
     expect(FakeObsClient.created[0]!.connects).toEqual([{ url: "ws://127.0.0.1:4455", password: "s3cret-pass" }]);
     expect(statuses()).toEqual([{ status: "connecting" }, { status: "connected" }]);
-    expect(manager.state()).toEqual({ currentScene: "Main", mutedInputs: ["Mic"], streaming: false, recording: true, hiddenSources: [] });
+    expect(manager.state()).toEqual({
+      currentScene: "Main",
+      mutedInputs: ["Mic"],
+      streaming: false,
+      recording: true,
+      hiddenSources: [],
+      monitoredInputs: ["Desktop Audio"],
+    });
     expect(events.at(-1)).toEqual({ type: "state", state: manager.state() });
   });
 
@@ -133,7 +140,54 @@ describe("ObsConnectionManager", () => {
     client.emit("CurrentProgramSceneChanged", { sceneName: 42 });
 
     expect(events.map((event) => event.type)).toEqual(["state", "state", "state", "state", "state"]);
-    expect(manager.state()).toEqual({ currentScene: "BRB", mutedInputs: ["Desktop Audio"], streaming: true, recording: false, hiddenSources: [] });
+    expect(manager.state()).toEqual({
+      currentScene: "BRB",
+      mutedInputs: ["Desktop Audio"],
+      streaming: true,
+      recording: false,
+      hiddenSources: [],
+      monitoredInputs: ["Desktop Audio"],
+    });
+  });
+
+  it("tracks which inputs OBS monitors and ignores malformed monitor events", async () => {
+    await manager.connect(config);
+    const client = FakeObsClient.created[0]!;
+    events = [];
+
+    client.emit("InputAudioMonitorTypeChanged", { inputName: "Mic", monitorType: "OBS_MONITORING_TYPE_MONITOR_ONLY" });
+    expect(manager.state().monitoredInputs).toEqual(["Desktop Audio", "Mic"]);
+    client.emit("InputAudioMonitorTypeChanged", { inputName: "Desktop Audio", monitorType: "OBS_MONITORING_TYPE_NONE" });
+    expect(manager.state().monitoredInputs).toEqual(["Mic"]);
+    client.emit("InputAudioMonitorTypeChanged", { inputName: "Mic", monitorType: "OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT" });
+    expect(manager.state().monitoredInputs).toEqual(["Mic"]);
+    client.emit("InputAudioMonitorTypeChanged", { inputName: 5, monitorType: "OBS_MONITORING_TYPE_NONE" });
+    client.emit("InputAudioMonitorTypeChanged", { inputName: "Mic", monitorType: 1 });
+
+    expect(events.map((event) => event.type)).toEqual(["state", "state", "state"]);
+    expect(manager.state().monitoredInputs).toEqual(["Mic"]);
+  });
+
+  it("toggles monitoring: none turns on as monitor and output, any monitoring turns off", async () => {
+    await manager.connect(config);
+    const client = FakeObsClient.created[0]!;
+    const types: Record<string, string> = { Mic: "OBS_MONITORING_TYPE_NONE", Music: "OBS_MONITORING_TYPE_MONITOR_ONLY", "Desktop Audio": "OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT" };
+    client.responses.GetInputAudioMonitorType = (data) => ({ monitorType: types[data?.inputName as string] });
+    client.calls.length = 0;
+
+    await manager.toggleMonitor("Mic");
+    await manager.toggleMonitor("Music");
+    await manager.toggleMonitor("Desktop Audio");
+
+    expect(client.calls.filter((call) => call.type === "SetInputAudioMonitorType")).toEqual([
+      { type: "SetInputAudioMonitorType", data: { inputName: "Mic", monitorType: "OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT" } },
+      { type: "SetInputAudioMonitorType", data: { inputName: "Music", monitorType: "OBS_MONITORING_TYPE_NONE" } },
+      { type: "SetInputAudioMonitorType", data: { inputName: "Desktop Audio", monitorType: "OBS_MONITORING_TYPE_NONE" } },
+    ]);
+    client.responses.GetInputAudioMonitorType = () => {
+      throw new Error("The specified input does not support audio.");
+    };
+    await expect(manager.toggleMonitor("Camera")).rejects.toThrow(ObsRequestError);
   });
 
   describe("source visibility", () => {

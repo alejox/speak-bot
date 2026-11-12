@@ -16,6 +16,9 @@ const AUTHENTICATION_FAILED = 4009;
 const FIRST_RETRY_MS = 1000;
 const MAX_RETRY_MS = 30_000;
 const DEFAULT_ATTEMPT_TIMEOUT_MS = 10_000;
+/** obs-websocket monitor types: off, heard only on the computer, or heard on the computer and in the output. */
+const MONITOR_NONE = "OBS_MONITORING_TYPE_NONE";
+const MONITOR_AND_OUTPUT = "OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT";
 
 const EMPTY_STATE: ObsState = { currentScene: null, mutedInputs: [], streaming: false, recording: false };
 
@@ -115,6 +118,13 @@ export class ObsConnectionManager implements ObsController {
 
   async toggleMute(inputName: string): Promise<void> {
     await this.request("ToggleInputMute", { inputName });
+  }
+
+  async toggleMonitor(inputName: string): Promise<void> {
+    const { monitorType } = await this.request("GetInputAudioMonitorType", { inputName });
+    if (typeof monitorType !== "string") throw new ObsRequestError("OBS did not report a monitor type.");
+    // Turning it on keeps the input in the stream and recording; any kind of monitoring turns off.
+    await this.request("SetInputAudioMonitorType", { inputName, monitorType: monitorType === MONITOR_NONE ? MONITOR_AND_OUTPUT : MONITOR_NONE });
   }
 
   async toggleStream(): Promise<void> {
@@ -223,6 +233,15 @@ export class ObsConnectionManager implements ObsController {
         this.setState({ mutedInputs: inputMuted ? [...others, inputName] : others });
       }),
     );
+    // Part of the Inputs events obs-websocket sends by default, like InputVolumeChanged below.
+    client.on(
+      "InputAudioMonitorTypeChanged",
+      guard(({ inputName, monitorType }) => {
+        if (typeof inputName !== "string" || typeof monitorType !== "string") return;
+        const others = (this.currentState.monitoredInputs ?? []).filter((name) => name !== inputName);
+        this.setState({ monitoredInputs: monitorType === MONITOR_NONE ? others : [...others, inputName] });
+      }),
+    );
     // Part of the Inputs events obs-websocket sends by default (unlike the high-volume InputVolumeMeters).
     client.on(
       "InputVolumeChanged",
@@ -298,11 +317,16 @@ export class ObsConnectionManager implements ObsController {
     const read = (type: string, data?: Record<string, unknown>) => client.call(type, data).catch(() => ({}) as Record<string, unknown>);
     const [scenes, stream, record, inputs] = await Promise.all([read("GetSceneList"), read("GetStreamStatus"), read("GetRecordStatus"), read("GetInputList")]);
     const names = asArray(inputs.inputs).flatMap((input) => (typeof input.inputName === "string" ? [input.inputName] : []));
-    // Inputs without audio reject GetInputMute; they are simply never muted.
+    // Inputs without audio reject GetInputMute and GetInputAudioMonitorType; they are never muted or monitored.
     // Without a scene list the hidden sources stay unknown; a scene OBS cannot list has nothing hidden.
     const sceneNames = Array.isArray(scenes.scenes) ? asArray(scenes.scenes).flatMap((scene) => (typeof scene.sceneName === "string" ? [scene.sceneName] : [])) : null;
-    const [mutes, itemLists] = await Promise.all([
+    const monitored = async (name: string) => {
+      const { monitorType } = await read("GetInputAudioMonitorType", { inputName: name });
+      return typeof monitorType === "string" && monitorType !== MONITOR_NONE ? [name] : [];
+    };
+    const [mutes, monitors, itemLists] = await Promise.all([
       Promise.all(names.map(async (name) => ((await read("GetInputMute", { inputName: name })).inputMuted === true ? [name] : []))),
+      Promise.all(names.map(monitored)),
       Promise.all((sceneNames ?? []).map(async (sceneName) => sceneItemsById((await read("GetSceneItemList", { sceneName })).sceneItems))),
     ]);
     if (generation !== this.generation) return;
@@ -313,6 +337,7 @@ export class ObsConnectionManager implements ObsController {
       streaming: stream.outputActive === true,
       recording: record.outputActive === true,
       mutedInputs: mutes.flat(),
+      monitoredInputs: monitors.flat(),
       ...(this.sceneItems ? { hiddenSources: this.hiddenSources(this.sceneItems) } : {}),
     });
   }

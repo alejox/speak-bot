@@ -73,6 +73,10 @@ export function presentKey(action: Action, context: KeyContext, key?: KeyRef): K
       // On while the input is heard (its on colour); muted is off: the off colour and a crossed-out mic.
       if (!state) return {};
       return state.mutedInputs.includes(action.inputName) ? { pressed: false, state: "muted", iconId: "mic-off" } : { pressed: true, state: "on" };
+    case "obs.toggleMonitor":
+      // An older desktop does not report monitoring: keep the plain key.
+      if (!state?.monitoredInputs) return {};
+      return toggle(state.monitoredInputs.includes(action.inputName), "on");
     case "obs.toggleStream":
       return toggle(state?.streaming, "live");
     case "obs.toggleRecord":
@@ -94,6 +98,7 @@ export function presentKey(action: Action, context: KeyContext, key?: KeyRef): K
 const ON_STATE_ACTION_TYPES: ReadonlySet<ActionType> = new Set<ActionType>([
   "captions.toggle",
   "obs.toggleMute",
+  "obs.toggleMonitor",
   "obs.toggleStream",
   "obs.toggleRecord",
   "obs.switchScene",
@@ -129,6 +134,7 @@ export function keyLabel(key: Key, boards: readonly Board[], t: Translate): stri
     case "obs.switchScene":
       return action.sceneName;
     case "obs.toggleMute":
+    case "obs.toggleMonitor":
     case "obs.inputVolume":
       return action.inputName;
     case "obs.toggleSourceVisibility":

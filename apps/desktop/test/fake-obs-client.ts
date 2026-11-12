@@ -42,7 +42,7 @@ export class FakeObsClient implements ObsClient {
   }
 }
 
-/** Typical OBS answers: two scenes, a muted mic, a desktop audio input, not streaming, recording. */
+/** Typical OBS answers: two scenes, a muted mic, a monitored desktop audio input, not streaming, recording. */
 export function obsResponses(): Record<string, Responder> {
   return {
     GetSceneList: () => ({ currentProgramSceneName: "Main", scenes: [{ sceneName: "BRB" }, { sceneName: "Main" }] }),
@@ -58,6 +58,10 @@ export function obsResponses(): Record<string, Responder> {
     GetInputMute: (data) => {
       if (data?.inputName === "Camera") throw new Error("The specified input does not support audio.");
       return { inputMuted: data?.inputName === "Mic" };
+    },
+    GetInputAudioMonitorType: (data) => {
+      if (data?.inputName === "Camera") throw new Error("The specified input does not support audio.");
+      return { monitorType: data?.inputName === "Desktop Audio" ? "OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT" : "OBS_MONITORING_TYPE_NONE" };
     },
     GetSceneItemList: () => ({ sceneItems: [{ sceneItemId: 3, sourceName: "Cam", sceneItemEnabled: true }, { sceneItemId: "bad" }] }),
     GetSceneItemId: () => ({ sceneItemId: 3 }),

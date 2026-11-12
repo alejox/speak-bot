@@ -42,7 +42,7 @@ const board = (id: string, keys: Board["keys"] = [], name = id, kind: Board["kin
 
 describe("action registry", () => {
   it("describes every action type with a category, executor side and i18n keys", () => {
-    expect(ACTION_TYPES).toHaveLength(20);
+    expect(ACTION_TYPES).toHaveLength(21);
     for (const type of ACTION_TYPES) {
       const definition = ACTION_REGISTRY[type];
       expect(definition.type).toBe(type);
@@ -63,6 +63,9 @@ describe("action registry", () => {
     expect(ACTION_REGISTRY["nav.goToBoard"].params.map((p) => [p.name, p.kind])).toEqual([["boardId", "board"]]);
     expect(ACTION_REGISTRY["obs.switchScene"].params.map((p) => [p.name, p.kind])).toEqual([["sceneName", "scene"]]);
     expect(ACTION_REGISTRY["obs.toggleMute"].params.map((p) => [p.name, p.kind])).toEqual([["inputName", "input"]]);
+    expect(ACTION_REGISTRY["obs.toggleMonitor"].params.map((p) => [p.name, p.kind])).toEqual([["inputName", "input"]]);
+    expect(ACTION_REGISTRY["obs.toggleMonitor"].requiresObs).toBe(true);
+    expect(parseAction({ type: "obs.toggleMonitor", inputName: " Mic/Aux ", extra: 1 })).toEqual({ type: "obs.toggleMonitor", inputName: " Mic/Aux " });
     expect(ACTION_REGISTRY["obs.toggleSourceVisibility"].params.map((p) => [p.name, p.kind])).toEqual([
       ["sceneName", "scene"],
       ["sourceName", "source"],
@@ -99,6 +102,8 @@ describe("parseAction", () => {
     { type: "nav.goToPage", page: "2" },
     { type: "nav.goToBoard", boardId: "" },
     { type: "obs.toggleMute", inputName: 5 },
+    { type: "obs.toggleMonitor", inputName: "" },
+    { type: "obs.toggleMonitor" },
     { type: "obs.toggleSourceVisibility", sceneName: "Main" },
   ])("rejects %j", (value) => {
     expect(() => parseAction(value)).toThrow(InvalidBoardError);

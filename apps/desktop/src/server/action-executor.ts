@@ -289,6 +289,9 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
       case "obs.toggleMute":
         await requireObs().toggleMute(action.inputName);
         return { status: 200, body: { ok: true } };
+      case "obs.toggleMonitor":
+        await requireObs().toggleMonitor(action.inputName);
+        return { status: 200, body: { ok: true } };
       case "obs.toggleStream":
         await requireObs().toggleStream();
         return { status: 200, body: { ok: true } };

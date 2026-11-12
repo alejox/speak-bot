@@ -30,6 +30,7 @@ describe("isServerEvent", () => {
       { type: "obs-state", state: { currentScene: "Main", mutedInputs: ["Mic"], streaming: true, recording: false }, at: 13 },
       { type: "obs-state", state: { currentScene: null, mutedInputs: [], streaming: false, recording: false }, at: 14 },
       { type: "obs-state", state: { currentScene: null, mutedInputs: [], streaming: false, recording: false, hiddenSources: [{ sceneName: "Main", sourceName: "Cam" }] }, at: 14 },
+      { type: "obs-state", state: { currentScene: null, mutedInputs: [], streaming: false, recording: false, monitoredInputs: ["Mic"] }, at: 14 },
       { type: "settings-changed", settings: { voiceId: "", rate: 1, deviceId: "", language: "en", captionsVisible: true }, at: 15 },
       { type: "license-changed", license: { adsFree: true, canActivate: true, maskedKey: "••••4D51", lastValidatedAt: 3 }, at: 16 },
       { type: "license-changed", license: { adsFree: false, canActivate: false }, at: 17 },
@@ -57,6 +58,8 @@ describe("isServerEvent", () => {
     expect(isServerEvent({ type: "obs-state", state: { currentScene: null, mutedInputs: [2], streaming: false, recording: false }, at: 1 })).toBe(false);
     expect(isServerEvent({ type: "obs-state", state: { currentScene: null, mutedInputs: [], streaming: false, recording: false, hiddenSources: [{ sceneName: "Main" }] }, at: 1 })).toBe(false);
     expect(isServerEvent({ type: "obs-state", state: { currentScene: null, mutedInputs: [], streaming: false, recording: false, hiddenSources: "Cam" }, at: 1 })).toBe(false);
+    expect(isServerEvent({ type: "obs-state", state: { currentScene: null, mutedInputs: [], streaming: false, recording: false, monitoredInputs: [3] }, at: 1 })).toBe(false);
+    expect(isServerEvent({ type: "obs-state", state: { currentScene: null, mutedInputs: [], streaming: false, recording: false, monitoredInputs: "Mic" }, at: 1 })).toBe(false);
     expect(isServerEvent({ type: "captions-visibility", visible: "no", at: 1 })).toBe(false);
   });
 

@@ -90,7 +90,7 @@ describe("OBS API", () => {
     expect(await getJson("/api/obs/status")).toEqual({
       enabled: true,
       status: "connected",
-      state: { currentScene: "Main", mutedInputs: ["Mic"], streaming: false, recording: true, hiddenSources: [] },
+      state: { currentScene: "Main", mutedInputs: ["Mic"], streaming: false, recording: true, hiddenSources: [], monitoredInputs: ["Desktop Audio"] },
     });
 
     await send("/api/settings", "PUT", { obs: { enabled: false } });
@@ -129,10 +129,12 @@ describe("OBS API", () => {
     await waitForStatus("connected");
     expect((await execute({ type: "obs.toggleStream" })).status).toBe(200);
     expect((await execute({ type: "obs.switchScene", sceneName: "BRB" })).status).toBe(200);
+    expect((await execute({ type: "obs.toggleMonitor", inputName: "Mic" })).status).toBe(200);
     expect(FakeObsClient.created[0]!.calls).toEqual(
       expect.arrayContaining([
         { type: "ToggleStream", data: undefined },
         { type: "SetCurrentProgramScene", data: { sceneName: "BRB" } },
+        { type: "SetInputAudioMonitorType", data: { inputName: "Mic", monitorType: "OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT" } },
       ]),
     );
 

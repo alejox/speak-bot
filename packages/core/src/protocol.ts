@@ -237,7 +237,8 @@ function isObsState(value: unknown): value is ObsState {
     state.mutedInputs.every((name) => typeof name === "string") &&
     typeof state.streaming === "boolean" &&
     typeof state.recording === "boolean" &&
-    (state.hiddenSources === undefined || (Array.isArray(state.hiddenSources) && state.hiddenSources.every(isObsSceneSource)))
+    (state.hiddenSources === undefined || (Array.isArray(state.hiddenSources) && state.hiddenSources.every(isObsSceneSource))) &&
+    (state.monitoredInputs === undefined || (Array.isArray(state.monitoredInputs) && state.monitoredInputs.every((name) => typeof name === "string")))
   );
 }
 

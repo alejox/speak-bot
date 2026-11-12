@@ -111,6 +111,7 @@ export const KEY_ICON_IDS = [
   "scene",
   "mic",
   "mic-off",
+  "headphones",
   "broadcast",
   "record",
   "eye",

@@ -29,6 +29,15 @@ describe("presentKey", () => {
     expect(presentKey({ type: "obs.switchScene", sceneName: "BRB" }, remote).pressed).toBe(false);
   });
 
+  it("marks a monitor key on while OBS monitors its input, and keeps it plain on an older desktop", () => {
+    const monitoring: KeyContext = { ...remote, obs: { ...remote.obs!, state: { ...LIVE, monitoredInputs: ["Mic"] } } };
+    expect(presentKey({ type: "obs.toggleMonitor", inputName: "Mic" }, monitoring)).toEqual({ pressed: true, state: "on" });
+    expect(presentKey({ type: "obs.toggleMonitor", inputName: "Desktop" }, monitoring)).toEqual({ pressed: false });
+    expect(presentKey({ type: "obs.toggleMonitor", inputName: "Mic" }, remote)).toEqual({});
+    expect(hasOnState("obs.toggleMonitor")).toBe(true);
+    expect(keyLabel(key({ type: "obs.toggleMonitor", inputName: "Mic" }), boards, t)).toBe("Mic");
+  });
+
   it("marks the captions key on while captions are visible, and swaps its icon while they are hidden", () => {
     expect(presentKey({ type: "captions.toggle" }, remote)).toEqual({ pressed: false, iconId: "captions-off" });
     expect(presentKey({ type: "captions.toggle" }, { ...remote, captionsVisible: true })).toEqual({ pressed: true, state: "on" });
