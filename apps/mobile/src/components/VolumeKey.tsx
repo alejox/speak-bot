@@ -1,4 +1,5 @@
 import { contrastTextColor } from "@speed-deck/core";
+import { Headphones, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { forwardRef, useId, type CSSProperties, type HTMLAttributes } from "react";
 import { useInputVolume, type InputVolumeServices } from "../app/use-input-volume";
 import { useT } from "../i18n/I18nProvider";
@@ -15,6 +16,12 @@ interface VolumeKeyProps {
   vertical: boolean;
   /** OBS mutes the input: the key looks muted, and its slider still sets the volume (as in OBS). */
   muted?: boolean;
+  /** OBS monitors the input (heard on the computer). */
+  monitored?: boolean;
+  /** Mutes or unmutes the input in OBS; without it the key has no Mute button. */
+  onToggleMute?: () => void;
+  /** Turns OBS monitoring of the input on or off; without it the key has no Monitor button. */
+  onToggleMonitor?: () => void;
   /** Why the key cannot be used right now (no computer, OBS off); undefined when it can. */
   disabledReason?: string;
   services: InputVolumeServices | null;
@@ -33,7 +40,7 @@ interface VolumeKeyProps {
  * or dragging the slider only changes the volume; the key's menu opens from its title row or its "more" button.
  */
 export const VolumeKey = forwardRef<HTMLInputElement, VolumeKeyProps>(function VolumeKey(
-  { label, inputName, iconId, color, vertical, muted = false, disabledReason, services, selected = false, className, handleProps, dropProps, onSliderKeyDown },
+  { label, inputName, iconId, color, vertical, muted = false, monitored = false, onToggleMute, onToggleMonitor, disabledReason, services, selected = false, className, handleProps, dropProps, onSliderKeyDown },
   ref,
 ) {
   const t = useT();
@@ -43,6 +50,9 @@ export const VolumeKey = forwardRef<HTMLInputElement, VolumeKeyProps>(function V
   const disabled = reason !== undefined || volume.percent === null;
   const percent = volume.percent ?? 0;
   const valueText = muted ? t("volume.mutedValue", { percent }) : t("volume.value", { percent });
+  // A mic-like key (its icon is the mic) mutes with a mic; any other input with a speaker.
+  const isMic = iconId === "mic";
+  const MuteIcon = isMic ? (muted ? MicOff : Mic) : muted ? VolumeX : Volume2;
   const colors: CSSProperties | undefined = color
     ? ({ "--key-color": color, backgroundColor: color, color: contrastTextColor(color), borderColor: color } as CSSProperties)
     : undefined;
@@ -92,6 +102,38 @@ export const VolumeKey = forwardRef<HTMLInputElement, VolumeKeyProps>(function V
         onKeyDown={onSliderKeyDown}
         onChange={(event) => volume.change(Number(event.target.value))}
       />
+      {(onToggleMute || onToggleMonitor) && (
+        <div className="deck-volume-toggles">
+          {onToggleMute && (
+            <button
+              type="button"
+              className="deck-volume-toggle"
+              aria-label={t("volume.mute", { input: inputName })}
+              title={t("volume.mute", { input: inputName })}
+              aria-pressed={muted}
+              aria-describedby={reason ? reasonId : undefined}
+              disabled={reason !== undefined}
+              onClick={onToggleMute}
+            >
+              <MuteIcon size={20} aria-hidden="true" />
+            </button>
+          )}
+          {onToggleMonitor && (
+            <button
+              type="button"
+              className="deck-volume-toggle"
+              aria-label={t("volume.monitor", { input: inputName })}
+              title={monitored ? t("volume.monitoring") : t("volume.monitor", { input: inputName })}
+              aria-pressed={monitored}
+              aria-describedby={reason ? reasonId : undefined}
+              disabled={reason !== undefined}
+              onClick={onToggleMonitor}
+            >
+              <Headphones size={20} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      )}
       {reason && (
         <span id={reasonId} className="deck-volume-reason">
           {reason}

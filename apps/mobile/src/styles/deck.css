@@ -591,6 +591,54 @@
   font-weight: var(--weight-semibold);
 }
 
+/*
+ * Mute and Monitor at the bottom of a volume key: outlined in the key's text colour (which contrasts with
+ * the key), filled with it while on, so they read on any key colour. Each is at least a 44px target.
+ */
+.deck-volume-toggles {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  gap: var(--space-1);
+}
+
+.deck-volume-toggle {
+  flex: 1 1 0;
+  min-width: 44px;
+  max-width: 4rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 2px solid color-mix(in srgb, currentColor 70%, transparent);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.deck-volume-toggle[aria-pressed="true"] {
+  background: currentColor;
+  border-color: currentColor;
+}
+
+/* The icon of a pressed toggle takes the key's own colour, cut out of the filled button. */
+.deck-volume-toggle[aria-pressed="true"] svg {
+  color: var(--key-color, var(--key-bg));
+}
+
+.deck-volume-toggle:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.deck-volume-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .deck-volume-reason {
   font-size: var(--text-sm);
   text-align: center;

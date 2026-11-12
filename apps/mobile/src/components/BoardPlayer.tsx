@@ -290,6 +290,18 @@ export function BoardPlayer({
   // A folder's Back key stays where it is: no menu, no moving it, nothing dropped on it.
   const isFixedSlot = (slot: number) => isFolderBoard(board) && slot === FOLDER_BACK_SLOT;
 
+  // A volume key's Mute and Monitor buttons: they run OBS actions straight away, also where the deck is read-only.
+  const volumeToggles = (inputName: string) => {
+    const state = context.obs?.state;
+    return {
+      muted: state?.mutedInputs.includes(inputName) ?? false,
+      // An older desktop does not report monitoring: the button shows it off.
+      monitored: state?.monitoredInputs?.includes(inputName) ?? false,
+      onToggleMute: () => onRun({ type: "obs.toggleMute", inputName }),
+      onToggleMonitor: () => onRun({ type: "obs.toggleMonitor", inputName }),
+    };
+  };
+
   const keyMenuHandlers = (slot: number) =>
     canEdit && !isFixedSlot(slot)
       ? {
@@ -501,7 +513,7 @@ export function BoardPlayer({
                   iconId={keyLook(key).iconId}
                   color={key.color}
                   vertical={isTransposed ? span.columns > span.rows : span.rows > span.columns}
-                  muted={context.obs?.state?.mutedInputs.includes(key.action.inputName) ?? false}
+                  {...volumeToggles(key.action.inputName)}
                   disabledReason={reason}
                   services={volumes}
                   selected={selectedSlot === slot}
@@ -614,7 +626,7 @@ export function BoardPlayer({
                   iconId={keyLook(key).iconId}
                   color={key.color}
                   vertical={!isPortraitBoard}
-                  muted={context.obs?.state?.mutedInputs.includes(key.action.inputName) ?? false}
+                  {...volumeToggles(key.action.inputName)}
                   disabledReason={presentation.disabledReason ? t(presentation.disabledReason) : undefined}
                   services={volumes}
                 />

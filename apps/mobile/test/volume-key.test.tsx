@@ -149,6 +149,42 @@ describe("volume slider keys", () => {
     expect(screen.getByRole("menu")).toBeInTheDocument();
   });
 
+  it("carries Mute and Monitor buttons that run the OBS actions and show the OBS state", async () => {
+    const executed = (requests: { url: string; body: unknown }[]) =>
+      requests.filter((request) => request.url === "/api/actions/execute").map((request) => (request.body as { action: unknown }).action);
+    const { requests, user } = await openDeck([volume(0, 3, 1), volume(1, 3, 1, "Mic")], {
+      obs: { enabled: true, status: "connected", state: { currentScene: "Main", mutedInputs: ["Mic"], streaming: false, recording: false, monitoredInputs: ["Music"] } },
+    } as Partial<DesktopState>);
+    await waitFor(() => expect(screen.getByRole("slider", { name: "Music" })).toBeEnabled());
+    const muteMusic = within(cellOf(0)!).getByRole("button", { name: "Mute Music" });
+    const monitorMusic = within(cellOf(0)!).getByRole("button", { name: "Monitor Music" });
+    expect(muteMusic).toHaveAttribute("aria-pressed", "false");
+    expect(monitorMusic).toHaveAttribute("aria-pressed", "true");
+    expect(within(cellOf(1)!).getByRole("button", { name: "Mute Mic" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(cellOf(1)!).getByRole("button", { name: "Monitor Mic" })).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(muteMusic);
+    await user.click(monitorMusic);
+    await waitFor(() =>
+      expect(executed(requests)).toEqual([
+        { type: "obs.toggleMute", inputName: "Music" },
+        { type: "obs.toggleMonitor", inputName: "Music" },
+      ]),
+    );
+  });
+
+  it("disables Mute and Monitor while OBS is not connected", async () => {
+    const state = desktopState();
+    state.obs = { ...state.obs, status: "disconnected" };
+    await openDeck([volume(0, 2, 1)], { obs: state.obs });
+    await screen.findByRole("slider", { name: "Music" }, { timeout: 5000 });
+    for (const name of ["Mute Music", "Monitor Music"]) {
+      const button = within(cellOf(0)!).getByRole("button", { name });
+      expect(button).toBeDisabled();
+      expect(button).toHaveAccessibleDescription("OBS is not connected.");
+    }
+  });
+
   it("is disabled with a reason when the input is not in OBS or OBS is not connected", async () => {
     await openDeck([volume(0, 2, 1), volume(1, 2, 1, "Gone")]);
     const gone = await screen.findByRole("slider", { name: "Gone" }, { timeout: 5000 });

@@ -1,5 +1,5 @@
 import { makeBoard, type Board, type Key } from "@speed-deck/core";
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { boardOf, desktopState, renderRemoteApp, setScreen, speakKey } from "./app-fakes";
 import { goTo } from "./i18n-helpers";
@@ -164,6 +164,20 @@ describe("the volume keys on a phone, while playing", () => {
     expect(music).not.toHaveClass("deck-volume-muted");
     expect(mic).toHaveClass("deck-volume-muted");
     expect(within(strip).getByRole("slider", { name: "Music" })).toBeEnabled();
+  });
+
+  it.each([PHONE_SIDEWAYS, PHONE_UPRIGHT])("puts Mute and Monitor under each fader at $width x $height, playable without editing", async (size) => {
+    setScreen(size);
+    const { requests, user } = await openDeck(deviceBoard(), { columns: 6, rows: 3 }, ["Mic"]);
+    const strip = mixer()!;
+    const mic = within(strip).getByRole("slider", { name: "Mic" }).closest<HTMLElement>(".deck-volume")!;
+    const mute = within(mic).getByRole("button", { name: "Mute Mic" });
+    expect(mute).toHaveAttribute("aria-pressed", "true");
+    expect(within(mic).getByRole("button", { name: "Monitor Mic" })).toHaveAttribute("aria-pressed", "false");
+    await user.click(mute);
+    await waitFor(() =>
+      expect(requests).toContainEqual({ method: "POST", url: "/api/actions/execute", body: { action: { type: "obs.toggleMute", inputName: "Mic" } } }),
+    );
   });
 
   it("lays the faders under the keys when the phone is upright", async () => {

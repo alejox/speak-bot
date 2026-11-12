@@ -148,7 +148,8 @@
 
 .deck-mixer .deck-key.deck-volume {
   --volume-thumb: 28px;
-  width: 5.25rem;
+  /* Room for Mute and Monitor side by side under the fader. */
+  width: 6.25rem;
   height: 100%;
   padding: var(--space-2) var(--space-1);
   gap: var(--space-1);
@@ -177,6 +178,10 @@
   width: var(--compact-target);
 }
 
+.deck-mixer .deck-volume-toggle {
+  max-width: none;
+}
+
 /* Upright: the faders lie under the keys, one row each, the slider across the whole width. */
 .app-space .deck-compact .deck-stage-upright {
   flex-direction: column;
@@ -191,17 +196,28 @@
   height: auto;
   flex-direction: row;
   align-items: center;
-  padding: var(--space-1) var(--space-3);
-  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+  gap: var(--space-2);
 }
 
 /* A fixed head, so every slider starts at the same place, like faders on a mixer. */
 .deck-stage-upright .deck-mixer .deck-volume-head {
-  flex: 0 0 min(10.5rem, 45%);
+  flex: 0 0 min(10.5rem, 40%);
   min-width: 0;
   flex-direction: row;
   justify-content: flex-start;
   gap: var(--space-2);
+}
+
+/* Upright, the pressed Mute button already says muted: the name keeps the room the word took. */
+.deck-stage-upright .deck-mixer .deck-volume-muted .deck-volume-value {
+  display: none;
+}
+
+/* Upright, Mute and Monitor close the row at the right. */
+.deck-stage-upright .deck-mixer .deck-volume-toggle {
+  flex: none;
+  width: 44px;
 }
 
 .deck-stage-upright .deck-mixer .deck-volume-range {
