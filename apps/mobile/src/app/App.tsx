@@ -424,7 +424,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   onDeleteKey={canEditBoard ? deck.clearKey : undefined}
                   onMoveKey={canEditBoard ? deck.moveKey : undefined}
                   compact={isCompactSpace}
-                  fitKeys={usesComposerSheet}
+                  keepsGrid={usesComposerSheet}
                   // On a phone the Voice pager sits right before Write; "+" opens a new page ready for its first phrase.
                   renderPager={
                     usesComposerSheet

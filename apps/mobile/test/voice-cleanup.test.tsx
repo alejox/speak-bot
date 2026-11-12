@@ -93,7 +93,7 @@ describe("the Edit keys toggle on a phone's Voice space", () => {
 });
 
 describe("caption, Repeat, Stop and language keys in the Voice space", () => {
-  it.each([PHONE_SIDEWAYS, TABLET])("are not drawn at $width x $height, and fitted phrases close the gap", async (size) => {
+  it.each([PHONE_SIDEWAYS, TABLET])("are not drawn at $width x $height, their cells left as blank places", async (size) => {
     setScreen(size);
     renderLocalApp({ boards: [withCommands()] });
     await screen.findByRole("button", { name: "Hello" }, { timeout: 5000 });
@@ -101,7 +101,11 @@ describe("caption, Repeat, Stop and language keys in the Voice space", () => {
       expect(within(grid()).queryByRole("button", { name: new RegExp(`^${name}`) })).not.toBeInTheDocument();
     }
     expect(within(grid()).getByRole("button", { name: "Water" })).toBeInTheDocument();
-    if (size === PHONE_SIDEWAYS) expect(within(grid()).getAllByRole("listitem")).toHaveLength(3);
+    // W8: the phone keeps the whole grid too, so Water stays on its own cell after the blank places.
+    if (size === PHONE_SIDEWAYS) {
+      expect(within(grid()).getAllByRole("button")).toHaveLength(3);
+      expect(grid().querySelector('[data-slot="8"]')).toContainElement(within(grid()).getByRole("button", { name: "Water" }));
+    }
   });
 
   it("stay stored, and are never offered for a new Voice key", async () => {

@@ -41,8 +41,9 @@ describe("the Voice space on a phone, while playing", () => {
     expect(screen.queryByRole("button", { name: "Previous page" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Add a key/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Options for key/ })).not.toBeInTheDocument();
-    // No empty slots: only the three keys are drawn.
-    expect(within(grid()).getAllByRole("listitem")).toHaveLength(3);
+    // W8: the board's whole 4 x 3 grid, as when editing; the empty cells are blank space, the three keys the only buttons.
+    expect(within(grid()).getAllByRole("listitem")).toHaveLength(12);
+    expect(within(grid()).getAllByRole("button")).toHaveLength(3);
     // W7: only full keys on a phone, like the Deck; the chips' row goes and the keys get its height.
     expect(screen.queryByRole("group", { name: "Quick phrases" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Yes" })).not.toBeInTheDocument();

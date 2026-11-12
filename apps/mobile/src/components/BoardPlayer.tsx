@@ -5,7 +5,6 @@ import type { BoardNavigation } from "../app/use-boards";
 import type { KeyRun } from "../app/use-key-runner";
 import { KEY_STATE_LABELS, keyFillColor, keyLabel, keyLook, presentKey, type KeyContext } from "../app/key-presentation";
 import { displayedCellIndexes } from "../app/board-display";
-import { fitKeyGrid } from "../app/fit-key-grid";
 import { hiddenKeySlots } from "../app/voice-keys";
 import type { InputVolumeServices } from "../app/use-input-volume";
 import { PORTRAIT_BOARD_QUERY, useMediaQuery } from "../app/use-media-query";
@@ -63,9 +62,6 @@ function usedExtent(keys: readonly (Key | undefined)[], columns: number): { colu
   return { columns: usedColumns, rows: usedRows };
 }
 
-/** The space between keys on a phone (--deck-gap, --space-2), which the fitted layout leaves between them. */
-const FIT_GAP = 8;
-
 /** The page controls handed to a pager drawn outside the deck (the Voice actions on a phone). */
 export interface PagerControls {
   /** 0-based page on screen, and how many pages there are. */
@@ -116,10 +112,11 @@ interface BoardPlayerProps {
   /** Reads, sets and follows OBS input volumes for volume keys; null in phone-only mode. */
   volumes?: InputVolumeServices | null;
   /**
-   * With `compact`, while playing: the keys are laid out in reading order on the columns × rows that make
-   * them largest in the room (fitKeyGrid), instead of on the board's own grid. Editing keeps the real grid.
+   * With `compact`, while playing: the page keeps the board's whole grid (every column and row, turned
+   * upright like when editing, empty cells as blank space), so it looks exactly like the page being edited,
+   * and the cells stretch to fill the room. Without it a playing page drops its empty rows and columns.
    */
-  fitKeys?: boolean;
+  keepsGrid?: boolean;
   /** Draws the pager outside the deck (after it) instead of under the keys. */
   renderPager?: (pager: PagerControls) => ReactNode;
 }
@@ -140,7 +137,7 @@ export function BoardPlayer({
   variant = "full",
   volumes = null,
   compact = false,
-  fitKeys = false,
+  keepsGrid = false,
   renderPager,
 }: BoardPlayerProps) {
   const t = useT();
@@ -167,10 +164,6 @@ export function BoardPlayer({
   const isPortraitBoard = useMediaQuery(PORTRAIT_BOARD_QUERY) && variant === "full";
   // An empty page opened past the last one; it becomes a real page once a key is added there.
   const [newPage, setNewPage] = useState<{ boardId: string; page: number } | null>(null);
-  // The room the fitted layout fills, measured from the grid's box.
-  const fits = fitKeys && compact && !canEdit;
-  const [areaElement, setAreaElement] = useState<HTMLDivElement | null>(null);
-  const [room, setRoom] = useState({ width: 0, height: 0 });
 
   const { board, position } = navigation;
   const pageCount = board ? boardPageCount(board) : 1;
@@ -203,41 +196,20 @@ export function BoardPlayer({
 
   useEffect(() => () => cancelLongPress(), []);
 
-  useEffect(() => {
-    if (!fits || !areaElement || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (!entry) return;
-      const { width, height } = entry.contentRect;
-      setRoom((current) => (current.width === width && current.height === height ? current : { width, height }));
-    });
-    observer.observe(areaElement);
-    return () => observer.disconnect();
-  }, [fits, areaElement]);
-
   if (!board || !position) return null;
 
   const isTransposed = isPortraitBoard && board.columns !== board.rows;
   const cellIndexes = displayedCellIndexes(board.columns, board.rows, isTransposed);
-  // Playing on a phone: no empty cells, and the keys get the room of the rows and columns nobody uses.
+  // Playing on a phone: the editing tools go away (and, unless the page keeps its whole grid, its empty cells).
   const isPlaying = compact && !canEdit;
   // There the volume keys leave the grid for the mixer, so their cells count as free.
   const gridKeys = isPlaying ? keys.map((key) => (isVolumeKey(key) ? undefined : key)) : keys;
   const mixerKeys: VolumeKeyOnBoard[] = isPlaying ? keys.flatMap((key, index) => (isVolumeKey(key) ? [{ key, slot: page * pageSize + index }] : [])) : [];
-  const extent = isPlaying ? usedExtent(gridKeys, board.columns) : { columns: board.columns, rows: board.rows };
-  // Fitted: the keys in reading order on the columns and rows that make them largest (sizes once measured).
-  const fit = fits ? fitKeyGrid({ count: gridKeys.filter(Boolean).length, width: room.width, height: room.height, gap: FIT_GAP }) : null;
+  // A playing page drops its empty cells, rows and columns, unless it keeps the board's whole grid (Voice on a phone).
+  const dropsEmpty = isPlaying && !keepsGrid;
+  const extent = dropsEmpty ? usedExtent(gridKeys, board.columns) : { columns: board.columns, rows: board.rows };
   // The page's drawn columns and rows; its box reads them too, to keep room for keys large enough to use.
-  const gridSize = (
-    fit
-      ? {
-          "--grid-columns": fit.columns,
-          "--grid-rows": fit.rows,
-          ...(fit.keyWidth > 0 ? { "--fit-key-width": `${Math.floor(fit.keyWidth)}px`, "--fit-key-height": `${Math.floor(fit.keyHeight)}px` } : {}),
-        }
-      : { "--grid-columns": isTransposed ? extent.rows : extent.columns, "--grid-rows": isTransposed ? extent.columns : extent.rows }
-  ) as CSSProperties;
-  // Fitted keys follow the stored order (no turn); otherwise cells come in the order they are drawn.
-  const drawnIndexes = fit ? keys.map((_, index) => index) : cellIndexes;
+  const gridSize = { "--grid-columns": isTransposed ? extent.rows : extent.columns, "--grid-rows": isTransposed ? extent.columns : extent.rows } as CSSProperties;
   const shownPageCount = Math.max(pageCount, page + 1);
   // Past the last page, "next" opens a new one for editors, up to the board limit.
   const opensNewPage = canEdit && page >= shownPageCount - 1 && shownPageCount < MAX_BOARD_PAGES;
@@ -416,22 +388,22 @@ export function BoardPlayer({
 
   // The grid's own box, so wide layouts can size the keys to the room it gets.
   const gridArea = (
-    <div ref={setAreaElement} className="deck-grid-area" style={gridSize}>
+    <div className="deck-grid-area" style={gridSize}>
       <ol
         ref={gridElement}
         className={canTouchMove ? "deck-grid deck-grid-movable" : "deck-grid"}
         aria-label={t("board.keys", { board: board.name })}
-        data-layout={fit ? "fit" : undefined}
+        data-layout={compact && keepsGrid ? "whole" : undefined}
         style={gridSize}
       >
         {/* Cells in the order they are drawn, so reading order follows the screen; names keep the real position. */}
-        {drawnIndexes.map((index) => {
+        {cellIndexes.map((index) => {
           const key = gridKeys[index];
           const slot = page * pageSize + index;
           if (covered.has(slot)) return null;
           const dropClass = dropSlot === slot ? "deck-key-drop" : "";
           if (!key) {
-            if (isPlaying) return null;
+            if (dropsEmpty) return null;
             return (
               <li key={slot} data-slot={slot}>
                 {onEditKey && index === plusIndex ? (
@@ -466,7 +438,7 @@ export function BoardPlayer({
           const description = reason ?? (speaking ? t("key.speaking") : undefined);
           const descriptionId = `${descriptionPrefix}-${slot}`;
           // Without the empty cells every key needs its own place to stay where it is on the board.
-          const placement = fit ? undefined : cellPlacement(index, key, board.columns, isTransposed, isPlaying);
+          const placement = cellPlacement(index, key, board.columns, isTransposed, dropsEmpty);
           const cellClass = [canEdit ? "deck-slot" : "", placement ? "deck-cell-span" : ""].filter(Boolean).join(" ") || undefined;
           const menu = canEdit && !isFixed && (
             <>
@@ -605,7 +577,7 @@ export function BoardPlayer({
         strip ? "deck-with-strip" : "",
         compact ? "deck-compact" : "",
         compact && !canEdit ? "deck-playing" : "",
-        compact && fitKeys ? "deck-fit" : "",
+        compact && keepsGrid ? "deck-whole" : "",
       ]
         .filter(Boolean)
         .join(" ")}

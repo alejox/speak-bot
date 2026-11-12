@@ -5,7 +5,7 @@ import { renderLocalApp, setScreen, speakKey } from "./app-fakes";
 
 /*
  * W5: the Voice space on a phone gives its room to the keys. No board pill (a small icon button only when
- * there are several boards), keys reflowed to the largest size while playing, and the pager beside Write.
+ * there are several boards), keys on the board's whole grid (W8; W5 reflowed them), and the pager beside Write.
  */
 const PHONE_SIDEWAYS = { width: 915, height: 412 };
 const PHONE_UPRIGHT = { width: 412, height: 915 };
@@ -55,18 +55,20 @@ describe("the board switch on a phone", () => {
 });
 
 describe("the phrase keys on a phone", () => {
-  it("are laid out to fit while playing, in reading order", async () => {
+  it("keep the board's whole grid while playing, in its cells", async () => {
     setScreen(PHONE_SIDEWAYS);
     await openVoice();
-    expect(grid()).toHaveAttribute("data-layout", "fit");
+    expect(grid()).toHaveAttribute("data-layout", "whole");
     expect(within(grid()).getAllByRole("button").map((key) => key.getAttribute("aria-label") ?? key.textContent)).toEqual(["Hello", "Thanks", "Water"]);
+    // Every cell of the 3 x 4 page is drawn, empty ones as blank space.
+    expect(within(grid()).getAllByRole("listitem", { hidden: true })).toHaveLength(12);
   });
 
   it("keep the board's real grid positions while editing", async () => {
     setScreen(PHONE_SIDEWAYS);
     const { user } = await openVoice();
     await user.click(button("Edit keys")!);
-    expect(grid()).not.toHaveAttribute("data-layout", "fit");
+    expect(grid()).toHaveAttribute("data-layout", "whole");
     // Every cell of the 3 x 4 page is drawn, empty ones included.
     expect(within(grid()).getAllByRole("listitem")).toHaveLength(12);
   });
@@ -74,7 +76,7 @@ describe("the phrase keys on a phone", () => {
   it("keep the tablet layout as stored", async () => {
     setScreen(TABLET);
     await openVoice();
-    expect(grid()).not.toHaveAttribute("data-layout", "fit");
+    expect(grid()).not.toHaveAttribute("data-layout");
   });
 });
 

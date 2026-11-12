@@ -357,7 +357,7 @@
 }
 
 /*
- * Voice on a phone (.deck-fit): no board pill (a 48px Boards icon with several boards) and no pager in
+ * Voice on a phone (.deck-whole): no board pill (a 48px Boards icon with several boards) and no pager in
  * the bar (it sits before Write), so on its side the quick phrases get the rest of the row.
  */
 .deck-compact .board-switch {
@@ -368,7 +368,7 @@
   border-radius: var(--radius-lg);
 }
 
-.app-space .deck-compact.deck-fit.deck-with-strip {
+.app-space .deck-compact.deck-whole.deck-with-strip {
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:
@@ -377,12 +377,12 @@
   column-gap: var(--space-2);
 }
 
-.app-space .deck-compact.deck-fit .deck-strip {
+.app-space .deck-compact.deck-whole .deck-strip {
   align-self: center;
   min-width: 0;
 }
 
-.app-space .deck-compact.deck-fit .deck-header:empty {
+.app-space .deck-compact.deck-whole .deck-header:empty {
   display: none;
 }
 
@@ -416,21 +416,24 @@
 }
 
 /*
- * The fitted page (playing Voice on a phone, BoardPlayer + fitKeyGrid): the keys in reading order on the
- * columns and rows that make them largest, each as wide and tall as measured (a key may be wider than tall).
+ * The Voice page on a phone (BoardPlayer keepsGrid): the board's whole grid, the same while playing and
+ * editing, so every key stays on the cell it was put on. The cells share the room the grid gets (a key may
+ * be wider than tall); the page box keeps them at least a 48px target, so the page never scrolls.
  */
-.app-space .deck-compact .deck-grid[data-layout="fit"] {
-  grid-template-columns: repeat(var(--grid-columns), var(--fit-key-width, minmax(0, 1fr)));
-  grid-auto-rows: var(--fit-key-height, auto);
-  justify-content: center;
-  align-content: center;
+.app-space .deck-compact .deck-grid[data-layout="whole"] {
+  align-self: stretch;
+  width: 100%;
+  height: 100%;
+  grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
 }
 
-.app-space .deck-compact .deck-grid[data-layout="fit"] li {
+.app-space .deck-compact .deck-grid[data-layout="whole"] li {
   container-type: size;
 }
 
-.app-space .deck-compact .deck-grid[data-layout="fit"] .deck-key {
+.app-space .deck-compact .deck-grid[data-layout="whole"] .deck-key {
   height: 100%;
   aspect-ratio: auto;
   gap: clamp(1px, 4cqmin, var(--space-2));
@@ -438,7 +441,17 @@
   border-radius: clamp(8px, 12cqmin, var(--radius-xl));
 }
 
-.app-space .deck-compact .deck-grid[data-layout="fit"] .deck-key .key-icon {
+/* An empty cell fills its place too; while playing it is only space, so the keys keep their places. */
+.app-space .deck-compact .deck-grid[data-layout="whole"] .deck-key-blank {
+  height: 100%;
+  aspect-ratio: auto;
+}
+
+.app-space .deck-compact.deck-playing .deck-grid[data-layout="whole"] .deck-key-blank {
+  background: transparent;
+}
+
+.app-space .deck-compact .deck-grid[data-layout="whole"] .deck-key .key-icon {
   width: clamp(14px, 22cqmin, 36px);
   height: clamp(14px, 22cqmin, 36px);
 }
@@ -450,7 +463,7 @@
  * tooltip keep the whole phrase. One character of the UI font is about 0.55em wide; a
  * line of words with their spaces about 0.62em per character.
  */
-.app-space .deck-compact.deck-fit .deck-key .deck-key-text {
+.app-space .deck-compact.deck-whole .deck-key .deck-key-text {
   --text-room: calc(100cqi - 1.25rem);
   --word-fit: calc(var(--text-room) / (var(--word-chars, 8) * 0.55));
   --line-fit: max(15px, calc(var(--text-room) / (var(--line-chars, 8) * 0.62)));
@@ -460,6 +473,6 @@
   font-size: clamp(12px, min(15cqi, var(--word-fit), var(--line-fit)), var(--text-lg));
 }
 
-.app-space .deck-compact.deck-fit .deck-grid[data-layout="fit"] .deck-key .deck-key-text {
+.app-space .deck-compact.deck-whole .deck-grid[data-layout="whole"] .deck-key .deck-key-text {
   font-size: clamp(12px, min(17cqmin, var(--word-fit), var(--line-fit)), var(--text-2xl));
 }
