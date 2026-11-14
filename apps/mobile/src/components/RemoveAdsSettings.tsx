@@ -1,95 +1,89 @@
-import type { LicenseResponse } from "@speed-deck/core";
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import type { AdsPurchaseState, AdsResponse } from "@speed-deck/core";
+import { useEffect, useId, useRef } from "react";
 import type { MonetizationMode } from "../app/use-monetization";
 import { useT } from "../i18n/I18nProvider";
 
 interface RemoveAdsSettingsProps {
   mode: MonetizationMode | null;
-  license: LicenseResponse | null;
-  /** Resolves true when the key was activated; the caller reports failures. */
-  onActivate: (key: string) => Promise<boolean>;
-  onRemove: () => Promise<boolean>;
+  /** The computer's ads status, once loaded; null without a computer. */
+  ads: AdsResponse | null;
   /** Moves focus to the heading once shown (arriving from the banner). */
   focusHeading?: boolean;
+  /** Set inside an app-store build (the Android app on Google Play): the only place where ads are removed. */
+  store?: StoreRemoveAds | null;
+}
+
+export interface StoreRemoveAds {
+  state: AdsPurchaseState;
+  /** Ads are already off here because another phone's purchase removed them on the computer. */
+  adsFreeByComputer: boolean;
+  /** This phone owns the purchase and is connected to a computer, whose ads it removes too. */
+  removesComputerAds: boolean;
+  /** The purchase button's text, with the store's price when it is known. */
+  buyLabel: string;
+  onPurchase: () => void;
+  onRestore: () => void;
+}
+
+/** The store's flow: status, the purchase with the store's price, a pending payment, restore, or why it cannot be bought. */
+function StoreRemoveAdsFlow({ state, adsFreeByComputer, removesComputerAds, buyLabel, onPurchase, onRestore }: StoreRemoveAds) {
+  const t = useT();
+  if (state.entitlement === "owned") {
+    return (
+      <>
+        <p className="remove-ads-status">{t("ads.store.owned")}</p>
+        {removesComputerAds && <p className="field-hint">{t("ads.store.alsoComputer")}</p>}
+      </>
+    );
+  }
+  const pending = state.entitlement === "pending";
+  return (
+    <>
+      <p className="remove-ads-status">{pending ? t("ads.store.pending") : adsFreeByComputer ? t("ads.store.byComputer") : t("ads.settings.shown")}</p>
+      {!pending && !state.available && <p className="field-hint">{t("ads.store.unavailable")}</p>}
+      <div className="remove-ads-store">
+        {!pending && state.available && (
+          <button type="button" className="button button-primary" onClick={onPurchase}>
+            {buyLabel}
+          </button>
+        )}
+        <button type="button" className="button" onClick={onRestore}>
+          {t("ads.store.restore")}
+        </button>
+      </div>
+    </>
+  );
 }
 
 /**
- * Presentational: Settings → Remove ads. On the computer: the status, a Buy link, the key field and
- * Remove license. On a paired phone: the status only. Without the computer app: why ads stay.
+ * Presentational: Settings → Remove ads. In an app-store build: the store's purchase. Anywhere else nothing
+ * is sold: the computer's status (with the phone whose purchase removed the ads) and where ads are removed.
  */
-export function RemoveAdsSettings({ mode, license, onActivate, onRemove, focusHeading = false }: RemoveAdsSettingsProps) {
+export function RemoveAdsSettings({ mode, ads, focusHeading = false, store = null }: RemoveAdsSettingsProps) {
   const t = useT();
   const titleId = useId();
-  const keyId = useId();
   const heading = useRef<HTMLHeadingElement>(null);
-  const [key, setKey] = useState("");
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (focusHeading) heading.current?.focus();
   }, [focusHeading]);
 
-  const adsFree = license?.adsFree === true;
-  const run = async (operation: () => Promise<boolean>) => {
-    setBusy(true);
-    try {
-      return await operation();
-    } finally {
-      setBusy(false);
-    }
-  };
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    void run(() => onActivate(key)).then((activated) => activated && setKey(""));
-  };
-
+  const adsFree = ads?.adsFree === true;
   return (
     <div className="settings-group remove-ads" role="group" aria-labelledby={titleId}>
       <h3 id={titleId} ref={heading} tabIndex={-1}>
         {t("ads.settings.title")}
       </h3>
-      {mode === null ? null : mode === "phone-only" ? (
-        <p className="field-hint">{t("ads.settings.needsComputer")}</p>
+      {store ? (
+        <StoreRemoveAdsFlow {...store} />
+      ) : mode === null ? null : mode === "phone-only" ? (
+        <p className="field-hint">{t("ads.settings.inAndroidApp")}</p>
       ) : (
         <>
           <p className="remove-ads-status">
-            {adsFree ? t("ads.settings.removed", { key: license?.maskedKey ?? "" }) : t("ads.settings.shown")}
+            {!adsFree ? t("ads.settings.shown") : ads?.grantedBy ? t("ads.settings.removedBy", { device: ads.grantedBy.deviceName }) : t("ads.settings.removed")}
           </p>
-          {mode === "paired" && <p className="field-hint">{t("ads.settings.onComputer")}</p>}
-          {mode === "computer" && license && !license.canActivate && <p className="field-hint">{t("ads.settings.unavailable")}</p>}
-          {mode === "computer" && license?.canActivate && !adsFree && (
-            <>
-              {license.checkoutUrl && (
-                <a className="button button-primary remove-ads-buy" href={license.checkoutUrl} target="_blank" rel="noopener noreferrer">
-                  {t("ads.settings.buy")}
-                </a>
-              )}
-              <form className="remove-ads-form" onSubmit={submit} noValidate>
-                <label className="remove-ads-label" htmlFor={keyId}>
-                  {t("ads.settings.key")}
-                </label>
-                <div className="remove-ads-key">
-                  <input
-                    id={keyId}
-                    type="text"
-                    value={key}
-                    autoComplete="off"
-                    spellCheck={false}
-                    maxLength={200}
-                    onChange={(event) => setKey(event.target.value)}
-                  />
-                  <button type="submit" className="button button-small" disabled={busy}>
-                    {t("ads.settings.activate")}
-                  </button>
-                </div>
-              </form>
-            </>
-          )}
-          {mode === "computer" && license?.maskedKey && (
-            <button type="button" className="button button-small remove-ads-remove" disabled={busy} onClick={() => void run(onRemove)}>
-              {t("ads.settings.remove")}
-            </button>
-          )}
+          {!adsFree && <p className="field-hint">{mode === "computer" ? t("ads.settings.howComputer") : t("ads.settings.inAndroidApp")}</p>}
         </>
       )}
     </div>

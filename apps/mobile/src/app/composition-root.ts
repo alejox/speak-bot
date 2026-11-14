@@ -1,9 +1,11 @@
 import type {
+  AdsPurchase,
   KeyRef,
   MultiActionEvent,
   Action,
   AdCreative,
-  LicenseResponse,
+  AdsPurchaseReport,
+  AdsResponse,
   AudioDevice,
   DesktopSettings,
   DesktopSettingsPatch,
@@ -19,12 +21,14 @@ import type {
   UiLanguage,
   Application,
 } from "@speed-deck/core";
+import { findAndroidAdsPurchase } from "../adapters/android-ads-purchase";
 import { AndroidSpeechSynthesizer, findAndroidSpeechBridge } from "../adapters/android-speech-synthesizer";
 import { createLocalBoardStore, createRemoteBoardStore, type BoardStore } from "../adapters/board-stores";
 import { getLocalStorage, migrateLegacyStorageKeys } from "../adapters/browser-storage";
 import { copyText as copyToClipboard } from "../adapters/clipboard";
 import { DesktopApiClient, type ConnectionInfo, type DesktopProbe } from "../adapters/desktop-api";
 import { DesktopEventSource, type WebSocketFactory } from "../adapters/desktop-events";
+import { findDeviceIdentity, type DeviceIdentity } from "../adapters/device-identity";
 import { createDeviceSignals, type DeviceSignals } from "../adapters/device-signals";
 import { LocalStorageAppearanceStore, type AppearanceStore } from "../adapters/local-storage-appearance-store";
 import { LocalStorageConnectionAlertsStore, type ConnectionAlertsStore } from "../adapters/local-storage-connection-alerts-store";
@@ -72,14 +76,13 @@ export interface ObsServices {
   onInputVolume(listener: (inputName: string, volumeMul: number) => void): () => void;
 }
 
-/** The remove-ads license of the computer; it covers every phone paired with it. */
-export interface LicenseServices {
-  load(): Promise<LicenseResponse>;
-  /** Only from the computer itself. */
-  activate(key: string): Promise<LicenseResponse>;
-  remove(): Promise<LicenseResponse>;
-  /** The license changed on the computer. Returns an unsubscribe function. */
-  onChanged(listener: (license: LicenseResponse) => void): () => void;
+/** Whether ads are removed on the computer; that covers every phone connected to it. */
+export interface AdsServices {
+  load(): Promise<AdsResponse>;
+  /** Tells the computer whether this phone owns "remove ads"; resolves with the computer's new status. */
+  report(report: AdsPurchaseReport): Promise<AdsResponse>;
+  /** Ads were removed on the computer or came back. Returns an unsubscribe function. */
+  onChanged(listener: (ads: AdsResponse) => void): () => void;
 }
 
 /** Speaking and running keys through the desktop computer that serves this app. */
@@ -111,7 +114,7 @@ export interface DesktopServices {
   /** Notifies when the first OBS overlay connects or the last one leaves. */
   onOverlayConnectedChanged(listener: (connected: boolean) => void): () => void;
   target: SpeakTargetStore;
-  license: LicenseServices;
+  ads: AdsServices;
   /** The sponsor banner the computer cached, or null for the house banner. */
   loadAd(): Promise<AdCreative | null>;
   /** Present only when this page is open on the desktop computer itself (localhost). */
@@ -139,6 +142,10 @@ export interface AppServices {
   device?: DeviceSignals;
   /** Whether this device vibrates when it loses the computer; without it, this browser's storage. */
   connectionAlerts?: ConnectionAlertsStore;
+  /** "Remove ads" as the app store sells it; present only inside the Android app (Google Play). */
+  adsPurchase?: AdsPurchase;
+  /** What identifies this phone to a computer when it reports its purchase; null when it cannot be identified. */
+  deviceIdentity?: () => DeviceIdentity | null;
 }
 
 export interface DesktopServicesOptions {
@@ -208,13 +215,12 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
         if (event.type === "overlay-audio") listener(event.connected);
       }),
     target: options.targetStore ?? new LocalStorageSpeakTargetStore(),
-    license: {
-      load: () => api.loadLicense(),
-      activate: (key) => api.activateLicense(key),
-      remove: () => api.removeLicense(),
+    ads: {
+      load: () => api.loadAds(),
+      report: (report) => api.reportAdsPurchase(report),
       onChanged: (listener) =>
         events.subscribe((event) => {
-          if (event.type === "license-changed") listener(event.license);
+          if (event.type === "ads-changed") listener(event.ads);
         }),
     },
     loadAd: () => api.loadAd(),
@@ -242,6 +248,8 @@ export function createAppServices(): AppServices {
     servedFrom: globalThis.location?.hostname ?? "",
     device: createDeviceSignals(globalThis),
     connectionAlerts: new LocalStorageConnectionAlertsStore(),
+    adsPurchase: findAndroidAdsPurchase(globalThis),
+    deviceIdentity: () => findDeviceIdentity(globalThis),
   };
 }
 

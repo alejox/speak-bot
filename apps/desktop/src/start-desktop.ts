@@ -1,6 +1,6 @@
 import type { DesktopSettings } from "@speed-deck/core";
 import { randomUUID } from "node:crypto";
-import { homedir, hostname, networkInterfaces, tmpdir } from "node:os";
+import { homedir, networkInterfaces, tmpdir } from "node:os";
 import { join } from "node:path";
 import { prepareBoards } from "./adapters/board-migration";
 import { migrateLegacyDataDir } from "./adapters/legacy-data-dir";
@@ -13,14 +13,12 @@ import { createSystemSynthesizer } from "./adapters/tts/create-system-synthesize
 import { createBonjourAdvertiser } from "./adapters/discovery/bonjour-advertiser";
 import { readComputerName } from "./adapters/discovery/computer-name";
 import { AdFeed } from "./ads/ad-feed";
+import { AdsGrants } from "./ads/ads-grants";
 import { loadConfig, type ConfigSources } from "./config";
 import { loadMonetizationConfig } from "./config/monetization";
 import { desktopAnnouncement } from "./discovery/desktop-announcement";
 import { loadOrCreateDesktopId } from "./discovery/desktop-id";
 import type { Advertisement, ServiceAdvertiser } from "./discovery/service-advertiser";
-import { JsonFileLicenseStore } from "./license/json-file-license-store";
-import { LemonSqueezyLicenseService } from "./license/lemon-squeezy-license-service";
-import { LicenseManager } from "./license/license-manager";
 import { createDesktopServer } from "./server/create-server";
 import { OverlayAudio } from "./server/overlay-audio";
 import { applyObsSettings } from "./server/obs-settings";
@@ -39,7 +37,7 @@ export interface StartDesktopOptions extends Partial<ConfigSources> {
   portAttempts?: number;
   /** Creates OBS clients; defaults to obs-websocket-js. */
   createObsClient?: () => ObsClient;
-  /** Used for the license server and the ad feed; defaults to the global fetch. */
+  /** Used for the ad feed; defaults to the global fetch. */
   fetch?: typeof globalThis.fetch;
   /** Announces the server on the LAN as `_speeddeck._tcp`; defaults to multicast DNS. */
   advertiser?: ServiceAdvertiser;
@@ -100,17 +98,8 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
   });
   if (prepared === "migrated") log("Moved the saved phrases to the communication board (backup: phrases.json.migrated.bak).");
   const monetization = loadMonetizationConfig(env);
-  const license = new LicenseManager({
-    store: new JsonFileLicenseStore(join(config.dataDir, "license.json")),
-    service:
-      monetization.storeId !== undefined && monetization.productId !== undefined
-        ? new LemonSqueezyLicenseService({ storeId: monetization.storeId, productId: monetization.productId, fetch: options.fetch })
-        : undefined,
-    instanceName: hostname(),
-    checkoutUrl: monetization.checkoutUrl,
-    now: () => Date.now(),
-    log,
-  });
+  // Phones that bought "remove ads" report it here; the computer stays ad-free while one grant is saved.
+  const adsGrants = new AdsGrants({ file: join(config.dataDir, "ads-grants.json"), now: () => Date.now() });
   const ads = new AdFeed({ feedUrl: monetization.adFeedUrl, dir: join(config.dataDir, "ad"), fetch: options.fetch, log });
   const desktopId = await loadOrCreateDesktopId(join(config.dataDir, "desktop.json"), randomUUID);
   const settingsListeners = new Set<(next: DesktopSettings) => void>();
@@ -129,7 +118,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     desktopId,
     obs,
     apps: createApplicationLauncher(),
-    license,
+    adsGrants,
     ads,
     overlayAudio,
     onSettingsChanged: (next) => {
@@ -152,8 +141,6 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
   log(`Data directory: ${config.dataDir}`);
   // Connects in the background when OBS control is enabled; failures retry and never stop the server.
   void applyObsSettings(obs, (await settings.loadStored()).obs).catch((error: unknown) => log(`OBS: ${String(error)}`));
-  // Validates the saved license now and every 24 h; failures keep the saved status.
-  void license.start();
   // Refreshes the sponsor banner now and every 6 h; failures keep the last good one.
   void ads.start();
   log(`Speech engine: ${engine}${supportsDeviceSelection ? " (output device selectable)" : ""}`);
@@ -185,7 +172,6 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
       closing ??= (async () => {
         synthesizer.cancel();
         await advertisement?.stop();
-        license.stop();
         ads.stop();
         await obs.close();
         await server.close();

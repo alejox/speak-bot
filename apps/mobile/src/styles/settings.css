@@ -146,7 +146,7 @@
   color: var(--color-text-muted);
 }
 
-/* Remove ads: the status, the Buy link, the key with its Activate button, Remove license. */
+/* Remove ads: the status and, inside an app-store build, the purchase. */
 .remove-ads > h3:focus {
   outline: none;
 }
@@ -159,34 +159,11 @@
   margin: var(--space-2) 0;
 }
 
-.remove-ads-buy {
-  display: inline-flex;
-  margin-bottom: var(--space-3);
-  text-decoration: none;
-}
-
-.remove-ads-form {
-  margin-bottom: var(--space-3);
-}
-
-.remove-ads-label {
-  display: block;
-  margin-bottom: var(--space-1);
-  font-weight: var(--weight-medium);
-}
-
-.remove-ads-key {
+/* An app-store build: the purchase and Restore purchase side by side, wrapping on a narrow phone. */
+.remove-ads-store {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
-.remove-ads-key input {
-  flex: 1 1 14rem;
-  width: auto;
-  min-width: 0;
-}
-
-.remove-ads-key .button {
-  flex: none;
-}

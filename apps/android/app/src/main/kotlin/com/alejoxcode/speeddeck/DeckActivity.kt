@@ -49,6 +49,7 @@ class DeckActivity : AppCompatActivity() {
     private var localWebApp: LocalWebApp? = null
     private var speech: SpeechBridge? = null
     private var device: DeviceBridge? = null
+    private var billing: RemoveAdsBilling? = null
     private lateinit var webView: WebView
     private lateinit var unreachablePanel: View
     private lateinit var searchingPanel: View
@@ -128,6 +129,8 @@ class DeckActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (::webView.isInitialized) webView.onResume()
+        // Finds a purchase made on another phone, a payment that completed meanwhile, or a refund.
+        billing?.refresh()
     }
 
     override fun onPause() {
@@ -150,6 +153,7 @@ class DeckActivity : AppCompatActivity() {
         stopSearch()
         stopOfferDiscovery()
         speech?.shutdown()
+        billing?.close()
         if (::webView.isInitialized) webView.destroy()
         super.onDestroy()
     }
@@ -165,10 +169,29 @@ class DeckActivity : AppCompatActivity() {
         // The WebView has no speechSynthesis, so "speak on this device" needs the bridge in both modes.
         // Only the bundled app or the user's own computer ever loads here: other links open outside the app.
         speech = SpeechBridge(this, webView).also { webView.addJavascriptInterface(it, SpeechBridge.JS_NAME) }
-        // Vibrates when the phone loses the computer (or gets it back) and names that computer in the banner.
+        // Vibrates when the phone loses the computer (or gets it back), names that computer in the banner
+        // and identifies this phone to the computer when it reports its "remove ads" purchase.
         device = DeviceBridge(this) { saved?.name }.also { webView.addJavascriptInterface(it, DeviceBridge.JS_NAME) }
+        attachBilling()
         webView.webViewClient = DeckWebViewClient()
     }
+
+    /** "Remove ads" is bought on Google Play in both modes; the web app tells the computer it is connected to. */
+    private fun attachBilling() {
+        lateinit var bridge: BillingBridge
+        val store = RemoveAdsBilling(this) { state -> bridge.notifyChanged(state) }
+        bridge = BillingBridge(
+            webView,
+            readState = { store.state },
+            // Only the deck itself may open the purchase sheet, never a page that got loaded in its place.
+            startPurchase = { if (isShowingDeck()) store.purchase(this) },
+            checkPurchases = store::refresh,
+        )
+        webView.addJavascriptInterface(bridge, BillingBridge.JS_NAME)
+        billing = store
+    }
+
+    private fun isShowingDeck(): Boolean = webView.url?.let { isDeckUrl(Uri.parse(it)) } == true
 
     private fun hideSystemBars() {
         WindowCompat.setDecorFitsSystemWindows(window, false)

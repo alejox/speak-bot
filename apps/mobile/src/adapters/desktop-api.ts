@@ -1,11 +1,13 @@
 import {
   DESKTOP_SERVER_NAME,
+  isAdsResponse,
   readStoredBoards,
   type Action,
   type AdCreative,
   type AdResponse,
   type ApiErrorCode,
-  type LicenseResponse,
+  type AdsPurchaseReport,
+  type AdsResponse,
   type AudioDevice,
   type Board,
   type BoardGrid,
@@ -243,23 +245,17 @@ export class DesktopApiClient {
     return this.request("PUT", "/api/settings", patch) as Promise<DesktopSettings>;
   }
 
-  /** Whether ads are removed on the computer (and so on every paired phone). */
-  async loadLicense(): Promise<LicenseResponse> {
-    const body = await this.request("GET", "/api/license");
-    if (!isLicenseResponse(body)) throw new DesktopRequestError(500, "Unexpected license status.");
+  /** Whether ads are removed on the computer (and so on every phone connected to it). */
+  async loadAds(): Promise<AdsResponse> {
+    const body = await this.request("GET", "/api/ads");
+    if (!isAdsResponse(body)) throw new DesktopRequestError(500, "Unexpected ads status.");
     return body;
   }
 
-  /** Activates a license key (only from the computer itself); rejects with a "license-*" code when refused. */
-  async activateLicense(key: string): Promise<LicenseResponse> {
-    const body = await this.request("PUT", "/api/license", { key });
-    if (!isLicenseResponse(body)) throw new DesktopRequestError(500, "Unexpected license status.");
-    return body;
-  }
-
-  async removeLicense(): Promise<LicenseResponse> {
-    const body = await this.request("DELETE", "/api/license");
-    if (!isLicenseResponse(body)) throw new DesktopRequestError(500, "Unexpected license status.");
+  /** Tells the computer whether this phone owns "remove ads"; resolves with the computer's new ads status. */
+  async reportAdsPurchase(report: AdsPurchaseReport): Promise<AdsResponse> {
+    const body = await this.request("POST", "/api/ads/report", report);
+    if (!isAdsResponse(body)) throw new DesktopRequestError(500, "Unexpected ads status.");
     return body;
   }
 
@@ -301,12 +297,6 @@ function isConnectionInfo(value: unknown): value is ConnectionInfo {
     typeof candidate.overlayUrl === "string" &&
     typeof candidate.dockUrl === "string"
   );
-}
-
-export function isLicenseResponse(value: unknown): value is LicenseResponse {
-  if (typeof value !== "object" || value === null) return false;
-  const candidate = value as Record<string, unknown>;
-  return typeof candidate.adsFree === "boolean" && typeof candidate.canActivate === "boolean";
 }
 
 function isAdCreative(value: unknown): value is AdCreative {

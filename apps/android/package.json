@@ -5,6 +5,7 @@
   "description": "Native Android shell that opens the Speed Deck desktop deck in a WebView.",
   "scripts": {
     "android:debug": "npm run build -w @speed-deck/mobile && ./gradlew assembleDebug",
-    "android:test": "./gradlew test"
+    "android:test": "./gradlew test",
+    "android:bundle": "npm run build -w @speed-deck/mobile && ./gradlew bundleRelease"
   }
 }

@@ -5,13 +5,15 @@ interface AdBannerProps {
   /** The sponsor, or null for the house message that leads to removing ads. */
   ad: AdCreative | null;
   onRemoveAds: () => void;
+  /** The house message where an app store sells "remove ads", with the store's own price; the default names no price. */
+  houseText?: string;
 }
 
 /**
  * Presentational: the banner above the Deck keys, marked as an ad. A sponsor opens its https link outside
  * the app (a new tab on a phone, the system browser in the computer app); the house message opens Settings.
  */
-export function AdBanner({ ad, onRemoveAds }: AdBannerProps) {
+export function AdBanner({ ad, onRemoveAds, houseText }: AdBannerProps) {
   const t = useT();
   return (
     <section className="ad-banner" aria-label={t("ads.label")}>
@@ -27,7 +29,7 @@ export function AdBanner({ ad, onRemoveAds }: AdBannerProps) {
       ) : (
         <button type="button" className="ad-banner-body" onClick={onRemoveAds}>
           <span className="ad-banner-text">
-            <strong className="ad-banner-title">{t("ads.house")}</strong>
+            <strong className="ad-banner-title">{houseText ?? t("ads.house")}</strong>
           </span>
         </button>
       )}

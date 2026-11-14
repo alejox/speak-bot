@@ -4,6 +4,7 @@
  */
 import type { Action, ActionType } from "./domain/actions";
 import type { Board, BoardKind, Key, KeySpan } from "./domain/board";
+import type { AdsEntitlement } from "./ports/ads-purchase";
 import type { Application } from "./ports/application-launcher";
 import type { ObsConnectionStatus, ObsErrorCode, ObsInput, ObsSceneItem, ObsState } from "./ports/obs-controller";
 import type { SpeakMode, Voice } from "./ports/speech-synthesizer";
@@ -140,10 +141,10 @@ export interface MultiActionEvent {
   readonly at: number;
 }
 
-/** The remove-ads license was activated, removed or re-validated on the computer. */
-export interface LicenseChangedEvent {
-  readonly type: "license-changed";
-  readonly license: LicenseResponse;
+/** Ads were removed on the computer (a phone reported its purchase) or came back (its purchase was refunded). */
+export interface AdsChangedEvent {
+  readonly type: "ads-changed";
+  readonly ads: AdsResponse;
   readonly at: number;
 }
 
@@ -160,7 +161,7 @@ export interface OverlayAudioEvent {
 export type ServerEvent =
   | OverlayAudioEvent
   | MultiActionEvent
-  | LicenseChangedEvent
+  | AdsChangedEvent
   | SettingsChangedEvent
   | ComposingEvent
   | CaptionEvent
@@ -200,8 +201,8 @@ export function isServerEvent(value: unknown): value is ServerEvent {
       return isObsState(event.state);
     case "obs-input-volume":
       return typeof event.inputName === "string" && typeof event.volumeMul === "number" && Number.isFinite(event.volumeMul);
-    case "license-changed":
-      return isLicenseResponse(event.license);
+    case "ads-changed":
+      return isAdsResponse(event.ads);
     case "multi-action":
       return (
         typeof event.runId === "string" &&
@@ -222,10 +223,14 @@ function isKeyRef(value: unknown): value is KeyRef {
   return typeof key.boardId === "string" && typeof key.slot === "number";
 }
 
-function isLicenseResponse(value: unknown): value is LicenseResponse {
+export function isAdsResponse(value: unknown): value is AdsResponse {
   if (typeof value !== "object" || value === null) return false;
-  const license = value as Record<string, unknown>;
-  return typeof license.adsFree === "boolean" && typeof license.canActivate === "boolean";
+  const { adsFree, grantedBy } = value as Record<string, unknown>;
+  if (typeof adsFree !== "boolean") return false;
+  if (grantedBy === undefined) return true;
+  if (typeof grantedBy !== "object" || grantedBy === null) return false;
+  const { deviceName, grantedAt } = grantedBy as Record<string, unknown>;
+  return typeof deviceName === "string" && typeof grantedAt === "number" && Number.isFinite(grantedAt);
 }
 
 function isObsState(value: unknown): value is ObsState {
@@ -524,20 +529,52 @@ export interface SetObsInputVolumeRequest {
 }
 
 /**
- * GET /api/license → whether ads are removed on this computer and every paired phone. PUT /api/license
- * with `ActivateLicenseRequest` activates a key and DELETE removes it (both only from the computer itself,
- * else 403 "loopback-only"); both answer with the new `LicenseResponse` and broadcast license-changed.
+ * GET /api/ads → whether ads are removed on this computer and on every phone connected to it. They are
+ * removed while at least one phone that bought "remove ads" in its app store has reported it here.
  */
-export interface LicenseResponse {
+export interface AdsResponse {
   readonly adsFree: boolean;
-  /** False when this build has no license store configured: the key field is hidden. */
-  readonly canActivate: boolean;
-  /** The saved key with all but its last 4 characters hidden. */
-  readonly maskedKey?: string;
-  /** Epoch ms of the last answer from the license server. */
-  readonly lastValidatedAt?: number;
-  /** Where to buy a key (opened outside the app); absent when not configured. */
-  readonly checkoutUrl?: string;
+  /** The phone whose purchase removed the ads (the first one, when several did). */
+  readonly grantedBy?: AdsGrantSummary;
+}
+
+export interface AdsGrantSummary {
+  readonly deviceName: string;
+  /** Epoch ms of the phone's first report. */
+  readonly grantedAt: number;
+}
+
+export const MIN_ADS_DEVICE_ID_LENGTH = 8;
+export const MAX_ADS_DEVICE_ID_LENGTH = 100;
+export const MAX_ADS_DEVICE_NAME_LENGTH = 80;
+
+/**
+ * POST /api/ads/report → the new `AdsResponse`; a change is broadcast as ads-changed. Sent by the app on a
+ * phone, from any address the server accepts, each time it connects and when its purchase changes: "owned"
+ * records the phone's grant, "not-owned" (a refund) removes it, "unknown" and "pending" change nothing.
+ * The computer trusts the report; it cannot check the purchase with the app store.
+ */
+export interface AdsPurchaseReport {
+  /** Identifies the phone to this computer across reports: letters, digits, ".", "_" and "-". */
+  deviceId: string;
+  /** What the person calls the phone or its model, shown in Settings on the computer. */
+  deviceName: string;
+  entitlement: AdsEntitlement;
+}
+
+const ADS_ENTITLEMENTS: readonly AdsEntitlement[] = ["unknown", "not-owned", "pending", "owned"];
+
+/** The report with its name trimmed, or null when a field is missing, mistyped or out of bounds. */
+export function parseAdsPurchaseReport(value: unknown): AdsPurchaseReport | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const { deviceId, deviceName, entitlement } = value as Record<string, unknown>;
+  if (typeof deviceId !== "string" || deviceId.length < MIN_ADS_DEVICE_ID_LENGTH || deviceId.length > MAX_ADS_DEVICE_ID_LENGTH) return null;
+  if (!/^[A-Za-z0-9._-]+$/.test(deviceId)) return null;
+  if (typeof deviceName !== "string" || /[\u0000-\u001f\u007f]/.test(deviceName)) return null;
+  const name = deviceName.trim();
+  if (name === "" || name.length > MAX_ADS_DEVICE_NAME_LENGTH) return null;
+  if (!ADS_ENTITLEMENTS.includes(entitlement as AdsEntitlement)) return null;
+  return { deviceId, deviceName: name, entitlement: entitlement as AdsEntitlement };
 }
 
 /** A sponsor banner as GET /api/ad serves it; remote URLs other than `linkUrl` never reach clients. */
@@ -556,10 +593,6 @@ export interface AdCreative {
 /** GET /api/ad → the current sponsor, or null when the house banner should show. */
 export interface AdResponse {
   readonly ad: AdCreative | null;
-}
-
-export interface ActivateLicenseRequest {
-  key: string;
 }
 
 /** The language the automatic voice should speak. */
@@ -586,12 +619,7 @@ export type ApiErrorCode =
   | "queue-full"
   | "app-not-found"
   | "apps-unsupported"
-  | "app-open-failed"
-  | "license-invalid"
-  | "license-wrong-product"
-  | "license-limit"
-  | "license-offline"
-  | "license-disabled";
+  | "app-open-failed";
 
 export interface ErrorResponse {
   /** Technical detail in English. */
