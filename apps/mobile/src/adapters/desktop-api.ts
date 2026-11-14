@@ -1,6 +1,7 @@
 import {
   DESKTOP_SERVER_NAME,
   isAdsResponse,
+  isAppUpdateState,
   readStoredBoards,
   type Action,
   type AdCreative,
@@ -8,6 +9,7 @@ import {
   type ApiErrorCode,
   type AdsPurchaseReport,
   type AdsResponse,
+  type AppUpdateState,
   type AudioDevice,
   type Board,
   type BoardGrid,
@@ -259,6 +261,29 @@ export class DesktopApiClient {
     return body;
   }
 
+  /**
+   * The computer app's version and update state; null when the server runs without the app, when the
+   * desktop is too old to know (404) or when it answers anything malformed.
+   */
+  async loadAppUpdate(): Promise<AppUpdateState | null> {
+    try {
+      return readAppUpdate(await this.request("GET", "/api/app-update"));
+    } catch (error) {
+      if (error instanceof DesktopRequestError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  /** Looks for a new version now (only from the computer itself); resolves with the state after the check. */
+  async checkAppUpdate(): Promise<AppUpdateState | null> {
+    return readAppUpdate(await this.request("POST", "/api/app-update/check", {}));
+  }
+
+  /** Restarts the computer app to install the update it downloaded; "update-not-ready" when there is none. */
+  async installAppUpdate(): Promise<void> {
+    await this.request("POST", "/api/app-update/install", {});
+  }
+
   /** The sponsor the computer cached, or null (the house banner). Anything malformed counts as none. */
   async loadAd(): Promise<AdCreative | null> {
     const body = (await this.request("GET", "/api/ad")) as Partial<AdResponse> | undefined;
@@ -281,6 +306,11 @@ export class DesktopApiClient {
     }
     return payload;
   }
+}
+
+function readAppUpdate(body: unknown): AppUpdateState | null {
+  const update = (body as { update?: unknown } | undefined)?.update;
+  return isAppUpdateState(update) ? update : null;
 }
 
 function keysPath(boardId: string): string {

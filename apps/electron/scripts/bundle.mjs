@@ -1,5 +1,5 @@
-// Bundles the Electron main process (with @speed-deck/core and @speed-deck/desktop inlined)
-// into a single CommonJS file, so the installer needs no node_modules.
+// Bundles the Electron main process (with @speed-deck/core, @speed-deck/desktop and electron-updater
+// inlined) into a single CommonJS file, so the installer needs no node_modules.
 import { build } from "esbuild";
 import { fileURLToPath } from "node:url";
 

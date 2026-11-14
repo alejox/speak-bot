@@ -1,6 +1,8 @@
 name: Release
 
-# Builds the desktop installers on each OS and attaches them to the GitHub Release for the tag.
+# Builds the desktop installers on each OS and attaches them to the GitHub Release for the tag, together with
+# the update metadata (latest.yml, latest-mac.yml, latest-linux.yml) and blockmaps the installed apps read to
+# find and download a new version. The tag is the version: v1.2.3 publishes Speed Deck 1.2.3.
 # Run it by hand (workflow_dispatch) to get the installers as build artifacts without a release.
 on:
   push:
@@ -61,6 +63,8 @@ jobs:
             apps/electron/release/*.exe
             apps/electron/release/*.AppImage
             apps/electron/release/*.deb
+            apps/electron/release/latest*.yml
+            apps/electron/release/*.blockmap
           if-no-files-found: error
 
   release:
@@ -69,14 +73,30 @@ jobs:
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
+      # One folder per OS job, so a file name two jobs share is noticed instead of one silently replacing the other.
       - uses: actions/download-artifact@v4
         with:
           path: installers
           pattern: installers-*
-          merge-multiple: true
+      - name: Check the files to publish
+        shell: bash
+        run: |
+          find installers -type f | sort
+          duplicates="$(find installers -type f -printf '%f\n' | sort | uniq -d)"
+          if [[ -n "$duplicates" ]]; then
+            echo "::error::Two OS jobs produced a file with the same name: $duplicates"
+            exit 1
+          fi
+          # Without these the installed apps cannot find this release.
+          for metadata in latest.yml latest-mac.yml latest-linux.yml; do
+            if [[ -z "$(find installers -type f -name "$metadata")" ]]; then
+              echo "::error::Missing update metadata: $metadata"
+              exit 1
+            fi
+          done
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: installers/*
+          files: installers/*/*

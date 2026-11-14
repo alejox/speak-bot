@@ -18,8 +18,14 @@ extraResources:
   - from: ../desktop/public/overlay.html
     to: overlay.html
 npmRebuild: false
-# The release workflow uploads the installers itself.
-publish: null
+# Where the installed app looks for new versions: electron-builder embeds this as app-update.yml and writes
+# the update metadata (latest.yml, latest-mac.yml, latest-linux.yml) and blockmaps next to the installers.
+# Nothing is uploaded from here: the release workflow builds with --publish never and attaches the files itself.
+publish:
+  provider: github
+  owner: alejox
+  repo: speak-bot
+  releaseType: release
 
 mac:
   category: public.app-category.utilities

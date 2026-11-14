@@ -33,7 +33,7 @@ export function toPublicSettings({ obs, ...rest }: StoredSettings): DesktopSetti
   return { ...rest, obs: { enabled: obs.enabled, host: obs.host, port: obs.port, hasPassword: obs.password !== "" } };
 }
 
-/** Persists the desktop voice, rate, output device, languages, caption visibility and OBS connection in a JSON file. */
+/** Persists the desktop voice, rate, output device, languages, caption visibility, OBS connection and automatic update checks in a JSON file. */
 export class JsonFileSettingsStore {
   private readonly queue = new SerialQueue();
   private readonly defaults: StoredSettings;
@@ -89,6 +89,9 @@ export class JsonFileSettingsStore {
     // Absent until chosen, so the automatic voice keeps following the interface language.
     const voiceLanguage = isUiLanguage(stored.voiceLanguage) ? stored.voiceLanguage : this.defaults.voiceLanguage;
     if (voiceLanguage) settings.voiceLanguage = voiceLanguage;
+    // Absent until chosen: the computer app looks for updates by itself by default.
+    const autoCheckUpdates = typeof stored.autoCheckUpdates === "boolean" ? stored.autoCheckUpdates : this.defaults.autoCheckUpdates;
+    if (autoCheckUpdates !== undefined) settings.autoCheckUpdates = autoCheckUpdates;
     return settings;
   }
 }
@@ -156,7 +159,7 @@ function parseSettingsPatch(patch: unknown): Partial<Omit<DesktopSettings, "obs"
   if (typeof patch !== "object" || patch === null || Array.isArray(patch)) {
     throw new InvalidSettingsError("Settings must be a JSON object.");
   }
-  const { voiceId, rate, deviceId, language, captionsVisible, voiceLanguage, voiceOutput, obs } = patch as Record<string, unknown>;
+  const { voiceId, rate, deviceId, language, captionsVisible, voiceLanguage, voiceOutput, obs, autoCheckUpdates } = patch as Record<string, unknown>;
   const changes: Partial<Omit<DesktopSettings, "obs">> & { obs?: Partial<ObsConfig> } = {};
   if (obs !== undefined) changes.obs = parseObsPatch(obs);
   if (voiceId !== undefined) {
@@ -186,6 +189,10 @@ function parseSettingsPatch(patch: unknown): Partial<Omit<DesktopSettings, "obs"
   if (voiceOutput !== undefined) {
     if (!isVoiceOutput(voiceOutput)) throw new InvalidSettingsError('voiceOutput must be "speakers", "obs" or "both".');
     changes.voiceOutput = voiceOutput;
+  }
+  if (autoCheckUpdates !== undefined) {
+    if (typeof autoCheckUpdates !== "boolean") throw new InvalidSettingsError("autoCheckUpdates must be true or false.");
+    changes.autoCheckUpdates = autoCheckUpdates;
   }
   return changes;
 }

@@ -6,6 +6,7 @@ import type {
   AdCreative,
   AdsPurchaseReport,
   AdsResponse,
+  AppUpdateState,
   AudioDevice,
   DesktopSettings,
   DesktopSettingsPatch,
@@ -85,6 +86,18 @@ export interface AdsServices {
   onChanged(listener: (ads: AdsResponse) => void): () => void;
 }
 
+/** The computer app's version and updates. */
+export interface AppUpdateServices {
+  /** Null when the computer runs the server without the app or does not report its version. */
+  load(): Promise<AppUpdateState | null>;
+  /** Looks for a new version now; only the computer itself may ask. */
+  check(): Promise<AppUpdateState | null>;
+  /** Restarts the computer app to install a downloaded update; only the computer itself may ask. */
+  install(): Promise<void>;
+  /** The update state changed (a check, a download, the setting). Returns an unsubscribe function. */
+  onChanged(listener: (update: AppUpdateState) => void): () => void;
+}
+
 /** Speaking and running keys through the desktop computer that serves this app. */
 export interface DesktopServices {
   /** Asks whether a Speed Deck desktop serves this page: found, for sure not (absent), or no answer yet within `timeoutMs`. */
@@ -115,6 +128,7 @@ export interface DesktopServices {
   onOverlayConnectedChanged(listener: (connected: boolean) => void): () => void;
   target: SpeakTargetStore;
   ads: AdsServices;
+  appUpdate: AppUpdateServices;
   /** The sponsor banner the computer cached, or null for the house banner. */
   loadAd(): Promise<AdCreative | null>;
   /** Present only when this page is open on the desktop computer itself (localhost). */
@@ -221,6 +235,15 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
       onChanged: (listener) =>
         events.subscribe((event) => {
           if (event.type === "ads-changed") listener(event.ads);
+        }),
+    },
+    appUpdate: {
+      load: () => api.loadAppUpdate(),
+      check: () => api.checkAppUpdate(),
+      install: () => api.installAppUpdate(),
+      onChanged: (listener) =>
+        events.subscribe((event) => {
+          if (event.type === "app-update") listener(event.update);
         }),
     },
     loadAd: () => api.loadAd(),

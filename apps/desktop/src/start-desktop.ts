@@ -1,4 +1,4 @@
-import type { DesktopSettings } from "@speed-deck/core";
+import type { AppUpdater, DesktopSettings } from "@speed-deck/core";
 import { randomUUID } from "node:crypto";
 import { homedir, networkInterfaces, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -43,6 +43,8 @@ export interface StartDesktopOptions extends Partial<ConfigSources> {
   advertiser?: ServiceAdvertiser;
   /** The name phones show for this computer; defaults to the computer name set in the system. */
   computerName?: string;
+  /** The computer app's updater, served at /api/app-update; absent when the server runs without the app (`npm start`). */
+  appUpdater?: AppUpdater;
 }
 
 export interface RunningDesktop {
@@ -97,6 +99,9 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     log,
   });
   if (prepared === "migrated") log("Moved the saved phrases to the communication board (backup: phrases.json.migrated.bak).");
+  // The updater follows the saved choice before the app starts its own checks.
+  const { autoCheckUpdates } = await settings.load();
+  if (autoCheckUpdates !== undefined) options.appUpdater?.setAutoCheck(autoCheckUpdates);
   const monetization = loadMonetizationConfig(env);
   // Phones that bought "remove ads" report it here; the computer stays ad-free while one grant is saved.
   const adsGrants = new AdsGrants({ file: join(config.dataDir, "ads-grants.json"), now: () => Date.now() });
@@ -121,6 +126,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     adsGrants,
     ads,
     overlayAudio,
+    appUpdater: options.appUpdater,
     onSettingsChanged: (next) => {
       for (const listener of [...settingsListeners]) listener(next);
     },

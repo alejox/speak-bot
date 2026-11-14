@@ -5,6 +5,7 @@
 import type { Action, ActionType } from "./domain/actions";
 import type { Board, BoardKind, Key, KeySpan } from "./domain/board";
 import type { AdsEntitlement } from "./ports/ads-purchase";
+import { isAppUpdateState, type AppUpdateState } from "./ports/app-updater";
 import type { Application } from "./ports/application-launcher";
 import type { ObsConnectionStatus, ObsErrorCode, ObsInput, ObsSceneItem, ObsState } from "./ports/obs-controller";
 import type { SpeakMode, Voice } from "./ports/speech-synthesizer";
@@ -158,7 +159,25 @@ export interface OverlayAudioEvent {
   readonly at: number;
 }
 
+/** The computer app's update state changed (a check started or ended, a download advanced, the setting changed). */
+export interface AppUpdateEvent {
+  readonly type: "app-update";
+  readonly update: AppUpdateState;
+  readonly at: number;
+}
+
+/**
+ * GET /api/app-update → the computer app's version and update state, for any client; `update` is null when
+ * the server runs without the app. POST /api/app-update/check (look now) and POST /api/app-update/install
+ * (restart to install a downloaded update; 409 "update-not-ready" otherwise) answer the same body and only
+ * work on the computer itself, like `autoCheckUpdates` in PUT /api/settings. Changes are broadcast as app-update.
+ */
+export interface AppUpdateResponse {
+  readonly update: AppUpdateState | null;
+}
+
 export type ServerEvent =
+  | AppUpdateEvent
   | OverlayAudioEvent
   | MultiActionEvent
   | AdsChangedEvent
@@ -203,6 +222,8 @@ export function isServerEvent(value: unknown): value is ServerEvent {
       return typeof event.inputName === "string" && typeof event.volumeMul === "number" && Number.isFinite(event.volumeMul);
     case "ads-changed":
       return isAdsResponse(event.ads);
+    case "app-update":
+      return isAppUpdateState(event.update);
     case "multi-action":
       return (
         typeof event.runId === "string" &&
@@ -478,6 +499,8 @@ export interface DesktopSettings {
   voiceOutput?: VoiceOutput;
   /** OBS connection; always sent by the desktop. */
   obs?: ObsSettingsView;
+  /** False stops the computer app from looking for updates by itself; absent means it does. Only this computer may change it. */
+  autoCheckUpdates?: boolean;
 }
 
 /** OBS connection settings as the API shows them: the password itself is never sent. */
@@ -619,7 +642,9 @@ export type ApiErrorCode =
   | "queue-full"
   | "app-not-found"
   | "apps-unsupported"
-  | "app-open-failed";
+  | "app-open-failed"
+  | "update-unavailable"
+  | "update-not-ready";
 
 export interface ErrorResponse {
   /** Technical detail in English. */

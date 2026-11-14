@@ -143,6 +143,15 @@ export {
 } from "./ports/application-launcher";
 export type { AdsEntitlement, AdsPurchase, AdsPurchaseState } from "./ports/ads-purchase";
 export {
+  APP_UPDATE_MODES,
+  APP_UPDATE_STATUSES,
+  isAppUpdateState,
+  type AppUpdateMode,
+  type AppUpdater,
+  type AppUpdateState,
+  type AppUpdateStatus,
+} from "./ports/app-updater";
+export {
   MAX_OBS_VOLUME_MUL,
   ObsRequestError,
   ObsUnavailableError,
@@ -225,6 +234,8 @@ export {
   type AdCreative,
   type AdResponse,
   type ApiErrorCode,
+  type AppUpdateEvent,
+  type AppUpdateResponse,
   type ApplicationsResponse,
   type AdsChangedEvent,
   type AdsGrantSummary,
