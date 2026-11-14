@@ -41,6 +41,8 @@ import {
   type AdsResponse,
   type ApiErrorCode,
   type ApplicationLauncher,
+  type AppUpdater,
+  type AppUpdateResponse,
   type BoardRepository,
   type DesktopSettings,
   type HealthResponse,
@@ -90,6 +92,8 @@ export interface ApiDependencies {
   ads?: AdFeed;
   /** Plays voice clips on the OBS overlays; absent means the voice only goes to the speakers. */
   overlayAudio?: OverlayAudio;
+  /** The computer app's updater; absent when the server runs without the app. */
+  appUpdater?: AppUpdater;
 }
 
 const ADS_SHOWN: AdsResponse = { adsFree: false };
@@ -133,6 +137,10 @@ export function createApiHandler(deps: ApiDependencies) {
     if (!isLoopbackAddress(request.socket.remoteAddress)) throw new LoopbackOnlyError();
   };
   const boardsChanged = () => broadcast({ type: "boards-changed", at: now() });
+  const requireAppUpdater = (): AppUpdater => {
+    if (!deps.appUpdater) throw new UpdateUnavailableError();
+    return deps.appUpdater;
+  };
 
   // Exact paths are listed before `:param` paths that could also match them.
   const routes: Route[] = [
@@ -364,8 +372,12 @@ export function createApiHandler(deps: ApiDependencies) {
       handler: async (request, response) => {
         const patch = await readJsonBody(request);
         if (typeof patch === "object" && patch !== null && (patch as { obs?: unknown }).obs !== undefined) requireLoopback(request);
+        // Whether the computer app contacts the update server by itself is for the person at the computer to decide.
+        const changesAutoCheck = typeof patch === "object" && patch !== null && (patch as { autoCheckUpdates?: unknown }).autoCheckUpdates !== undefined;
+        if (changesAutoCheck) requireLoopback(request);
         const stored = await settings.updateStored(patch);
         const updated = toPublicSettings(stored);
+        if (changesAutoCheck && stored.autoCheckUpdates !== undefined) deps.appUpdater?.setAutoCheck(stored.autoCheckUpdates);
         if (typeof (patch as { captionsVisible?: unknown }).captionsVisible === "boolean") {
           broadcast({ type: "captions-visibility", visible: updated.captionsVisible, at: now() });
         }
@@ -375,6 +387,43 @@ export function createApiHandler(deps: ApiDependencies) {
         }
         settingsChanged(updated);
         sendJson(response, 200, updated);
+      },
+    },
+
+    // ---- The computer app's version and updates (changes are broadcast as app-update by the server) ----
+    {
+      /** For any client: a paired phone shows the computer's version and whether an update is on its way. */
+      method: "GET",
+      path: "/api/app-update",
+      handler: async (_request, response) => {
+        const body: AppUpdateResponse = { update: deps.appUpdater?.state() ?? null };
+        sendJson(response, 200, body);
+      },
+    },
+    {
+      /** Looks for a new version now and answers once the check ended. */
+      method: "POST",
+      path: "/api/app-update/check",
+      handler: async (request, response) => {
+        asObject(await readJsonBody(request));
+        requireLoopback(request);
+        const body: AppUpdateResponse = { update: await requireAppUpdater().check() };
+        sendJson(response, 200, body);
+      },
+    },
+    {
+      /** Restarts the computer app to install the update it downloaded. */
+      method: "POST",
+      path: "/api/app-update/install",
+      handler: async (request, response) => {
+        asObject(await readJsonBody(request));
+        requireLoopback(request);
+        const updater = requireAppUpdater();
+        // Answer before the app quits: the state is the one being installed.
+        const body: AppUpdateResponse = { update: updater.state() };
+        if (updater.state().status !== "downloaded") throw new UpdateNotReadyError();
+        sendJson(response, 200, body);
+        if (!updater.install()) log("The downloaded update could not be installed.");
       },
     },
 
@@ -573,9 +622,27 @@ class LoopbackOnlyError extends Error {
   }
 }
 
+/** The server runs without the computer app, so there is no updater. */
+class UpdateUnavailableError extends Error {
+  constructor() {
+    super("Updates are handled by the computer app, which is not running this server.");
+    this.name = "UpdateUnavailableError";
+  }
+}
+
+/** No update is downloaded and waiting to be installed. */
+class UpdateNotReadyError extends Error {
+  constructor() {
+    super("No downloaded update is ready to install.");
+    this.name = "UpdateNotReadyError";
+  }
+}
+
 function describeFailure(error: unknown): { status: number; message: string; code?: ApiErrorCode } | null {
   if (error instanceof LoopbackOnlyError) return { status: 403, message: error.message, code: "loopback-only" };
   if (error instanceof HttpError) return { status: error.status, message: error.message };
+  if (error instanceof UpdateUnavailableError) return { status: 409, message: error.message, code: "update-unavailable" };
+  if (error instanceof UpdateNotReadyError) return { status: 409, message: error.message, code: "update-not-ready" };
   if (error instanceof InvalidBoardError) return { status: 400, message: error.message, code: "invalid-board" };
   if (error instanceof InvalidSettingsError) return { status: 400, message: error.message };
   if (error instanceof ClientActionError) return { status: 400, message: error.message, code: "client-action" };

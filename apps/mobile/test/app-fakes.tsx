@@ -150,6 +150,8 @@ export interface DesktopState {
   healthStatus?: number;
   /** The sponsor GET /api/ad answers; none (the house banner) unless a test sets it. */
   ad?: Record<string, unknown> | null;
+  /** GET /api/app-update: the computer app's update state, null for a server without the app; not set = a desktop too old to know the route (404). */
+  appUpdate?: object | null;
 }
 
 export function desktopState(overrides: Partial<DesktopState> = {}): DesktopState {
@@ -270,6 +272,11 @@ export function desktopRoute(state: DesktopState) {
       }
       case "GET /api/ad":
         return { body: { ad: state.ad ?? null } };
+      case "GET /api/app-update":
+        return state.appUpdate === undefined ? undefined : { body: { update: state.appUpdate } };
+      case "POST /api/app-update/check":
+      case "POST /api/app-update/install":
+        return state.appUpdate ? { body: { update: state.appUpdate } } : { status: 409, body: { error: "No updater.", code: "update-unavailable" } };
     }
     const volumeMatch = /^\/api\/obs\/inputs\/([^/]+)\/volume$/.exec(request.url);
     if (volumeMatch) {

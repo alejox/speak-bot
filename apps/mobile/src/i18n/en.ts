@@ -431,6 +431,25 @@ export const en = {
   "ads.store.unavailable": "Purchases are not available right now. Check that Google Play is signed in and connected, then try again.",
   "ads.store.failed": "Could not start the purchase. Try again in a moment.",
   "ads.store.checking": "Checking your purchases on Google Play…",
+
+  "update.title": "About and updates",
+  "update.version": "Speed Deck {version}",
+  "update.versionOnComputer": "Speed Deck on the computer: version {version}",
+  "update.checking": "Checking for updates…",
+  "update.upToDate": "You have the latest version.",
+  "update.available": "Version {version} is available.",
+  "update.downloading": "Downloading version {version}…",
+  "update.downloadProgress": "Download of version {version}",
+  "update.downloaded": "Version {version} is downloaded. It will be installed when you quit Speed Deck.",
+  "update.downloadedOnComputer": "Version {version} is downloaded on the computer. It will be installed when Speed Deck restarts there.",
+  "update.error": "Could not check for updates.",
+  "update.lastChecked": "Last checked: {when}",
+  "update.check": "Check for updates",
+  "update.restart": "Restart to update",
+  "update.download": "Download version {version}",
+  "update.manualHint": "On this system updates are installed by hand: download the new version and install it over this one.",
+  "update.autoCheck": "Check for updates automatically",
+  "update.autoCheckHint": "To check, Speed Deck contacts GitHub, where its versions are published.",
 } as const;
 
 export type MessageKey = keyof typeof en;

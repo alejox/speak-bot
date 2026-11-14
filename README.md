@@ -31,6 +31,27 @@ Your system will warn you the first time. To open the app anyway:
 - **Windows**: on the "Windows protected your PC" screen, click **More info → Run anyway**.
 - **Linux (AppImage)**: make the file executable (`chmod +x speed-deck-*.AppImage`) and run it. Install `espeak-ng` and `pulseaudio-utils` for the voice. The tray icon on GNOME needs the AppIndicator extension.
 
+#### Updates
+
+The computer app looks for a new version by itself: once shortly after it starts and then every 6 hours. New versions are the [releases published on GitHub](https://github.com/alejox/speak-bot/releases). What happens next depends on the system:
+
+| System            | What the app does with a new version                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Windows           | Downloads it in the background and installs it when you quit the app, or right away with **Reiniciar para actualizar**.    |
+| Linux (AppImage)  | The same: downloads it, then replaces the AppImage file when you quit or with **Reiniciar para actualizar**.               |
+| macOS             | Only tells you. **Descargar la versión X** opens the release page; download the `.dmg` and install it over the old app.    |
+| Linux (`.deb`)    | Only tells you, like macOS. Download the new `.deb` and install it.                                                        |
+
+macOS cannot install updates by itself because the app is not signed with an Apple Developer ID (see above), so each new version is installed by hand, with the same Gatekeeper warning as the first time.
+
+Nothing interrupts you: there are no dialogs. You get one system notification per version (when it is downloaded, or on macOS and `.deb` when it is found), and the state is shown in **Ajustes → Acerca de y actualizaciones** and in the tray menu. If the app cannot reach GitHub it says so there and tries again later.
+
+- **Check by hand**: **Ajustes → Acerca de y actualizaciones → Buscar actualizaciones**, or **Buscar actualizaciones** in the tray menu.
+- **Turn automatic checks off**: uncheck **Buscar actualizaciones automáticamente** in the same place. The app then only checks when you ask.
+- **What is sent**: to check, the app asks GitHub for the list of releases and the small file that describes the latest one, and on Windows and AppImage it downloads the installer from GitHub. Nothing else is sent: no account, no identifier, nothing about how you use the app. The requests are the same from every installation (the update library's own per-installation id is replaced by a constant). As with any web request, GitHub sees the computer's IP address.
+- Only published stable releases are offered, never a preview version or an older one.
+- An app run from source (`npm run dev`) never checks for updates.
+
 #### Coming from Speak Bot
 
 Speed Deck was called Speak Bot before. The first time it runs, it copies your phrases and settings from the old `speak-bot` folder and turns your saved phrases into the **Comunicación** board. The old folder is kept as a backup. You can delete the old Speak Bot app.
@@ -113,6 +134,7 @@ There is no separate edit mode: a tap always runs a key.
 - **Voz**: where to speak and the output device (when the computer app is available), the voice and the speed. The voice list shows the voices of the language Speed Deck speaks; check **Mostrar voces en todos los idiomas** to see every voice, grouped by language. **Probar voz** says a short sentence with the selected voice and speed.
 - **Apariencia**: **Tema** (system, light or dark) and **Tamaño del texto** (normal, large or extra large). Both are saved per device.
 - **Idioma**: the interface language.
+- **Acerca de y actualizaciones** (with the computer app): the version of the computer app and where it is with [updates](#updates). On the computer: **Buscar actualizaciones**, **Reiniciar para actualizar** or **Descargar la versión X**, and **Buscar actualizaciones automáticamente**. A phone connected to the computer sees the computer's version and state, without buttons.
 - **Quitar anuncios**: the **Deck** shows a small banner above the keys (never **Voz**). Ads are removed by buying **Quitar anuncios** in the Speed Deck app for Android, on Google Play. A phone that owns it tells the computer it is connected to, and the banner goes away on both at once, and on every other phone connected to that computer. On the computer this section shows the status and the phone that removed the ads; nothing is sold there. A phone's browser without the Android app always shows the banner.
 
 ### Phone as a remote
@@ -210,6 +232,7 @@ The desktop server has **no authentication** and listens on all networks by defa
 
 - **Other websites:** to stop other websites open in your browser from reading captions or pressing keys, the server only accepts requests addressed to `localhost`, an IP address, or this computer's name (`<hostname>` / `<hostname>.local`). If you reach it through a custom DNS name, add that name with `--allowed-host`.
 - **OBS settings:** the OBS connection settings and the connection test only work from the computer itself.
+- **Updates:** checking for updates, restarting to install one and turning automatic checks on or off only work from the computer itself. Phones can only read the computer's version and update state.
 
 ## How it fits together
 
@@ -321,8 +344,33 @@ CI runs tests, typecheck and build on Linux, macOS and Windows (`.github/workflo
 
 ### Releasing
 
-- **Desktop installers**: push a version tag (`git tag v0.1.0 && git push origin v0.1.0`). `.github/workflows/release.yml` builds the installers on all three systems and attaches them to a GitHub Release. Run `npm run build && npm run pack -w @speed-deck/electron` to build an unpacked app locally.
+- **Desktop installers**: see [Releasing a version](#releasing-a-version) below. Run `npm run build && npm run pack -w @speed-deck/electron` to build an unpacked app locally; an unpacked app has no update source (electron-builder only embeds it when it builds an installer), so it never checks for updates.
 - **Phone app**: every push to `main` deploys the PWA to GitHub Pages (`.github/workflows/pages.yml`).
+
+### Releasing a version
+
+Installed computer apps update from published GitHub Releases, so publishing a version is what delivers it.
+
+1. **Choose the version.** The version is the tag: tag `v1.4.0` publishes Speed Deck `1.4.0`. The `version` fields in the `package.json` files stay at `0.0.0`; the workflow passes the tag's version to the build. Use plain `MAJOR.MINOR.PATCH`, higher than the last release: the apps never install an older version, and they ignore previews such as `v1.4.0-beta.1`.
+2. **Tag the commit on `main` and push the tag:**
+
+   ```sh
+   git checkout main
+   git pull
+   git tag v1.4.0
+   git push origin v1.4.0
+   ```
+
+3. **Wait for the workflow.** `.github/workflows/release.yml` runs the tests and builds on macOS, Windows and Linux, then creates the GitHub Release `v1.4.0` with generated release notes and attaches:
+   - the installers: `speed-deck-1.4.0-mac-arm64.dmg`, `speed-deck-1.4.0-mac-x64.dmg`, `speed-deck-1.4.0-win-x64.exe`, and the Linux `.AppImage` and `.deb`;
+   - the update metadata the installed apps read: `latest.yml` (Windows), `latest-mac.yml` and `latest-linux.yml`, plus the `.blockmap` files that let Windows download only what changed.
+
+   The release job stops without publishing if an operating system's metadata file is missing or if two jobs produced a file with the same name. It needs no secret besides the `GITHUB_TOKEN` every workflow gets.
+4. **Check the release page.** Installed apps find it at their next check (within 6 hours, or at once with **Buscar actualizaciones**). Until the three `latest*.yml` files are attached, a check answers "could not check" and is retried later.
+
+Do not delete or rename the `latest*.yml` files of the newest release, and do not mark it as a pre-release: the apps only look at the latest full release. Running the workflow by hand (**Run workflow**) builds the installers as artifacts without publishing anything.
+
+The update source is `publish` in `apps/electron/electron-builder.yml` (GitHub, `alejox/speak-bot`); electron-builder embeds it in the app as `app-update.yml`. A real update can only be tried with two published releases: install the older one, then publish the newer one.
 
 ### Publishing to Google Play
 

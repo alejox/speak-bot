@@ -1,6 +1,8 @@
 import { startDesktop, type RunningDesktop } from "@speed-deck/desktop";
-import { app, BrowserWindow, clipboard, dialog, Menu, nativeImage, shell, Tray } from "electron";
+import { app, BrowserWindow, clipboard, dialog, Menu, nativeImage, Notification, shell, Tray, type MenuItemConstructorOptions } from "electron";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { join } from "node:path";
 import { externalLinkPolicy, type LinkDecision } from "./external-links";
 import { isLinuxAutostartEnabled, linuxAutostartEntry, linuxAutostartFile, migrateLinuxAutostart, setLinuxAutostart } from "./linux-autostart";
 import { resolveAppPaths } from "./paths";
@@ -8,6 +10,10 @@ import { installQuitOnSignals } from "./quit-signals";
 import { isServiceWorkerRequest } from "./service-worker";
 import { HIDDEN_FLAG, shouldStartHidden } from "./startup";
 import { trayStrings, type TrayStrings } from "./tray-strings";
+import { AppUpdateController, type UpdateNotice, type UpdaterBackend } from "./update/app-update-controller";
+import { createElectronUpdaterBackend } from "./update/electron-updater-backend";
+import { trayUpdateItem, updateNotification } from "./update/tray-update-item";
+import { updateMode } from "./update/update-mode";
 
 const paths = resolveAppPaths({
   isPackaged: app.isPackaged,
@@ -16,12 +22,18 @@ const paths = resolveAppPaths({
   platform: process.platform,
 });
 const log = (message: string) => console.log(`[speed-deck] ${message}`);
+/** Same as `appId` in electron-builder.yml: Windows shows notifications only for an app that names itself. */
+const APP_USER_MODEL_ID = "io.github.alejox.speeddeck";
+const INSTALL_START_TIMEOUT_MS = 10_000;
 
 let desktop: RunningDesktop | undefined;
 let window: BrowserWindow | undefined;
 let tray: Tray | undefined;
 let isQuitting = false;
 let strings: TrayStrings = trayStrings(undefined);
+let updater: AppUpdateController | undefined;
+/** The update item as last drawn in the tray, so download progress does not rebuild the menu. */
+let drawnUpdateItem = "";
 
 if (!app.requestSingleInstanceLock()) {
   // Another copy is running: it receives "second-instance" and shows its window.
@@ -33,6 +45,7 @@ if (!app.requestSingleInstanceLock()) {
     isQuitting = true;
   });
   app.on("will-quit", (event) => {
+    updater?.stop();
     if (!desktop) return;
     event.preventDefault();
     const running = desktop;
@@ -54,8 +67,10 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 async function start(): Promise<void> {
+  if (process.platform === "win32") app.setAppUserModelId(APP_USER_MODEL_ID);
   try {
-    desktop = await startDesktop({ mobileDistDir: paths.mobileDistDir, overlayFile: paths.overlayFile, log });
+    updater = createUpdater();
+    desktop = await startDesktop({ mobileDistDir: paths.mobileDistDir, overlayFile: paths.overlayFile, log, appUpdater: updater });
   } catch (error) {
     fail(error);
     return;
@@ -69,6 +84,11 @@ async function start(): Promise<void> {
   });
   if (process.platform === "linux") await migrateOldAutostart();
   createTray();
+  // The tray follows the update state; the first check comes a little later, never before the window.
+  updater?.subscribe((state) => {
+    if (JSON.stringify(trayUpdateItem(state, strings)) !== drawnUpdateItem) refreshTrayMenu();
+  });
+  updater?.start();
   const loginItem = process.platform === "linux" ? { wasOpenedAtLogin: false } : app.getLoginItemSettings();
   const hidden = shouldStartHidden(process.argv, loginItem.wasOpenedAtLogin);
   if (hidden && process.platform === "darwin") app.dock?.hide();
@@ -155,6 +175,91 @@ function openExternal(decision: LinkDecision): void {
   if (!decision.allow && decision.openExternal) void shell.openExternal(decision.openExternal);
 }
 
+/**
+ * The updater for this installation: downloads and installs on Windows and for a Linux AppImage, only
+ * announces on macOS and for a Linux .deb, and does nothing in development or without an update source.
+ */
+function createUpdater(): AppUpdateController {
+  const mode = updateMode({
+    platform: process.platform,
+    isPackaged: app.isPackaged,
+    appImage: process.env.APPIMAGE,
+    hasUpdateConfig: existsSync(join(process.resourcesPath, "app-update.yml")),
+  });
+  const noticeFile = join(app.getPath("userData"), "update-notice.json");
+  let backend: UpdaterBackend | undefined;
+  if (mode !== "disabled") {
+    try {
+      const appImage = process.platform === "linux" && Boolean(process.env.APPIMAGE);
+      backend = createElectronUpdaterBackend({ appImage, log, beforeInstall: releaseForInstall });
+    } catch (error) {
+      // The app works the same without updates; Settings then shows the version only.
+      log(`Updates are off, the updater could not start: ${String(error)}`);
+    }
+  }
+  return new AppUpdateController({
+    currentVersion: app.getVersion(),
+    mode,
+    backend,
+    now: () => Date.now(),
+    log,
+    notify: showUpdateNotification,
+    notified: {
+      load: () => {
+        if (!existsSync(noticeFile)) return undefined;
+        const { version } = JSON.parse(readFileSync(noticeFile, "utf8")) as { version?: unknown };
+        return typeof version === "string" ? version : undefined;
+      },
+      save: (version) => writeFileSync(noticeFile, JSON.stringify({ version })),
+    },
+  });
+}
+
+/** One quiet system notification per version; pressing it opens the window. Never a dialog. */
+function showUpdateNotification(notice: UpdateNotice): void {
+  if (!Notification.isSupported()) return;
+  const notification = new Notification({ ...updateNotification(notice, strings), silent: true });
+  notification.on("click", () => showWindow());
+  notification.show();
+}
+
+/**
+ * Before restarting to install: stops the server and lets go of the single-instance lock, so the updated
+ * app can take the same port and the lock even if it starts while this one is still quitting.
+ */
+async function releaseForInstall(): Promise<void> {
+  isQuitting = true;
+  const running = desktop;
+  desktop = undefined;
+  // Lets the answer to the request that asked for the restart leave first.
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  await running?.close().catch((error: unknown) => log(`Could not stop the server cleanly: ${String(error)}`));
+  app.releaseSingleInstanceLock();
+  // The installer quits the app within moments. If it could not start, come back as the current version
+  // instead of staying open with the server stopped.
+  setTimeout(() => {
+    log("The update did not start; restarting Speed Deck.");
+    app.relaunch();
+    app.quit();
+  }, INSTALL_START_TIMEOUT_MS);
+}
+
+/** The tray's update item: check, download progress, restart to update, or the download page. */
+function updateMenuItems(): MenuItemConstructorOptions[] {
+  const item = updater ? trayUpdateItem(updater.state(), strings) : null;
+  drawnUpdateItem = JSON.stringify(item);
+  if (!item || !updater) return [];
+  const current = updater;
+  const run = {
+    check: () => void current.check(),
+    install: () => void current.install(),
+    // Through the same https-only rule as every other link that leaves the app.
+    "open-release": () => openExternal(externalLinkPolicy("").open(current.state().releaseUrl ?? "")),
+    none: () => {},
+  }[item.action];
+  return [{ label: item.label, enabled: item.enabled, click: run }, { type: "separator" }];
+}
+
 function createTray(): void {
   const icon = nativeImage.createFromPath(paths.trayIcon);
   if (process.platform === "darwin") icon.setTemplateImage(true);
@@ -187,6 +292,7 @@ function refreshTrayMenu(): void {
         click: (item) => void setStartAtLogin(item.checked).finally(refreshTrayMenu),
       },
       { type: "separator" },
+      ...updateMenuItems(),
       { label: strings.quit, click: () => app.quit() },
     ]),
   );

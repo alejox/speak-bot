@@ -1,4 +1,4 @@
-import type { ApplicationLauncher, BoardRepository, DesktopSettings, ObsController, ServerEvent } from "@speed-deck/core";
+import type { ApplicationLauncher, AppUpdater, BoardRepository, DesktopSettings, ObsController, ServerEvent } from "@speed-deck/core";
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { hostname as osHostname } from "node:os";
@@ -44,6 +44,8 @@ export interface DesktopServerDependencies {
   ads?: AdFeed;
   /** Plays voice clips on the OBS overlays; absent means the voice only goes to the speakers. */
   overlayAudio?: OverlayAudio;
+  /** The computer app's updater; its state changes are broadcast as app-update. Absent without the app. */
+  appUpdater?: AppUpdater;
 }
 
 export interface DesktopServer {
@@ -72,6 +74,8 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
 
   const stopAdsEvents = deps.adsGrants?.subscribe((ads) => hub.broadcast({ type: "ads-changed", ads, at: now() }));
   const stopOverlayEvents = deps.overlayAudio?.onConnectedChange((connected) => hub.broadcast({ type: "overlay-audio", connected, at: now() }));
+
+  const stopUpdateEvents = deps.appUpdater?.subscribe((update) => hub.broadcast({ type: "app-update", update, at: now() }));
 
   const httpServer = createServer((request, response) => {
     void (async () => {
@@ -115,6 +119,7 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
       stopObsEvents?.();
       stopAdsEvents?.();
       stopOverlayEvents?.();
+      stopUpdateEvents?.();
       await hub.close();
       httpServer.closeAllConnections();
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));

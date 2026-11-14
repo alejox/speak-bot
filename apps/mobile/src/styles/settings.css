@@ -159,6 +159,30 @@
   margin: var(--space-2) 0;
 }
 
+/* About and updates: the computer app's version, the update state and, on the computer, its actions. */
+.app-update-version,
+.app-update-status {
+  margin: var(--space-2) 0;
+}
+
+.app-update-progress {
+  display: block;
+  width: 100%;
+  margin: var(--space-2) 0;
+  accent-color: var(--color-accent);
+}
+
+.app-update-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+
+.app-update-actions a.button {
+  text-decoration: none;
+}
+
 /* An app-store build: the purchase and Restore purchase side by side, wrapping on a narrow phone. */
 .remove-ads-store {
   display: flex;
