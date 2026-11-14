@@ -322,34 +322,47 @@
   filter: saturate(0.35);
 }
 
-/* The one + of a page: faint, with a soft dashed edge so it reads as a place, not a key. */
-.deck-key-empty {
-  color: var(--key-empty);
-  background: transparent;
-  border: calc(var(--border-width) * 1.5) dashed var(--color-border);
-  box-shadow: none;
-}
-
-.deck-key-empty:hover {
-  color: var(--color-text);
-  border-color: var(--color-border-strong);
-}
-
-.deck-key-plus {
-  font-size: 2.5rem;
-  font-weight: var(--weight-regular);
-  line-height: 1;
-}
-
 /*
- * Any other empty space is a faint tile, like an unassigned key on a hardware deck: it keeps the
- * grid readable when keys sit far from the top, and takes dropped keys. No border, no +.
+ * An empty space is a faint tile, like an unassigned key on a hardware deck: it keeps the grid readable
+ * when keys sit far from the top, and takes dropped keys. Where a key can be added there it is a button
+ * with a +. A page may be mostly empty, so at rest the + is quiet (the edge colour, still 3:1 on its tile)
+ * and the tile has no edge; pointing at it, keyboard focus and a key dragged over it bring both out.
  */
 .deck-key-blank {
   width: 100%;
   aspect-ratio: 1;
   border-radius: var(--radius-xl);
   background: color-mix(in srgb, var(--key-bg) 40%, transparent);
+}
+
+.deck-key-empty {
+  color: var(--color-border-strong);
+  background: color-mix(in srgb, var(--key-bg) 40%, transparent);
+  border: calc(var(--border-width) * 1.5) dashed transparent;
+  box-shadow: none;
+  transition:
+    color var(--duration-fast) var(--ease),
+    border-color var(--duration-fast) var(--ease),
+    transform var(--duration-fast) var(--ease);
+}
+
+.deck-key-empty:focus-visible,
+.deck-key-empty.deck-key-drop {
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+
+@media (hover: hover) {
+  .deck-key-empty:hover {
+    color: var(--color-text);
+    border-color: var(--color-border-strong);
+  }
+}
+
+.deck-key-plus {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-regular);
+  line-height: 1;
 }
 
 .deck-key-selected {
@@ -872,7 +885,7 @@
 }
 
 .app-space .deck-full .deck-key-plus {
-  font-size: clamp(1rem, 30cqi, 2.5rem);
+  font-size: clamp(1rem, 30cqi, var(--text-2xl));
 }
 
 /* Wide screens (the workspace, with the side panel docked beside it): the whole width and more air. */
@@ -887,6 +900,85 @@
 
   .app-workspace .deck-full .deck-grid {
     --deck-gap: var(--space-4);
+  }
+}
+
+/*
+ * Voice in the workspace (.deck-fill, BoardPlayer fillsArea): the page fills the room beside the composer
+ * instead of keeping small square keys. The board's columns and rows stay exactly as they are; each cell
+ * takes its share of the width and grows down to use the height, within an aspect limit (never taller than
+ * 1.4 times its width, never wider than twice its height) and without the Deck's size cap. The page starts
+ * right under the quick phrases; the room it does not use stays below it.
+ */
+.app-space .deck-fill .deck-grid-area {
+  align-items: flex-start;
+}
+
+.app-space .deck-fill .deck-grid {
+  --cell-width: calc((100cqw - (var(--columns) - 1) * var(--deck-gap)) / var(--columns));
+  --cell-height: calc((100cqh - (var(--rows) - 1) * var(--deck-gap)) / var(--rows));
+  --key-height: min(var(--cell-height), var(--cell-width) * 1.4);
+  --key-width: min(var(--cell-width), var(--key-height) * 2);
+  grid-template-columns: repeat(var(--columns), var(--key-width));
+  grid-auto-rows: var(--key-height);
+}
+
+/*
+ * A stretched key shows more of its phrase. Its text follows the rules of a phone's Voice key (compact.css:
+ * it shrinks until the longest word fits, and never breaks inside a word), measured on the key's real
+ * inner width (--key-inset: these keys grow large enough for their full padding) with a wider allowance
+ * per letter, since a long word in large type has no slack. It takes as many lines as the cell holds
+ * (--label-lines, stepped by the cell's own height; a cell taller than wide is narrow for its height, so
+ * it holds more) and aims to fit one line short of that, so an uneven wrap still shows whole; it shrinks
+ * to the smallest size before the ellipsis cuts a phrase that does not fit. An icon above the phrase takes
+ * a line (--icon-label-lines). The selector outweighs the label-length steps of the square keys.
+ */
+.app-space .deck-fill .deck-grid[data-layout="fill"] .deck-key .deck-key-text {
+  --label-lines: 2;
+  --icon-label-lines: 2;
+  --lines: var(--label-lines);
+  --key-inset: calc(2 * clamp(4px, 7cqmin, var(--space-3)) + 2 * var(--border-width));
+  --text-room: calc(100cqi - var(--key-inset));
+  --word-fit: calc(var(--text-room) / (var(--word-chars, 8) * 0.6));
+  --line-fit: calc(var(--text-room) / (var(--line-chars, 8) * 2 / max(2, var(--lines) - 1) * 0.62));
+  --label-room: calc(100cqh - var(--key-inset));
+  --height-fit: calc(var(--label-room) / (var(--lines) * var(--leading-tight)));
+  -webkit-line-clamp: var(--lines);
+  line-clamp: var(--lines);
+  font-size: clamp(12px, min(17cqmin, var(--word-fit), var(--line-fit), var(--height-fit)), var(--text-2xl));
+}
+
+.app-space .deck-fill .deck-grid[data-layout="fill"] .deck-key:has(.key-icon) .deck-key-text {
+  --lines: var(--icon-label-lines);
+  --label-room: calc(100cqh - var(--key-inset) - clamp(14px, 22cqmin, 36px) - clamp(1px, 4cqmin, var(--space-2)));
+}
+
+/* Lines of the smallest text (12px) a cell this tall holds, with its padding: container queries take no variables. */
+@container (min-height: 60px) {
+  .app-space .deck-fill .deck-grid[data-layout="fill"] .deck-key .deck-key-text {
+    --label-lines: 3;
+    --icon-label-lines: 2;
+  }
+}
+
+@container (min-height: 76px) {
+  .app-space .deck-fill .deck-grid[data-layout="fill"] .deck-key .deck-key-text {
+    --label-lines: 4;
+    --icon-label-lines: 3;
+  }
+}
+
+@container (orientation: portrait) and (min-height: 92px) {
+  .app-space .deck-fill .deck-grid[data-layout="fill"] .deck-key .deck-key-text {
+    --label-lines: 5;
+    --icon-label-lines: 4;
+  }
+}
+
+@container (orientation: portrait) and (min-height: 112px) {
+  .app-space .deck-fill .deck-grid[data-layout="fill"] .deck-key .deck-key-text {
+    --label-lines: 6;
+    --icon-label-lines: 5;
   }
 }
 

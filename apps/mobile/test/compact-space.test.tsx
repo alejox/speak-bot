@@ -124,14 +124,17 @@ describe("a board on a phone held upright", () => {
     expect(grid().style.getPropertyValue("--grid-columns")).toBe("4");
     expect(grid().style.getPropertyValue("--grid-rows")).toBe("6");
     expect(drawnSlots()).toEqual([0, 6, 12, 18, 1, 7, 13, 19, 2, 8, 14, 20, 3, 9, 15, 21, 4, 10, 16, 22, 5, 11, 17, 23]);
+    // Each key with its menu, and a + on every empty cell, in the order drawn (column by column of the stored board).
+    const add = (position: number) => `Add a key at position ${position}`;
     expect(within(grid()).getAllByRole("button").map((button) => button.getAttribute("aria-label") ?? button.textContent)).toEqual([
       "K0",
       "Options for key 1",
       "K6",
       "Options for key 7",
+      ...[13, 19].map(add),
       "K1",
       "Options for key 2",
-      "Add a key at position 8",
+      ...[8, 14, 20, 3, 9, 15, 21, 4, 10, 16, 22, 5, 11, 17, 23, 6, 12, 18, 24].map(add),
     ]);
   });
 

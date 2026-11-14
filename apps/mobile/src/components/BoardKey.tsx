@@ -45,8 +45,8 @@ type BoardKeyProps = BoardKeyView &
  * Every state is drawn with a shape, an icon or words as well as a colour.
  */
 /**
- * How many characters a label needs on a line (compact.css sizes a phone's key text from them): its
- * longest word, which must never break, and half the label, so a phrase can show whole on two lines.
+ * How many characters a label needs on a line (compact.css sizes the text of a stretched Voice key from
+ * them): its longest word, which must never break, and half the label, so a phrase can show whole on two lines.
  * At least 4, so short words do not blow the text up.
  */
 function labelFit(label: string): CSSProperties {

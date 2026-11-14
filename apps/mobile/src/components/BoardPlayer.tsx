@@ -25,15 +25,6 @@ const TOUCH_MOVE_THRESHOLD = 8;
 const FINE_POINTER_QUERY = "(pointer: fine)";
 
 /**
- * Where a page offers its one +: right after the last used cell, or in the first gap when the last space is
- * taken; -1 when full. `used` tells, per cell, whether a key sits on it or covers it.
- */
-function addIndexOnPage(used: readonly boolean[]): number {
-  const lastUsedIndex = used.reduce((last, isUsed, index) => (isUsed ? index : last), -1);
-  return lastUsedIndex < used.length - 1 ? lastUsedIndex + 1 : used.findIndex((isUsed) => !isUsed);
-}
-
-/**
  * Where a key is drawn: its first row and column (1-based) and how many it covers, on screen. Only keys
  * covering several cells need it, unless `always` (a page drawn without its empty cells).
  */
@@ -89,13 +80,19 @@ interface BoardPlayerProps {
   isSpeaking?: boolean;
   /** Opens the key dialog for a slot (add on an empty one, edit on a key); without it keys cannot be edited from the player. */
   onEditKey?: (slot: number) => void;
+  /**
+   * Opens the add flow for an empty slot: every empty cell that is drawn becomes a + for it. `onEditKey`
+   * when absent; given on its own where a page shows its empty cells while its keys cannot be edited
+   * (Voice playing on a phone).
+   */
+  onAddKey?: (slot: number) => void;
   /** Empties a slot; resolves true when deleted. Offered in the key menu. */
   onDeleteKey?: (slot: number) => Promise<boolean>;
   /** Moves a key to another slot, swapping with a key there; resolves true when moved. Used by drag and drop. */
   onMoveKey?: (from: number, to: number) => Promise<boolean>;
   /** The key being edited in the inspector, drawn as selected. */
   selectedSlot?: number | null;
-  /** Told the slot the page on screen offers for a new key (its +), or null when that page is full. */
+  /** Told the slot of the first + drawn on the page on screen, for an Add key control outside the grid; null when the page draws none (it is full). */
   onAddSlotChange?: (slot: number | null) => void;
   /** The deck's header: the board pill and its menu. */
   toolbar?: ReactNode;
@@ -117,6 +114,11 @@ interface BoardPlayerProps {
    * and the cells stretch to fill the room. Without it a playing page drops its empty rows and columns.
    */
   keepsGrid?: boolean;
+  /**
+   * The Voice workspace on wide screens: the page keeps the board's columns and rows, and its cells stretch
+   * (wider or taller than a square, within an aspect limit) to fill the room the grid gets, from the top.
+   */
+  fillsArea?: boolean;
   /** Draws the pager outside the deck (after it) instead of under the keys. */
   renderPager?: (pager: PagerControls) => ReactNode;
 }
@@ -128,6 +130,7 @@ export function BoardPlayer({
   onRun,
   isSpeaking = false,
   onEditKey,
+  onAddKey,
   onDeleteKey,
   onMoveKey,
   selectedSlot = null,
@@ -138,6 +141,7 @@ export function BoardPlayer({
   volumes = null,
   compact = false,
   keepsGrid = false,
+  fillsArea = false,
   renderPager,
 }: BoardPlayerProps) {
   const t = useT();
@@ -160,6 +164,7 @@ export function BoardPlayer({
   const swallowClick = useRef(false);
   const canDrag = useMediaQuery(FINE_POINTER_QUERY) && onMoveKey !== undefined;
   const canEdit = onEditKey !== undefined;
+  const addKey = onAddKey ?? onEditKey;
   // Phones held upright draw the page transposed (display only); the dock always draws it as stored.
   const isPortraitBoard = useMediaQuery(PORTRAIT_BOARD_QUERY) && variant === "full";
   // An empty page opened past the last one; it becomes a real page once a key is added there.
@@ -176,9 +181,20 @@ export function BoardPlayer({
   // Keys this kind of board no longer shows (kept as stored): drawn as blank places, never offered for a new key.
   const hidden = new Set(board ? hiddenKeySlots(board) : []);
   const keys = board ? keysOnPage(board, page).map((key, index) => (hidden.has(page * pageSize + index) ? undefined : key)) : [];
-  // One + per page; others (the inspector's Add key) add at the same slot.
-  const plusIndex = addIndexOnPage(keys.map((key, index) => key !== undefined || covered.has(page * pageSize + index) || hidden.has(page * pageSize + index)));
-  const addSlot = board && plusIndex >= 0 ? page * pageSize + plusIndex : null;
+  const isTransposed = board !== null && isPortraitBoard && board.columns !== board.rows;
+  const cellIndexes = board ? displayedCellIndexes(board.columns, board.rows, isTransposed) : [];
+  // Playing on a phone: the editing tools go away (and, unless the page keeps its whole grid, its empty cells).
+  const isPlaying = compact && !canEdit;
+  // A playing page drops its empty cells, rows and columns, unless it keeps the board's whole grid (Voice on a phone).
+  const dropsEmpty = isPlaying && !keepsGrid;
+  // Every empty cell that is drawn is a + where keys can be added: never the slot of a stored key that is not drawn.
+  const offersAdd = (index: number) => {
+    const slot = page * pageSize + index;
+    return addKey !== undefined && !dropsEmpty && keys[index] === undefined && !covered.has(slot) && !hidden.has(slot);
+  };
+  // The first + in the order drawn; controls outside the grid (an Add key button) add at the same slot.
+  const firstAddIndex = cellIndexes.find(offersAdd);
+  const addSlot = firstAddIndex === undefined ? null : page * pageSize + firstAddIndex;
 
   useEffect(() => {
     onAddSlotChange?.(addSlot);
@@ -198,15 +214,9 @@ export function BoardPlayer({
 
   if (!board || !position) return null;
 
-  const isTransposed = isPortraitBoard && board.columns !== board.rows;
-  const cellIndexes = displayedCellIndexes(board.columns, board.rows, isTransposed);
-  // Playing on a phone: the editing tools go away (and, unless the page keeps its whole grid, its empty cells).
-  const isPlaying = compact && !canEdit;
-  // There the volume keys leave the grid for the mixer, so their cells count as free.
+  // Playing on a phone, the volume keys leave the grid for the mixer, so their cells count as free.
   const gridKeys = isPlaying ? keys.map((key) => (isVolumeKey(key) ? undefined : key)) : keys;
   const mixerKeys: VolumeKeyOnBoard[] = isPlaying ? keys.flatMap((key, index) => (isVolumeKey(key) ? [{ key, slot: page * pageSize + index }] : [])) : [];
-  // A playing page drops its empty cells, rows and columns, unless it keeps the board's whole grid (Voice on a phone).
-  const dropsEmpty = isPlaying && !keepsGrid;
   const extent = dropsEmpty ? usedExtent(gridKeys, board.columns) : { columns: board.columns, rows: board.rows };
   // The page's drawn columns and rows; its box reads them too, to keep room for keys large enough to use.
   const gridSize = { "--grid-columns": isTransposed ? extent.rows : extent.columns, "--grid-rows": isTransposed ? extent.columns : extent.rows } as CSSProperties;
@@ -378,7 +388,7 @@ export function BoardPlayer({
       return;
     }
     if (!key) {
-      onEditKey?.(slot);
+      addKey?.(slot);
       return;
     }
     if (disabled) return;
@@ -386,6 +396,8 @@ export function BoardPlayer({
     onRun(key.action, { boardId: board.id, slot });
   };
 
+  // How the cells take the room the grid gets: "whole" and "fill" stretch them; otherwise they stay square.
+  const layout = compact && keepsGrid ? "whole" : fillsArea ? "fill" : undefined;
   // The grid's own box, so wide layouts can size the keys to the room it gets.
   const gridArea = (
     <div className="deck-grid-area" style={gridSize}>
@@ -393,7 +405,7 @@ export function BoardPlayer({
         ref={gridElement}
         className={canTouchMove ? "deck-grid deck-grid-movable" : "deck-grid"}
         aria-label={t("board.keys", { board: board.name })}
-        data-layout={compact && keepsGrid ? "whole" : undefined}
+        data-layout={layout}
         style={gridSize}
       >
         {/* Cells in the order they are drawn, so reading order follows the screen; names keep the real position. */}
@@ -406,7 +418,7 @@ export function BoardPlayer({
             if (dropsEmpty) return null;
             return (
               <li key={slot} data-slot={slot}>
-                {onEditKey && index === plusIndex ? (
+                {offersAdd(index) ? (
                   <button
                     ref={slotRef(slot)}
                     type="button"
@@ -420,7 +432,7 @@ export function BoardPlayer({
                     </span>
                   </button>
                 ) : (
-                  // A blank space: still a place to drop a dragged key.
+                  // A blank space (the board cannot be edited here, or a stored key is not drawn): still a place to drop a dragged key.
                   <div className={["deck-key-blank", dropClass].filter(Boolean).join(" ")} aria-hidden="true" {...dropHandlers(slot)} />
                 )}
               </li>
@@ -578,6 +590,7 @@ export function BoardPlayer({
         compact ? "deck-compact" : "",
         compact && !canEdit ? "deck-playing" : "",
         compact && keepsGrid ? "deck-whole" : "",
+        layout === "fill" ? "deck-fill" : "",
       ]
         .filter(Boolean)
         .join(" ")}

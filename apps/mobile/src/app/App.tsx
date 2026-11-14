@@ -410,11 +410,14 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   volumes={target.obs}
                   isSpeaking={speech.isSpeaking}
                   onEditKey={canEditBoard ? openKey : undefined}
+                  // Voice on a phone keeps its empty cells while playing: each one adds a phrase there, without Edit keys.
+                  onAddKey={canEditBoard || usesComposerSheet ? openKey : undefined}
                   selectedSlot={inspection?.slot ?? null}
                   onDeleteKey={canEditBoard ? deck.clearKey : undefined}
                   onMoveKey={canEditBoard ? deck.moveKey : undefined}
                   compact={isCompactSpace}
                   keepsGrid={usesComposerSheet}
+                  fillsArea={isWorkspace && space === "voice" && !isCompactSpace}
                   // On a phone the Voice pager sits right before Write; "+" opens a new page ready for its first phrase.
                   renderPager={
                     usesComposerSheet

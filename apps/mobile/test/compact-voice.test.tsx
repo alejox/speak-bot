@@ -39,11 +39,11 @@ describe("the Voice space on a phone, while playing", () => {
     expect(within(screen.getByRole("group", { name: "Voice actions" })).getByRole("button", { name: "New page" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "New page" })).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "Previous page" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Add a key/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Options for key/ })).not.toBeInTheDocument();
-    // W8: the board's whole 4 x 3 grid, as when editing; the empty cells are blank space, the three keys the only buttons.
+    // W8: the board's whole 4 x 3 grid, as when editing: the three keys, and a + on each of the nine empty cells.
     expect(within(grid()).getAllByRole("listitem")).toHaveLength(12);
-    expect(within(grid()).getAllByRole("button")).toHaveLength(3);
+    expect(within(grid()).getAllByRole("button", { name: /^Add a key/ })).toHaveLength(9);
+    expect(within(grid()).getAllByRole("button")).toHaveLength(12);
     // W7: only full keys on a phone, like the Deck; the chips' row goes and the keys get its height.
     expect(screen.queryByRole("group", { name: "Quick phrases" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Yes" })).not.toBeInTheDocument();
@@ -62,9 +62,11 @@ describe("the Voice space on a phone, while playing", () => {
     await user.click(editToggle()!);
     expect(editToggle()).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Grid size" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Add a key/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Add a key/ })).toHaveLength(9);
+    expect(screen.getAllByRole("button", { name: /^Options for key/ })).toHaveLength(3);
     await user.click(editToggle()!);
     expect(screen.queryByRole("button", { name: "Grid size" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Options for key/ })).not.toBeInTheDocument();
   });
 
   it("keeps editing in one space apart from the other", async () => {
@@ -82,7 +84,7 @@ describe("the Voice space on a phone, while playing", () => {
     expect(editToggle()).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Grid size" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Quick phrases" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Add a key/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Add a key/ })).toHaveLength(9);
     expect(screen.getByRole("textbox", { name: "Text to speak" })).toBeInTheDocument();
   });
 });

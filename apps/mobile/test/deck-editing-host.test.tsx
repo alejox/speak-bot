@@ -104,7 +104,8 @@ describe("who may edit the Deck", () => {
     setScreen(TABLET);
     await openDeck("localhost");
     expect(screen.getByRole("button", { name: "Grid size" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Add a key/ })).toBeInTheDocument();
+    // A + on each of the nine empty cells of the 4 x 3 page.
+    expect(screen.getAllByRole("button", { name: /^Add a key/ })).toHaveLength(9);
   });
 
   it("the computer keeps managing Deck boards", async () => {
