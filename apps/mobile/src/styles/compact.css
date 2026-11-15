@@ -429,11 +429,17 @@
   grid-auto-rows: minmax(0, 1fr);
 }
 
-.app-space .deck-compact .deck-grid[data-layout="whole"] li {
+/*
+ * A key that is not square (the page above, and Voice filling its area in the workspace, deck.css): the
+ * cell is the size reference in both directions, and the key, its icon and its label follow its shorter side.
+ */
+.app-space .deck-compact .deck-grid[data-layout="whole"] li,
+.app-space .deck-fill .deck-grid li {
   container-type: size;
 }
 
-.app-space .deck-compact .deck-grid[data-layout="whole"] .deck-key {
+.app-space .deck-compact .deck-grid[data-layout="whole"] .deck-key,
+.app-space .deck-fill .deck-grid .deck-key {
   height: 100%;
   aspect-ratio: auto;
   gap: clamp(1px, 4cqmin, var(--space-2));
@@ -441,19 +447,28 @@
   border-radius: clamp(8px, 12cqmin, var(--radius-xl));
 }
 
-/* An empty cell fills its place too; while playing it is only space, so the keys keep their places. */
-.app-space .deck-compact .deck-grid[data-layout="whole"] .deck-key-blank {
+/* An empty cell fills its place too. */
+.app-space .deck-compact .deck-grid[data-layout="whole"] .deck-key-blank,
+.app-space .deck-fill .deck-grid .deck-key-blank {
   height: 100%;
   aspect-ratio: auto;
 }
 
-.app-space .deck-compact.deck-playing .deck-grid[data-layout="whole"] .deck-key-blank {
+/* While playing on a phone an empty cell is only space, so the keys keep their places: no tile, just its quiet +. */
+.app-space .deck-compact.deck-playing .deck-grid[data-layout="whole"] .deck-key-blank,
+.app-space .deck-compact.deck-playing .deck-grid[data-layout="whole"] .deck-key-empty {
   background: transparent;
 }
 
-.app-space .deck-compact .deck-grid[data-layout="whole"] .deck-key .key-icon {
+.app-space .deck-compact .deck-grid[data-layout="whole"] .deck-key .key-icon,
+.app-space .deck-fill .deck-grid .deck-key .key-icon {
   width: clamp(14px, 22cqmin, 36px);
   height: clamp(14px, 22cqmin, 36px);
+}
+
+.app-space .deck-compact .deck-grid[data-layout="whole"] .deck-key-plus,
+.app-space .deck-fill .deck-grid .deck-key-plus {
+  font-size: clamp(1rem, 30cqmin, var(--text-2xl));
 }
 
 /*
@@ -463,7 +478,8 @@
  * tooltip keep the whole phrase. One character of the UI font is about 0.55em wide; a
  * line of words with their spaces about 0.62em per character.
  */
-.app-space .deck-compact.deck-whole .deck-key .deck-key-text {
+.app-space .deck-compact.deck-whole .deck-key .deck-key-text,
+.app-space .deck-fill .deck-key .deck-key-text {
   --text-room: calc(100cqi - 1.25rem);
   --word-fit: calc(var(--text-room) / (var(--word-chars, 8) * 0.55));
   --line-fit: max(15px, calc(var(--text-room) / (var(--line-chars, 8) * 0.62)));
@@ -475,4 +491,26 @@
 
 .app-space .deck-compact.deck-whole .deck-grid[data-layout="whole"] .deck-key .deck-key-text {
   font-size: clamp(12px, min(17cqmin, var(--word-fit), var(--line-fit)), var(--text-2xl));
+}
+
+/*
+ * A label sized for its key (.deck-key-fitted): in every space the page's keys are measured and each label
+ * gets its size and its lines from fitKeyLabel (--key-label-size, --key-label-lines), which starts from
+ * the key's size, enlarges it by the text-size setting and never lets a word be wider than the key. So the
+ * label wraps between words only, on as many lines as the key holds, and a larger text setting never makes
+ * it smaller. The rules above stay as the sizes before a key is measured. Written last and with the
+ * weight to win over every layout's own label rules.
+ */
+.app-space .deck.deck-full .deck-grid.deck-grid .deck-key.deck-key-fitted .deck-key-text {
+  font-size: var(--key-label-size);
+  -webkit-line-clamp: var(--key-label-lines);
+  line-clamp: var(--key-label-lines);
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
+}
+
+/* Only a word wider than its key at the smallest size may break. */
+.app-space .deck.deck-full .deck-grid.deck-grid .deck-key.deck-key-fitted.deck-key-breaks .deck-key-text {
+  overflow-wrap: anywhere;
 }

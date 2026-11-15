@@ -9,8 +9,10 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+# Read-only by default: the jobs that run npm install scripts, tests and builds cannot write to the repository.
+# Only the job that publishes the release is given write access, below.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -20,6 +22,8 @@ jobs:
   installers:
     name: Installers (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -35,6 +39,9 @@ jobs:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The token is not left in the checkout for the build's scripts to find.
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -72,6 +79,9 @@ jobs:
     needs: installers
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
+    # The only job that writes: it creates the release and attaches the files. It checks out and runs no project code.
+    permissions:
+      contents: write
     steps:
       # One folder per OS job, so a file name two jobs share is noticed instead of one silently replacing the other.
       - uses: actions/download-artifact@v4

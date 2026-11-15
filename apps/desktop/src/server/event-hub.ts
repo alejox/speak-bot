@@ -26,6 +26,10 @@ export class EventHub {
 
   attach(server: Server): void {
     server.on("upgrade", (request, socket, head) => {
+      // An upgrade socket is handed over without any "error" listener. A client that resets the connection
+      // while an answer is being written would raise an uncaught EPIPE and kill the process, so every
+      // upgrade socket gets one before anything is written to it.
+      socket.on("error", () => socket.destroy());
       // Upgrade listeners must never throw: an uncaught error here would kill the process.
       if (requestPathname(request) !== EVENTS_PATH) {
         socket.destroy();
@@ -46,17 +50,13 @@ export class EventHub {
 
   broadcast(event: ServerEvent): void {
     const payload = JSON.stringify(event);
-    for (const client of this.sockets.clients) {
-      if (client.readyState === WebSocket.OPEN) client.send(payload);
-    }
+    for (const client of this.sockets.clients) sendTo(client, payload);
   }
 
   /** Sends a clip command to the overlays only. */
   sendToOverlays(command: OverlayCommand): void {
     const payload = JSON.stringify(command);
-    for (const client of this.overlaySockets) {
-      if (client.readyState === WebSocket.OPEN) client.send(payload);
-    }
+    for (const client of this.overlaySockets) sendTo(client, payload);
   }
 
   private addOverlay(client: WebSocket): void {
@@ -81,5 +81,17 @@ export class EventHub {
   close(): Promise<void> {
     for (const client of this.sockets.clients) client.terminate();
     return new Promise((resolve) => this.sockets.close(() => resolve()));
+  }
+}
+
+/** Sends to one client. A client that went away mid-send is dropped; one broken link never stops a broadcast. */
+function sendTo(client: WebSocket, payload: string): void {
+  if (client.readyState !== WebSocket.OPEN) return;
+  try {
+    client.send(payload, (error) => {
+      if (error) client.terminate();
+    });
+  } catch {
+    client.terminate();
   }
 }

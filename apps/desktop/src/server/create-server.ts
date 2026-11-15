@@ -10,6 +10,7 @@ import { createApiHandler } from "./api";
 import { EventHub } from "./event-hub";
 import { requestPathname, sendJson } from "./http-utils";
 import type { NetworkInterfaces } from "./network";
+import type { DataRecoveryLog } from "../adapters/data-recovery-log";
 import type { OverlayAudio } from "./overlay-audio";
 import { createRequestGuard } from "./request-guard";
 
@@ -44,6 +45,8 @@ export interface DesktopServerDependencies {
   ads?: AdFeed;
   /** Plays voice clips on the OBS overlays; absent means the voice only goes to the speakers. */
   overlayAudio?: OverlayAudio;
+  /** What was done about a damaged boards file, told to the person at the computer until dismissed. */
+  dataRecovery?: DataRecoveryLog;
   /** The computer app's updater; its state changes are broadcast as app-update. Absent without the app. */
   appUpdater?: AppUpdater;
 }
@@ -76,6 +79,8 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
   const stopOverlayEvents = deps.overlayAudio?.onConnectedChange((connected) => hub.broadcast({ type: "overlay-audio", connected, at: now() }));
 
   const stopUpdateEvents = deps.appUpdater?.subscribe((update) => hub.broadcast({ type: "app-update", update, at: now() }));
+  // Carries no path: the window on this computer reads the notice from GET /api/health.
+  const stopRecoveryEvents = deps.dataRecovery?.subscribe(() => hub.broadcast({ type: "data-recovery", at: now() }));
 
   const httpServer = createServer((request, response) => {
     void (async () => {
@@ -120,6 +125,7 @@ export function createDesktopServer(deps: DesktopServerDependencies): DesktopSer
       stopAdsEvents?.();
       stopOverlayEvents?.();
       stopUpdateEvents?.();
+      stopRecoveryEvents?.();
       await hub.close();
       httpServer.closeAllConnections();
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));

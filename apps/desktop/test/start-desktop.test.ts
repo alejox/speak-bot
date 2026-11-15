@@ -162,6 +162,42 @@ describe("startDesktop", () => {
     expect(JSON.parse(settings)).toMatchObject({ obs: { enabled: true, hasPassword: true } });
     expect(JSON.stringify(await desktop.loadSettings())).not.toContain("hunter2-obs");
   });
+
+  it("does not contact the sponsor feed while ads are removed, and asks again once they are back", async () => {
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-start-"));
+    const feedUrl = "https://ads.example/feed.json";
+    const requested: string[] = [];
+    const feedFetch = (async (input: string | URL | Request) => {
+      requested.push(String(input));
+      return new Response(JSON.stringify({ ad: null }), { headers: { "content-type": "application/json" } });
+    }) as typeof globalThis.fetch;
+    await writeFile(join(dir, "ads-grants.json"), JSON.stringify({ grants: [{ deviceId: "device-pixel-0001", deviceName: "Pixel 8", grantedAt: 1 }] }));
+
+    desktop = await startDesktop({ argv: ["--port", "0", "--host", "127.0.0.1", "--data-dir", dir], env: { SPEED_DECK_AD_FEED_URL: feedUrl }, fetch: feedFetch });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(requested).toEqual([]);
+
+    // The purchase was refunded: ads are back, and so is the sponsor.
+    await fetch(`http://127.0.0.1:${desktop.port}/api/ads/report`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ deviceId: "device-pixel-0001", deviceName: "Pixel 8", entitlement: "not-owned" }),
+    });
+    await expect.poll(() => requested).toEqual([feedUrl]);
+  });
+
+  it("asks the sponsor feed at start while ads show", async () => {
+    dir = await mkdtemp(join(tmpdir(), "speed-deck-start-"));
+    const feedUrl = "https://ads.example/feed.json";
+    const requested: string[] = [];
+    const feedFetch = (async (input: string | URL | Request) => {
+      requested.push(String(input));
+      return new Response(JSON.stringify({ ad: null }), { headers: { "content-type": "application/json" } });
+    }) as typeof globalThis.fetch;
+
+    desktop = await startDesktop({ argv: ["--port", "0", "--host", "127.0.0.1", "--data-dir", dir], env: { SPEED_DECK_AD_FEED_URL: feedUrl }, fetch: feedFetch });
+    await expect.poll(() => requested).toEqual([feedUrl]);
+  });
 });
 
 /** Texts of the speak keys on the first board, in slot order. */

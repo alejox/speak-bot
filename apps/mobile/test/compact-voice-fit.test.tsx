@@ -59,9 +59,13 @@ describe("the phrase keys on a phone", () => {
     setScreen(PHONE_SIDEWAYS);
     await openVoice();
     expect(grid()).toHaveAttribute("data-layout", "whole");
-    expect(within(grid()).getAllByRole("button").map((key) => key.getAttribute("aria-label") ?? key.textContent)).toEqual(["Hello", "Thanks", "Water"]);
-    // Every cell of the 3 x 4 page is drawn, empty ones as blank space.
+    const names = within(grid())
+      .getAllByRole("button")
+      .map((key) => key.getAttribute("aria-label") ?? key.textContent ?? "");
+    expect(names.filter((name) => !name.startsWith("Add a key"))).toEqual(["Hello", "Thanks", "Water"]);
+    // Every cell of the 3 x 4 page is drawn, each empty one as a + on its own cell.
     expect(within(grid()).getAllByRole("listitem", { hidden: true })).toHaveLength(12);
+    expect(names.filter((name) => name.startsWith("Add a key"))).toHaveLength(9);
   });
 
   it("keep the board's real grid positions while editing", async () => {
@@ -73,10 +77,11 @@ describe("the phrase keys on a phone", () => {
     expect(within(grid()).getAllByRole("listitem")).toHaveLength(12);
   });
 
-  it("keep the tablet layout as stored", async () => {
+  it("never take the phone's layout on a tablet, whose workspace fills the room beside the composer", async () => {
     setScreen(TABLET);
     await openVoice();
-    expect(grid()).not.toHaveAttribute("data-layout");
+    expect(grid()).toHaveAttribute("data-layout", "fill");
+    expect(grid().closest("section")).not.toHaveClass("deck-whole");
   });
 });
 
@@ -111,7 +116,10 @@ describe("the pager beside Write on a phone", () => {
     await user.click(within(actions()).getByRole("button", { name: "New page" }));
     expect(button("Edit keys")).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByRole("button", { name: "Hello" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Add a key/ })).toBeInTheDocument();
+    // Every cell of the new 3 x 4 page offers its first phrase.
+    expect(screen.getAllByRole("button", { name: /^Add a key/ }).map((add) => add.getAttribute("aria-label"))).toEqual(
+      Array.from({ length: 12 }, (_, index) => `Add a key at position ${13 + index}`),
+    );
     // Back to the first page from the new one.
     await user.click(within(actions()).getByRole("button", { name: "Previous page" }));
     expect(await screen.findByRole("button", { name: "Hello" })).toBeInTheDocument();

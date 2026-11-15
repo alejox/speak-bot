@@ -21,6 +21,12 @@ const talk = (): Board =>
     { columns: 6, rows: 4 },
   );
 const grid = () => screen.getByRole("list", { name: "Keys of Talk" });
+/** The names of the keys on the page, without the + of its empty cells. */
+const phraseKeys = () =>
+  within(grid())
+    .getAllByRole("button")
+    .map((key) => key.getAttribute("aria-label") ?? key.textContent ?? "")
+    .filter((name) => !name.startsWith("Add a key"));
 
 /** What decides where every cell lands: the grid's columns and rows and each cell's slot and placement, in drawn order. */
 function geometry() {
@@ -63,13 +69,17 @@ describe("the Voice grid on a phone", () => {
     expect(playing).toEqual(editing);
   });
 
-  it("draws empty cells as blank space while playing, without the + to add a key", async () => {
+  it("draws every empty cell as a + while playing, each on its own cell, and the phrases stay where they are", async () => {
     setScreen(PHONE_SIDEWAYS);
     renderLocalApp({ boards: [talk()] });
     await screen.findByRole("button", { name: "Phrase 0" }, { timeout: 5000 });
-    expect(screen.queryByRole("button", { name: /^Add a key/ })).not.toBeInTheDocument();
-    expect(within(grid()).getAllByRole("button").map((key) => key.getAttribute("aria-label") ?? key.textContent)).toEqual(SLOTS.map((slot) => `Phrase ${slot}`));
-    expect(grid().querySelectorAll(".deck-key-blank")).toHaveLength(24 - SLOTS.length);
+    const adds = within(grid()).getAllByRole("button", { name: /^Add a key/ });
+    expect(adds).toHaveLength(24 - SLOTS.length);
+    for (const add of adds) expect(add.closest("[data-slot]")).toHaveAttribute("data-slot", String(Number(add.getAttribute("aria-label")!.replace(/\D+/g, "")) - 1));
+    expect(phraseKeys()).toEqual(SLOTS.map((slot) => `Phrase ${slot}`));
+    for (const slot of SLOTS) expect(grid().querySelector(`[data-slot="${slot}"]`)).toContainElement(screen.getByRole("button", { name: `Phrase ${slot}` }));
+    // No cell is left as inert blank space: this board stores no key that Voice hides.
+    expect(grid().querySelectorAll(".deck-key-blank")).toHaveLength(0);
   });
 
   it("keeps each key on its own cell upright, turned the way the Deck turns its board", async () => {

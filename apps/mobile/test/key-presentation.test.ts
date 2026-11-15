@@ -29,6 +29,28 @@ describe("presentKey", () => {
     expect(presentKey({ type: "obs.switchScene", sceneName: "BRB" }, remote).pressed).toBe(false);
   });
 
+  it("shows no on or off, and does not run, on anything that depends on live state while the link to the computer is lost", () => {
+    // What the keys last heard still says "streaming, captions hidden": none of it may be shown as known.
+    const lost: KeyContext = { ...remote, isLinkLost: true };
+    const unavailable = { disabledReason: "key.connectionLost" };
+    expect(presentKey({ type: "obs.toggleStream" }, lost)).toEqual(unavailable);
+    expect(presentKey({ type: "obs.toggleRecord" }, lost)).toEqual(unavailable);
+    expect(presentKey({ type: "obs.toggleMute", inputName: "Mic" }, lost)).toEqual(unavailable);
+    expect(presentKey({ type: "obs.switchScene", sceneName: "Main" }, lost)).toEqual(unavailable);
+    expect(presentKey({ type: "obs.inputVolume", inputName: "Mic" }, lost)).toEqual(unavailable);
+    expect(presentKey({ type: "captions.toggle" }, lost)).toEqual(unavailable);
+    // A sequence with a toggle among its steps would toggle blind too.
+    const sequence: Action = { type: "system.multiAction", steps: [{ action: { type: "voice.speak", text: "Going live" }, delayMs: 0 }, { action: { type: "obs.toggleStream" }, delayMs: 0 }] };
+    expect(presentKey(sequence, lost)).toEqual(unavailable);
+    expect(t("key.connectionLost")).toBe("No connection to the computer.");
+    expect(translate("es", "key.connectionLost")).toBe("Sin conexión con la computadora.");
+
+    // What does not depend on live state stays as it is: a phrase, a page change, a sequence of phrases.
+    expect(presentKey({ type: "voice.speak", text: "Hi" }, lost)).toEqual({});
+    expect(presentKey({ type: "nav.nextPage" }, lost)).toEqual({});
+    expect(presentKey({ type: "system.multiAction", steps: [{ action: { type: "voice.speak", text: "One" }, delayMs: 0 }, { action: { type: "voice.speak", text: "Two" }, delayMs: 0 }] }, lost)).toEqual({});
+  });
+
   it("marks a monitor key on while OBS monitors its input, and keeps it plain on an older desktop", () => {
     const monitoring: KeyContext = { ...remote, obs: { ...remote.obs!, state: { ...LIVE, monitoredInputs: ["Mic"] } } };
     expect(presentKey({ type: "obs.toggleMonitor", inputName: "Mic" }, monitoring)).toEqual({ pressed: true, state: "on" });

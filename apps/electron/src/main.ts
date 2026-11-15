@@ -1,4 +1,4 @@
-import { startDesktop, type RunningDesktop } from "@speed-deck/desktop";
+import { installCrashGuard, startDesktop, type RunningDesktop } from "@speed-deck/desktop";
 import { app, BrowserWindow, clipboard, dialog, Menu, nativeImage, Notification, shell, Tray, type MenuItemConstructorOptions } from "electron";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -15,13 +15,17 @@ import { createElectronUpdaterBackend } from "./update/electron-updater-backend"
 import { trayUpdateItem, updateNotification } from "./update/tray-update-item";
 import { updateMode } from "./update/update-mode";
 
+const log = (message: string) => console.log(`[speed-deck] ${message}`);
+// Before anything else. An error nobody handles is logged and the app keeps running: it speaks for someone,
+// so it must not die from a network error. Having a listener also keeps Electron from showing its crash dialog.
+installCrashGuard({ process, log: (message) => console.error(`[speed-deck] ${message}`) });
+
 const paths = resolveAppPaths({
   isPackaged: app.isPackaged,
   resourcesPath: process.resourcesPath,
   bundleDir: __dirname,
   platform: process.platform,
 });
-const log = (message: string) => console.log(`[speed-deck] ${message}`);
 /** Same as `appId` in electron-builder.yml: Windows shows notifications only for an app that names itself. */
 const APP_USER_MODEL_ID = "io.github.alejox.speeddeck";
 const INSTALL_START_TIMEOUT_MS = 10_000;
@@ -177,7 +181,8 @@ function openExternal(decision: LinkDecision): void {
 
 /**
  * The updater for this installation: downloads and installs on Windows and for a Linux AppImage, only
- * announces on macOS and for a Linux .deb, and does nothing in development or without an update source.
+ * announces on macOS and for a Linux .deb, and does nothing in development, without an update source or in
+ * an installer built without a release version (0.0.0).
  */
 function createUpdater(): AppUpdateController {
   const mode = updateMode({
@@ -185,6 +190,7 @@ function createUpdater(): AppUpdateController {
     isPackaged: app.isPackaged,
     appImage: process.env.APPIMAGE,
     hasUpdateConfig: existsSync(join(process.resourcesPath, "app-update.yml")),
+    currentVersion: app.getVersion(),
   });
   const noticeFile = join(app.getPath("userData"), "update-notice.json");
   let backend: UpdaterBackend | undefined;

@@ -1,6 +1,7 @@
 import { contrastTextColor } from "@speed-deck/core";
 import { Check, ChevronLeft, ChevronRight, Unplug, Volume2 } from "lucide-react";
 import { forwardRef, type ButtonHTMLAttributes, type CSSProperties } from "react";
+import type { KeyLabelFit } from "../app/key-label-fit";
 import { keyLabelLength, type KeyLiveState, type KeyRole } from "../app/key-presentation";
 import { KeyIcon } from "./KeyIcon";
 
@@ -37,6 +38,8 @@ type BoardKeyProps = BoardKeyView &
   Omit<ButtonHTMLAttributes<HTMLButtonElement>, "color" | "role"> & {
     /** Highlighted as the key being edited. */
     selected?: boolean;
+    /** The label's size and lines for this key's box and the text-size setting; the styles size it without one. */
+    labelFit?: KeyLabelFit;
   };
 
 /**
@@ -45,17 +48,22 @@ type BoardKeyProps = BoardKeyView &
  * Every state is drawn with a shape, an icon or words as well as a colour.
  */
 /**
- * How many characters a label needs on a line (compact.css sizes a phone's key text from them): its
- * longest word, which must never break, and half the label, so a phrase can show whole on two lines.
+ * How many characters a label needs on a line (compact.css sizes the text of a stretched Voice key from
+ * them): its longest word, which must never break, and half the label, so a phrase can show whole on two lines.
  * At least 4, so short words do not blow the text up.
  */
-function labelFit(label: string): CSSProperties {
+function labelChars(label: string): CSSProperties {
   const word = Math.max(4, ...label.split(/\s+/).map((part) => [...part].length));
   return { "--word-chars": word, "--line-chars": Math.max(word, Math.ceil([...label].length / 2)) } as CSSProperties;
 }
 
+/** The measured fit, for the styles: it takes over from the estimates above where a key was measured. */
+function labelSize(fit: KeyLabelFit | undefined): CSSProperties | undefined {
+  return fit ? ({ "--key-label-size": `${fit.fontSize}px`, "--key-label-lines": fit.lines } as CSSProperties) : undefined;
+}
+
 export const BoardKey = forwardRef<HTMLButtonElement, BoardKeyProps>(function BoardKey(
-  { label, iconId, color, role = "phrase", danger = false, pressed, state, stateLabel, detail, speaking = false, offline = false, backwards = false, selected = false, className, style, title: givenTitle, ...button },
+  { label, iconId, color, role = "phrase", danger = false, pressed, state, stateLabel, detail, speaking = false, offline = false, backwards = false, selected = false, labelFit, className, style, title: givenTitle, ...button },
   ref,
 ) {
   // The colour fills the key as a gradient (deck.css reads --key-color); the flat colour is the fallback.
@@ -70,6 +78,8 @@ export const BoardKey = forwardRef<HTMLButtonElement, BoardKeyProps>(function Bo
     speaking ? "deck-key-speaking" : "",
     offline ? "deck-key-unavailable" : "",
     selected ? "deck-key-selected" : "",
+    labelFit ? "deck-key-fitted" : "",
+    labelFit?.breaksWords ? "deck-key-breaks" : "",
     className ?? "",
   ]
     .filter(Boolean)
@@ -98,7 +108,7 @@ export const BoardKey = forwardRef<HTMLButtonElement, BoardKeyProps>(function Bo
         </span>
       )}
       {iconId && <KeyIcon id={iconId} size={36} />}
-      <span className="deck-key-text" style={labelFit(label)}>
+      <span className="deck-key-text" style={{ ...labelChars(label), ...labelSize(labelFit) }}>
         {label}
       </span>
       {/* The spaces keep the words apart in the key's accessible name; the layout ignores them. The dot shows the state, the word names it. */}

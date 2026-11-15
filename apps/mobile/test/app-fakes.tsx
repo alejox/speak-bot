@@ -35,7 +35,8 @@ const DEFAULT_TEST_VOICES: Voice[] = [
 
 /** Speech on this device; records what it was asked to say, synchronously. */
 export class LocalSynthesizer implements AppSpeechSynthesizer {
-  readonly isSupported = true;
+  /** False stands for a device with no voice of its own. */
+  isSupported = true;
   readonly spoken: Array<{ text: string; options: SpeakOptions | undefined }> = [];
   cancelled = 0;
   constructor(private readonly voices: Voice[] = DEFAULT_TEST_VOICES) {}
@@ -150,6 +151,10 @@ export interface DesktopState {
   healthStatus?: number;
   /** The sponsor GET /api/ad answers; none (the house banner) unless a test sets it. */
   ad?: Record<string, unknown> | null;
+  /** What GET /api/health reports about a damaged boards file (to the computer itself); none unless a test sets it. */
+  dataRecovery?: { file: "boards"; outcome: "restored" | "defaults"; at: number; damagedCopyPath: string } | null;
+  /** When set, every request fails like a network that cannot reach the computer (fetch rejects). */
+  unreachable?: boolean;
   /** GET /api/app-update: the computer app's update state, null for a server without the app; not set = a desktop too old to know the route (404). */
   appUpdate?: object | null;
 }
@@ -188,6 +193,7 @@ export function desktopRoute(state: DesktopState) {
   const board = (id: string) => state.boards.find((candidate) => candidate.id === decodeURIComponent(id));
   const replaceBoard = (next: Board) => (state.boards = state.boards.map((candidate) => (candidate.id === next.id ? next : candidate)));
   return (request: RecordedRequest): { status?: number; body?: unknown } | undefined => {
+    if (state.unreachable) throw new TypeError("Failed to fetch");
     const route = `${request.method} ${request.url}`;
     const body = (request.body ?? {}) as Record<string, unknown>;
     switch (route) {
@@ -198,7 +204,12 @@ export function desktopRoute(state: DesktopState) {
           return { status: 503 };
         }
         return {
-          body: { ok: true, name: "speed-deck-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: state.supportsDeviceSelection } },
+          body: {
+            ok: true,
+            name: "speed-deck-desktop",
+            capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: state.supportsDeviceSelection },
+            ...(state.dataRecovery ? { dataRecovery: state.dataRecovery } : {}),
+          },
         };
       case "GET /api/boards":
         return { body: state.boards };
@@ -270,6 +281,9 @@ export function desktopRoute(state: DesktopState) {
         else if (entitlement === "not-owned") state.adsGrants = others;
         return { body: adsOf(state) };
       }
+      case "POST /api/data-recovery/dismiss":
+        state.dataRecovery = null;
+        return { body: { ok: true } };
       case "GET /api/ad":
         return { body: { ad: state.ad ?? null } };
       case "GET /api/app-update":
@@ -344,14 +358,16 @@ export interface RemoteSetupOptions {
   noDesktop?: boolean;
   /** The host name the page was served from (AppServices.servedFrom); none keeps every editing tool. */
   servedFrom?: string;
+  /** This device's own synthesizer, instead of the default one (e.g. one with no voice). */
+  synthesizer?: LocalSynthesizer;
 }
 
 /** App services for a page served by the desktop, with a fake fetch and WebSocket. */
-export function remoteServices({ state = desktopState(), storedTarget = null, hostname = "192.168.1.20", language = "en", noDesktop = false, servedFrom }: RemoteSetupOptions = {}) {
+export function remoteServices({ state = desktopState(), storedTarget = null, hostname = "192.168.1.20", language = "en", noDesktop = false, servedFrom, synthesizer }: RemoteSetupOptions = {}) {
   FakeSocket.instances = [];
   const fake = createFakeFetch(noDesktop ? () => undefined : desktopRoute(state));
   let target = storedTarget;
-  const local = localServices({ language, servedFrom, boards: [boardOf("local", "Local board", [speakKey(0, "Local phrase")])] });
+  const local = localServices({ language, servedFrom, synthesizer, boards: [boardOf("local", "Local board", [speakKey(0, "Local phrase")])] });
   const services: AppServices = {
     ...local.services,
     desktop: createDesktopServices({

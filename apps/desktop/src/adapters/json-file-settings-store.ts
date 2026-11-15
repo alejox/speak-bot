@@ -1,5 +1,5 @@
 import { DEFAULT_VOICE_OUTPUT, isUiLanguage, isVoiceOutput, type DesktopSettings, type ObsConnectionConfig } from "@speed-deck/core";
-import { readJsonFile, SerialQueue, writeJsonFileAtomic } from "./json-file";
+import { readJsonFile, SerialQueue, writeJsonFileAtomic, type JsonFileOptions } from "./json-file";
 
 export const MIN_RATE = 0.5;
 export const MAX_RATE = 2;
@@ -37,12 +37,16 @@ export function toPublicSettings({ obs, ...rest }: StoredSettings): DesktopSetti
 export class JsonFileSettingsStore {
   private readonly queue = new SerialQueue();
   private readonly defaults: StoredSettings;
+  private readonly fileOptions: JsonFileOptions;
 
   constructor(
     private readonly file: string,
     defaults: SettingsDefaults,
+    /** Where the recovery of a damaged settings file is logged. */
+    options: Omit<JsonFileOptions, "isValid"> = {},
   ) {
-    this.defaults = { ...defaults, voiceOutput: defaults.voiceOutput ?? DEFAULT_VOICE_OUTPUT, obs: { ...(defaults.obs ?? DEFAULT_OBS_CONFIG) } };
+    this.fileOptions = { ...options, isValid: isPlainObject };
+    this.defaults ={ ...defaults, voiceOutput: defaults.voiceOutput ?? DEFAULT_VOICE_OUTPUT, obs: { ...(defaults.obs ?? DEFAULT_OBS_CONFIG) } };
   }
 
   /** The settings without secrets. */
@@ -66,14 +70,14 @@ export class JsonFileSettingsStore {
     return this.queue.run(async () => {
       const current = await this.read();
       const next: StoredSettings = { ...current, ...changes, obs: mergeObsConfig(current.obs, obs) };
-      await writeJsonFileAtomic(this.file, next);
+      await writeJsonFileAtomic(this.file, next, this.fileOptions);
       return next;
     });
   }
 
   private async read(): Promise<StoredSettings> {
-    const content = await readJsonFile(this.file);
-    if (content.status !== "ok" || typeof content.value !== "object" || content.value === null) {
+    const content = await readJsonFile(this.file, this.fileOptions);
+    if (content.status !== "ok") {
       return { ...this.defaults, obs: { ...this.defaults.obs } };
     }
     const stored = content.value as Record<string, unknown>;
@@ -94,6 +98,11 @@ export class JsonFileSettingsStore {
     if (autoCheckUpdates !== undefined) settings.autoCheckUpdates = autoCheckUpdates;
     return settings;
   }
+}
+
+/** A settings file holds one object; anything else is a damaged file. */
+function isPlainObject(value: unknown): boolean {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function isValidRate(value: unknown): value is number {

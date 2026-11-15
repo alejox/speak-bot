@@ -38,13 +38,28 @@ export function ObsSettings({ settings, live, canEdit, onSave, onTest }: ObsSett
     if (host.trim() === "") return setError({ key: "obs.invalidHost" });
     if (!Number.isInteger(portNumber) || portNumber < 1 || portNumber > 65535) return setError({ key: "obs.invalidPort" });
     setError(null);
-    const patch: ObsSettingsPatch = { enabled, host: host.trim(), port: portNumber };
+    // "Save and connect" does both, whatever the checkbox says: it turns the connection on with the address as typed.
+    const patch: ObsSettingsPatch = { enabled: true, host: host.trim(), port: portNumber };
     // The password is write-only: send it only when the user typed a new one.
     if (password !== "") patch.password = password;
     setIsBusy(true);
     void onSave(patch).then((saved) => {
       setIsBusy(false);
-      if (saved) setPassword("");
+      if (!saved) return;
+      setPassword("");
+      setEnabled(true);
+    });
+  };
+
+  // The checkbox is the way to turn the connection off, and does it at once. Ticking it only shows the
+  // intent: the connection starts with Save and connect, once the address and password are the ones typed.
+  const toggleEnabled = (checked: boolean) => {
+    setEnabled(checked);
+    if (checked || !settings.enabled) return;
+    setIsBusy(true);
+    void onSave({ enabled: false }).then((saved) => {
+      setIsBusy(false);
+      if (!saved) setEnabled(true);
     });
   };
 
@@ -67,7 +82,7 @@ export function ObsSettings({ settings, live, canEdit, onSave, onTest }: ObsSett
       <form className="obs-form" onSubmit={submit} noValidate aria-describedby={canEdit ? undefined : ids.note}>
         <fieldset disabled={!canEdit || isBusy}>
           <label className="field-check">
-            <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
+            <input type="checkbox" checked={enabled} onChange={(event) => toggleEnabled(event.target.checked)} />
             <span>{t("obs.enabled")}</span>
           </label>
           <div className="obs-address">

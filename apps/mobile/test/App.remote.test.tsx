@@ -75,7 +75,9 @@ describe("App in Computer mode", () => {
     await screen.findByRole("button", { name: "Hello" });
     await goTo(user, "Deck");
     await user.click(await screen.findByRole("button", { name: /^Gone/ }));
-    expect(await screen.findByText("OBS could not do that. Check that the name exists.")).toBeInTheDocument();
+    // Said by the status line, and shown over the keys since the Deck keeps that line for screen readers.
+    expect(await screen.findByRole("status")).toHaveTextContent("OBS could not do that. Check that the name exists.");
+    expect(await screen.findByTestId("toast")).toHaveTextContent("OBS could not do that. Check that the name exists.");
   });
 
   it("keeps Stop enabled while the desktop speaks, whoever started it", async () => {

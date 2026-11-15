@@ -4,6 +4,8 @@ export interface DeviceSignals {
   vibrate(pattern: readonly number[]): void;
   /** The name of the computer this app is connected to, when the device knows it. */
   computerName(): string | null;
+  /** Whether `vibrate` can be felt here, so a setting about it is worth offering; taken as true when absent. */
+  canVibrate?(): boolean;
 }
 
 /** `window.SpeedDeckAndroidDevice`, added by the Android app (`DeviceBridge`). */
@@ -42,10 +44,13 @@ export function createDeviceSignals(host: object = globalThis): DeviceSignals {
           return null;
         }
       },
+      canVibrate: () => true,
     };
   }
-  const navigator = (host as { navigator?: { vibrate?: (pattern: number[]) => boolean } }).navigator;
+  const navigator = (host as { navigator?: { vibrate?: (pattern: number[]) => boolean; maxTouchPoints?: number } }).navigator;
   return {
+    // A computer's browser has the vibration API and nothing that vibrates; a touch screen is the nearest sign of a phone.
+    canVibrate: () => typeof navigator?.vibrate === "function" && (navigator.maxTouchPoints ?? 0) > 0,
     vibrate: (pattern) => {
       try {
         navigator?.vibrate?.([...pattern]);

@@ -50,7 +50,7 @@ Nothing interrupts you: there are no dialogs. You get one system notification pe
 - **Turn automatic checks off**: uncheck **Buscar actualizaciones automáticamente** in the same place. The app then only checks when you ask.
 - **What is sent**: to check, the app asks GitHub for the list of releases and the small file that describes the latest one, and on Windows and AppImage it downloads the installer from GitHub. Nothing else is sent: no account, no identifier, nothing about how you use the app. The requests are the same from every installation (the update library's own per-installation id is replaced by a constant). As with any web request, GitHub sees the computer's IP address.
 - Only published stable releases are offered, never a preview version or an older one.
-- An app run from source (`npm run dev`) never checks for updates.
+- An app run from source (`npm run dev`) never checks for updates. Neither does an installer built without a release version (`0.0.0`): **Ajustes → Acerca de y actualizaciones** calls it a development build.
 
 #### Coming from Speak Bot
 
@@ -234,6 +234,21 @@ The desktop server has **no authentication** and listens on all networks by defa
 - **OBS settings:** the OBS connection settings and the connection test only work from the computer itself.
 - **Updates:** checking for updates, restarting to install one and turning automatic checks on or off only work from the computer itself. Phones can only read the computer's version and update state.
 
+## Privacy
+
+Speed Deck has no account, no analytics and no tracking. What you type and say stays on your devices and your own network. These are all the network requests the apps make by themselves:
+
+| Who is contacted | When | What is sent | How to turn it off |
+| ---------------- | ---- | ------------ | ------------------ |
+| **GitHub** (`github.com`), by the computer app | 15 seconds after it starts and every 6 hours, and when you press **Buscar actualizaciones**. Never in an app run from source or in a development build (version `0.0.0`). | A request for the list of releases and the file that describes the latest one; on Windows and AppImage, the download of the installer. No account and no identifier. GitHub sees the computer's IP address. | Uncheck **Ajustes → Acerca de y actualizaciones → Buscar actualizaciones automáticamente**. The app then only checks when you ask. |
+| **The sponsor feed** (`www.alejoxcode.com`) and the host of the sponsor's image named in that feed, by the computer | When the computer app or server starts and every 6 hours, only while ads are shown. Never while ads are removed. | A plain https request for the feed and, when the sponsor has a new image, for that image. Nothing about you or your use of the app. Both hosts see the computer's IP address. Phones never contact them. | Remove ads (see [Ads and removing them](#ads-and-removing-them)), or start the app with the environment variable `SPEED_DECK_AD_FEED_URL` set to an empty value. |
+| **Your local network** (multicast DNS), by the computer | While the app runs and listens on the network (the default). | An announcement of the service `_speeddeck._tcp` with the computer's name, the app's port and a random id of this installation, so phones find the computer again after its address changes. The Android app asks the network for that service. Neither leaves your network. | Start the app with `SPEED_DECK_HOST=127.0.0.1` (or the server with `--host 127.0.0.1`). This also turns the phone remote off. |
+| **OBS**, by the computer | Only after you turn on OBS control in the **OBS** section. Off by default. | The connection goes to the address you set (by default this same computer, `127.0.0.1:4455`), with the password you typed and the commands of the keys you press. | Turn OBS control off in the **OBS** section. |
+| **Google Play**, by the Android app | When the app starts and each time it comes back to the screen, and when you buy or restore **Quitar anuncios**. The QR scanner is a Google Play component that Google Play installs with the app. | Through Google Play's own billing service on the phone: a question about what your Google account owns. The app itself sends nothing to Google and never sees your payment details. | Not possible in the app from Google Play. The web app (below) does not use Google Play. |
+| **The site that serves the web app** (`alejox.github.io`), by a phone that uses the web app without a computer | When you open the app, and when it looks for a newer copy of itself. | Ordinary requests for the app's files. GitHub sees the phone's IP address. Your boards and phrases stay in the browser. | Use the Android app or open the app from your computer instead. |
+
+Between your phone and your computer everything travels over your own network: the keys you press, the text to speak, and, from the Android app, whether it owns **Quitar anuncios** together with the phone's maker and model (see [Ads and removing them](#ads-and-removing-them)). Pressing a sponsor banner opens its link in your browser, like any link.
+
 ## How it fits together
 
 ```
@@ -299,6 +314,15 @@ Boards and settings are stored in:
 - **Windows**: `%APPDATA%\speed-deck`
 - **Linux**: `$XDG_CONFIG_HOME/speed-deck` (or `~/.config/speed-deck`)
 
+Each file is written to disk in full before it replaces the old one. Next to each file the folder also keeps:
+
+| File | What it is |
+| ---- | ---------- |
+| `boards.json.last-good` | The boards as they were before the last change. |
+| `boards.json.corrupt-<time>` | A boards file that could not be read, kept as it was found (the newest 5). |
+
+When `boards.json` cannot be read, the app keeps it as a `.corrupt-<time>` file and puts the `.last-good` copy back, so at most the last change is lost; without a usable copy it starts with the default boards. Either way it says so in its window, with the path of the damaged file, until you dismiss the notice. Settings and the other files recover the same way and only write it to the log.
+
 ### Ads and removing them
 
 Every feature is free; the **Deck** shows a small banner above the keys (never in **Voz**). One purchase removes it, in one place: **Quitar anuncios** in the Speed Deck app for Android, sold by Google Play (see [Publishing the Android app](#publishing-to-google-play)). Nothing is sold on the computer.
@@ -338,7 +362,7 @@ Every feature is free; the **Deck** shows a small banner above the keys (never i
 | `npm run dev -w @speed-deck/mobile`  | Mobile dev server (LAN-exposed)                   |
 | `npm test`                           | Run all workspace tests (Vitest)                  |
 | `npm run typecheck`                  | Type-check all workspaces                         |
-| `npm run build`                      | Build the mobile PWA and the desktop app bundle   |
+| `npm run build`                      | Build the mobile PWA (with `THIRD-PARTY-NOTICES.txt`) and the desktop app bundle |
 
 CI runs tests, typecheck and build on Linux, macOS and Windows (`.github/workflows/ci.yml`).
 
@@ -346,6 +370,16 @@ CI runs tests, typecheck and build on Linux, macOS and Windows (`.github/workflo
 
 - **Desktop installers**: see [Releasing a version](#releasing-a-version) below. Run `npm run build && npm run pack -w @speed-deck/electron` to build an unpacked app locally; an unpacked app has no update source (electron-builder only embeds it when it builds an installer), so it never checks for updates.
 - **Phone app**: every push to `main` deploys the PWA to GitHub Pages (`.github/workflows/pages.yml`).
+- **An installer built by hand** must be given its version, because the `package.json` files stay at `0.0.0`:
+
+  ```sh
+  npm run build
+  cd apps/electron
+  npx electron-builder --mac dmg --publish never -c.extraMetadata.version=1.4.0
+  ```
+
+  Without `-c.extraMetadata.version=<version>` the installer is version `0.0.0`. Every published release is newer than that, so it would replace itself with older code; the app therefore treats `0.0.0` as a development build, shows it as one in **Ajustes → Acerca de y actualizaciones** and never looks for updates.
+- **Open-source licences**: the web build writes `THIRD-PARTY-NOTICES.txt` (`scripts/third-party-notices.mjs`) with the licence text of every third-party package shipped in the web UI and in the computer app. It ships with the web UI, inside the Android app and in the computer app's resources, and opens from **Ajustes → Acerca de → Licencias de código abierto**. The build fails when a shipped package has no licence text; for a package that publishes none, add a reviewed text as `scripts/third-party-licence-texts/<name>@<version>.txt`.
 
 ### Releasing a version
 

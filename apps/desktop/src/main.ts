@@ -1,7 +1,11 @@
+import { installCrashGuard } from "./crash-guard";
 import { startDesktop } from "./start-desktop";
 
+const log = (message: string) => console.log(`[speed-deck] ${message}`);
+// Before anything else: an error nobody handles is logged and the server keeps speaking.
+installCrashGuard({ process, log: (message) => console.error(`[speed-deck] ${message}`) });
+
 async function main(): Promise<void> {
-  const log = (message: string) => console.log(`[speed-deck] ${message}`);
   const desktop = await startDesktop({ argv: process.argv.slice(2), log });
 
   for (const url of desktop.urls) log(`Listening on ${url}`);

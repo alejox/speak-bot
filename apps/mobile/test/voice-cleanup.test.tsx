@@ -101,9 +101,14 @@ describe("caption, Repeat, Stop and language keys in the Voice space", () => {
       expect(within(grid()).queryByRole("button", { name: new RegExp(`^${name}`) })).not.toBeInTheDocument();
     }
     expect(within(grid()).getByRole("button", { name: "Water" })).toBeInTheDocument();
+    // Their five cells are blank places, never a +; every other empty cell of the 4 x 3 page offers one.
+    expect([...grid().querySelectorAll(".deck-key-blank")].map((blank) => blank.closest("[data-slot]")?.getAttribute("data-slot"))).toEqual(["2", "3", "4", "5", "6"]);
+    expect(within(grid()).getAllByRole("button", { name: /^Add a key/ }).map((button) => button.getAttribute("aria-label"))).toEqual(
+      [8, 10, 11, 12].map((position) => `Add a key at position ${position}`),
+    );
     // W8: the phone keeps the whole grid too, so Water stays on its own cell after the blank places.
     if (size === PHONE_SIDEWAYS) {
-      expect(within(grid()).getAllByRole("button")).toHaveLength(3);
+      expect(within(grid()).getAllByRole("button")).toHaveLength(3 + 4);
       expect(grid().querySelector('[data-slot="8"]')).toContainElement(within(grid()).getByRole("button", { name: "Water" }));
     }
   });
@@ -113,9 +118,9 @@ describe("caption, Repeat, Stop and language keys in the Voice space", () => {
     const { user } = renderLocalApp({ boards: [withCommands()] });
     await screen.findByRole("button", { name: "Hello" }, { timeout: 5000 });
     // Their slots are not offered for a new key either, so adding never overwrites one.
-    const add = within(grid()).getByRole("button", { name: /^Add a key at position/ });
-    expect(["3", "4", "5", "6", "7"].map((number) => `Add a key at position ${number}`)).not.toContain(add.getAttribute("aria-label"));
-    await user.click(add);
+    const adds = within(grid()).getAllByRole("button", { name: /^Add a key at position/ });
+    for (const number of ["3", "4", "5", "6", "7"]) expect(adds.map((add) => add.getAttribute("aria-label"))).not.toContain(`Add a key at position ${number}`);
+    await user.click(adds[0]!);
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("button", { name: /Speak text/ })).toBeInTheDocument();
     for (const name of ["Clear caption", "Hide or show captions", "Repeat", "Stop voice", "Switch voice language"]) {

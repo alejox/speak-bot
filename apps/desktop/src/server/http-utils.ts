@@ -1,4 +1,6 @@
+import { createReadStream } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { pipeline } from "node:stream";
 
 export const MAX_BODY_BYTES = 16 * 1024;
 
@@ -26,6 +28,17 @@ export function sendJson(response: ServerResponse, status: number, body: unknown
 export function sendEmpty(response: ServerResponse, status: number): void {
   response.writeHead(status, { "cache-control": "no-store" });
   response.end();
+}
+
+/**
+ * Streams a file as the body of a response whose headers are already written. Resolves when the transfer
+ * ended, also when the client left midway or the file could not be read: both streams are then destroyed,
+ * so an abandoned download never holds the file open or raises an unhandled stream error.
+ */
+export function streamFile(file: string, response: ServerResponse): Promise<void> {
+  return new Promise((resolve) => {
+    pipeline(createReadStream(file), response, () => resolve());
+  });
 }
 
 /**

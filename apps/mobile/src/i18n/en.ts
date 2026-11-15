@@ -25,6 +25,7 @@ export const en = {
   "deck.mixer": "Volume",
   "deck.status.noComputer": "Computer not connected",
   "deck.status.obsDisconnected": "OBS not connected",
+  "deck.status.obsOff": "OBS turned off",
   "deck.status.obsConnected": "OBS connected",
   "deck.status.live": "Live",
   "deck.status.recording": "Recording",
@@ -94,6 +95,10 @@ export const en = {
   "grid.cancel": "Cancel",
   "grid.saved": "Grid set to {columns} × {rows}.",
   "inspector.label": "Key {number}",
+  "inspector.discardTitle": "Discard the changes to this key?",
+  "inspector.discardPrompt": "The changes you made to this key have not been saved.",
+  "inspector.discardYes": "Discard",
+  "inspector.discardNo": "Keep editing",
   "keyMenu.label": "Key {number}: {label}",
   "keyMenu.options": "Options for key {number}",
   "keyMenu.edit": "Edit",
@@ -260,7 +265,8 @@ export const en = {
 
   "key.needsComputer": "Needs the computer app.",
   "key.obsDisconnected": "OBS is not connected.",
-  "key.obsDisabled": "The OBS connection is turned off in Settings.",
+  "key.connectionLost": "No connection to the computer.",
+  "key.obsDisabled": "The OBS connection is turned off. Turn it on in the OBS section of the computer app.",
   "key.boardMissing": "The board of this key no longer exists.",
   "key.currentVoice": "Voice: {language}",
   "key.pageLabel": "Page {page}",
@@ -292,6 +298,8 @@ export const en = {
 
   "status.typeToSave": "Type something to save it on a key.",
   "status.keySaved": "Saved on key {number}.",
+  "status.keyAlreadySaved": "Already saved on key {number}.",
+  "voice.spokenOnDevice": "Spoken on this device: the computer could not be reached.",
   "status.boardFull": "This board has no free keys.",
   "status.loadFailed": "Could not load the boards.",
 
@@ -334,6 +342,7 @@ export const en = {
   "error.desktopSpeechFailed": "The computer could not speak that. Please try again.",
   "error.desktopRequestFailed": "The computer did not accept the request. Please try again.",
   "error.speechFailed": "Could not speak that. Please try again.",
+  "error.noVoiceAnywhere": "The computer could not be reached and this device has no voice. Nothing was said.",
   "error.queueFull": "Too many phrases are waiting. Wait for one to be spoken.",
   "error.loadDesktopSettings": "Could not load the computer settings.",
   "error.saveDesktopSettings": "Could not save the computer settings.",
@@ -450,6 +459,19 @@ export const en = {
   "update.manualHint": "On this system updates are installed by hand: download the new version and install it over this one.",
   "update.autoCheck": "Check for updates automatically",
   "update.autoCheckHint": "To check, Speed Deck contacts GitHub, where its versions are published.",
+  "update.versionDev": "Speed Deck: development build",
+  "update.versionDevOnComputer": "Speed Deck on the computer: development build",
+  "update.devHint": "A development build does not update itself.",
+
+  "about.title": "About",
+  "about.licences": "Open-source licences",
+  "about.licencesLoading": "Loading the licences…",
+  "about.licencesFailed": "Could not load the licences. Check the connection and try again.",
+
+  "recovery.restored":
+    "Your boards file was damaged. Speed Deck restored the last saved copy, so your most recent change may be missing. The damaged file was kept at {path}.",
+  "recovery.defaults": "Your boards file was damaged. Speed Deck started with the default boards. The damaged file was kept at {path}.",
+  "recovery.dismiss": "Dismiss",
 } as const;
 
 export type MessageKey = keyof typeof en;

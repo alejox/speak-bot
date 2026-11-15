@@ -50,7 +50,7 @@ function logCaptionMigration({ moved, dropped, kept, createdBoardId }: CaptionMi
 
 /** Phrases from an older phrases file (slots assigned when missing), or null when there is no readable file. */
 async function readLegacyPhrases(file: string, log: (message: string) => void): Promise<Phrase[] | null> {
-  const content = await readJsonFile(file);
+  const content = await readJsonFile(file, { log });
   if (content.status !== "ok" || !Array.isArray(content.value)) return null;
   const phrases = assignMissingSlots(content.value.filter(isStoredPhrase));
   const usable = phrases.filter(fitsOnKey);

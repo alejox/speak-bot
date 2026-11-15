@@ -74,17 +74,21 @@ describe("board player in phone-only mode", () => {
     expect(screen.getByRole("button", { name: "New page" })).toBeEnabled();
   });
 
-  it("shows a single + after the last key of the page; other empty spaces stay blank", async () => {
+  it("shows a + on every empty space of the page, before, between and after its keys", async () => {
     renderLocalApp({ boards: [boardOf("main", "Main", [speakKey(0, "One"), speakKey(3, "Two")])] });
     await screen.findByRole("button", { name: "One" });
     expect(within(grid()).getAllByRole("listitem")).toHaveLength(15);
-    expect(within(grid()).getAllByRole("button", { name: /^Add a key/ }).map((button) => button.getAttribute("aria-label"))).toEqual(["Add a key at position 5"]);
+    expect(within(grid()).getAllByRole("button", { name: /^Add a key/ }).map((button) => button.getAttribute("aria-label"))).toEqual(
+      [2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((position) => `Add a key at position ${position}`),
+    );
   });
 
-  it("puts the + in the first gap when the page's last space is taken", async () => {
+  it("keeps a + on every gap when the page's last space is taken", async () => {
     renderLocalApp({ boards: [boardOf("main", "Main", [speakKey(0, "One"), speakKey(14, "Last")])] });
     await screen.findByRole("button", { name: "One" });
-    expect(within(grid()).getAllByRole("button", { name: /^Add a key/ }).map((button) => button.getAttribute("aria-label"))).toEqual(["Add a key at position 2"]);
+    expect(within(grid()).getAllByRole("button", { name: /^Add a key/ }).map((button) => button.getAttribute("aria-label"))).toEqual(
+      Array.from({ length: 13 }, (_, index) => `Add a key at position ${index + 2}`),
+    );
   });
 
   it("shows custom key colors with readable text", async () => {

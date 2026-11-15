@@ -15,6 +15,7 @@ import { Composer, type ComposerHandle } from "../components/Composer";
 import { ComposerSheet } from "../components/ComposerSheet";
 import { ConnectionBanner } from "../components/ConnectionBanner";
 import { ConnectPanel } from "../components/ConnectPanel";
+import { DataRecoveryNotice } from "../components/DataRecoveryNotice";
 import { DeckStatusIndicator } from "../components/DeckStatus";
 import { EditKeysToggle } from "../components/EditKeysToggle";
 import { AdBanner } from "../components/AdBanner";
@@ -22,13 +23,15 @@ import { ActionPickerDialog, KeyEditorDialog } from "../components/KeyEditorDial
 import { KeyInspector } from "../components/KeyInspector";
 import { ObsSettings } from "../components/ObsSettings";
 import { QuickPhrases } from "../components/QuickPhrases";
-import { AppUpdateSettings } from "../components/AppUpdateSettings";
+import { AboutSettings, AppUpdateSettings } from "../components/AppUpdateSettings";
+import { LicencesLink } from "../components/LicencesLink";
 import { RemoveAdsSettings } from "../components/RemoveAdsSettings";
 import { RecentPhrases } from "../components/RecentPhrases";
 import { SectionView } from "../components/SectionView";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { SideNav, type NavItem } from "../components/SideNav";
 import { useConfirmedRun } from "../components/StartConfirmation";
+import { needsToast, StatusToast } from "../components/StatusToast";
 import { VoiceActions } from "../components/VoiceActions";
 import { VoicePanel } from "../components/VoicePanel";
 import { obsTone } from "../components/StatusDot";
@@ -47,8 +50,9 @@ import { useSpaceDecks } from "./use-deck";
 import { actionOnlyKey, needsDetails } from "./key-draft";
 import { useLanguagePreference, type LanguagePreference } from "./use-language-preference";
 import { useAppUpdate } from "./use-app-update";
+import { useDataRecovery } from "./use-data-recovery";
 import { useMonetization } from "./use-monetization";
-import { COMPACT_HEIGHT_QUERY, COMPACT_WIDTH_QUERY, INSPECTOR_QUERY, SHORT_SIDEBAR_QUERY, TAB_BAR_QUERY, useMediaQuery } from "./use-media-query";
+import { COMPACT_HEIGHT_QUERY, COMPACT_WIDTH_QUERY, INSPECTOR_QUERY, SHORT_SIDEBAR_QUERY, TAB_BAR_QUERY, useMediaQuery, VOICE_PANEL_QUERY } from "./use-media-query";
 import { SECTIONS, spaceOfSection, useNavCollapsed, useSection, type Section } from "./use-section";
 import { useSpeech } from "./use-speech";
 import { useSpeechTarget, type SpeechTarget } from "./use-speech-target";
@@ -132,6 +136,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const [dialogSlot, setDialogSlot] = useState<number | null>(null);
   // Wide screens edit in a side panel; the + still asks for the action in a modal first.
   const isWide = useMediaQuery(INSPECTOR_QUERY);
+  const hasVoicePanelRoom = useMediaQuery(VOICE_PANEL_QUERY);
   const isTabBar = useMediaQuery(TAB_BAR_QUERY);
   // A sidebar too short for its labels (a phone on its side) shows as the icon rail; the stored choice stays.
   const isShortSidebar = useMediaQuery(SHORT_SIDEBAR_QUERY);
@@ -149,10 +154,13 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const [text, setText] = useState("");
   const [recentPhrases, setRecentPhrases] = useState(() => services.recentPhrases.load());
   const composer = useRef<ComposerHandle>(null);
+  const isSavingText = useRef(false);
   // On a phone the composer waits in a sheet, opened from the Write button.
   const [isComposerOpen, setComposerOpen] = useState(false);
   const monetization = useMonetization(services.desktop, target, services.adsPurchase, services.deviceIdentity);
   const appUpdate = useAppUpdate(services.desktop, target.isDesktopAvailable, target.isOnComputer);
+  // A boards file the computer found damaged is told in its own window, where the file is.
+  const dataRecovery = useDataRecovery(services.desktop, target.isDesktopAvailable && target.isOnComputer);
   // Set when the house banner leads to Settings, so focus lands on the Remove ads group.
   const [focusRemoveAds, setFocusRemoveAds] = useState(false);
   // Losing the computer shows a banner everywhere and, unless turned off on this device, vibrates.
@@ -234,9 +242,11 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const inspectedKey = inspected && board?.id === inspected.boardId ? board.keys.find((key) => key.slot === inspected.slot) : undefined;
   // The panel only shows while its key (or the action chosen for its slot) is still on the board on screen.
   const inspection = isWide && inspected && board?.id === inspected.boardId && (inspectedKey || inspected.assignedType) ? inspected : null;
-  // Voice keeps its composer in the side panel on wide screens; the Deck opens the panel only for a key
-  // being edited or added, so the grid takes the whole width otherwise.
-  const reservesPanel = isWide && space === "voice" && board !== null;
+  // Voice keeps its composer in the side panel on screens wide enough for both (below that it stacks above
+  // the keys, which need the width); the Deck opens the panel only for a key being edited or added, so the
+  // grid takes the whole width otherwise.
+  const docksVoicePanel = isWide && hasVoicePanelRoom;
+  const reservesPanel = docksVoicePanel && space === "voice" && board !== null;
 
   const openKey = (slot: number) => {
     if (!isWide || !board) return setDialogSlot(slot);
@@ -276,8 +286,9 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   // Deck keys are created and edited on the computer only; Voice keys on every device.
   const maySpaceBeEdited = space !== "deck" || canEditDeck(services.servedFrom);
   const canEditBoard = maySpaceBeEdited && (!isCompactSpace || isEditingSpace);
-  // Voice on a phone keeps the screen for its keys: the composer moves into a sheet behind one Write button.
-  const usesComposerSheet = isCompactSpace && space === "voice" && !isWorkspace;
+  // Voice on a phone keeps the screen for its keys: the composer moves into a sheet behind one Write button
+  // (also in a window wide enough for the workspace but too short to stack the composer over the keys).
+  const usesComposerSheet = isCompactSpace && space === "voice" && !docksVoicePanel;
   // Leaving the Voice space (or growing out of the phone layout) puts the sheet away for good.
   useEffect(() => {
     if (!usesComposerSheet) setComposerOpen(false);
@@ -298,16 +309,26 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   };
 
   const saveTextAsKey = async () => {
+    // A second tap while the first save is on its way would take the next free key for the same text.
+    if (isSavingText.current) return;
     const trimmed = text.trim();
     if (trimmed === "") return setStatus({ key: "status.typeToSave" });
     const voiceBoard = spaces.voice.navigation.board;
     if (!voiceBoard) return;
+    // Saving the same text again says where it already is instead of filling the board with copies.
+    const copy = voiceBoard.keys.find((key) => !key.label && key.action.type === "voice.speak" && key.action.text === trimmed);
+    if (copy) return setStatus({ key: "status.keyAlreadySaved", params: { number: copy.slot + 1 } });
     const slot = firstFreeSlot(voiceBoard);
     if (slot === null) return setStatus({ key: "status.boardFull" });
-    await spaces.voice.boards.change(
-      (store) => store.setKey(voiceBoard.id, { slot, action: { type: "voice.speak", text: trimmed } }),
-      () => ({ key: "status.keySaved", params: { number: slot + 1 } }),
-    );
+    isSavingText.current = true;
+    try {
+      await spaces.voice.boards.change(
+        (store) => store.setKey(voiceBoard.id, { slot, action: { type: "voice.speak", text: trimmed } }),
+        () => ({ key: "status.keySaved", params: { number: slot + 1 } }),
+      );
+    } finally {
+      isSavingText.current = false;
+    }
   };
 
   // The composer and the recent phrases: above the keys, or in the side panel on wide screens.
@@ -364,6 +385,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
 
       <main className="app-main">
         <ConnectionBanner banner={connectionBanner} computerName={connectionBanner === "none" ? null : (services.device?.computerName() ?? null)} />
+        {dataRecovery.notice && <DataRecoveryNotice notice={dataRecovery.notice} onDismiss={dataRecovery.dismiss} />}
         {!target.synthesizer.isSupported && (
           <p className="notice" role="alert">
             {t("app.speechUnsupported")}
@@ -377,7 +399,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
         {space && deck && (
           <SectionView key={space} title={t(`nav.${space}`)} focusHeading={navigated} hideTitle>
             <>
-              {space === "voice" && !isWorkspace && !usesComposerSheet && composerAndRecent}
+              {space === "voice" && !docksVoicePanel && !usesComposerSheet && composerAndRecent}
               {/* Without a board there is no deck header to hold the indicator, so it gets a row of its own. */}
               {deckIndicator && !board && <div className="deck-header">{deckIndicator}</div>}
               {!deck.boards.isLoaded && <p className="empty">{t("board.loading")}</p>}
@@ -410,11 +432,16 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                   volumes={target.obs}
                   isSpeaking={speech.isSpeaking}
                   onEditKey={canEditBoard ? openKey : undefined}
-                  selectedSlot={inspection?.slot ?? null}
+                  // Voice on a phone keeps its empty cells while playing: each one adds a phrase there, without Edit keys.
+                  onAddKey={canEditBoard || usesComposerSheet ? openKey : undefined}
+                  // The key or empty cell being edited or filled, in the panel or in either dialog.
+                  selectedSlot={inspection?.slot ?? pickerSlot ?? dialogSlot ?? null}
                   onDeleteKey={canEditBoard ? deck.clearKey : undefined}
                   onMoveKey={canEditBoard ? deck.moveKey : undefined}
                   compact={isCompactSpace}
                   keepsGrid={usesComposerSheet}
+                  fillsArea={isWorkspace && space === "voice" && !isCompactSpace}
+                  textSize={appearance.appearance.textSize}
                   // On a phone the Voice pager sits right before Write; "+" opens a new page ready for its first phrase.
                   renderPager={
                     usesComposerSheet
@@ -540,7 +567,12 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
               speakOn={target.speakOn}
               outputDevice={target.outputDevice}
               voiceOutput={target.voiceOutput}
-              vibrateOnDisconnect={target.isConnected ? { value: connectionAlerts.vibrate, onChange: setVibrateOnDisconnect } : null}
+              // Only where it can be felt: never in the computer's own window, nor on a device that cannot vibrate.
+              vibrateOnDisconnect={
+                target.isConnected && !target.isOnComputer && (services.device?.canVibrate?.() ?? true)
+                  ? { value: connectionAlerts.vibrate, onChange: setVibrateOnDisconnect }
+                  : null
+              }
             >
               <RemoveAdsSettings
                 mode={monetization.mode}
@@ -548,19 +580,29 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                 focusHeading={focusRemoveAds}
                 store={store && storeBuyLabel ? { ...store, buyLabel: storeBuyLabel, onPurchase: purchaseOnStore, onRestore: restoreFromStore } : null}
               />
-              {appUpdate.update && (
+              {/* The licences of the open-source software shipped with the app are one tap away on every device. */}
+              {appUpdate.update ? (
                 <AppUpdateSettings
                   update={appUpdate.update}
                   canControl={appUpdate.canControl}
                   onCheck={appUpdate.check}
                   onInstall={appUpdate.install}
                   onAutoCheckChange={appUpdate.setAutoCheck}
-                />
+                >
+                  <LicencesLink />
+                </AppUpdateSettings>
+              ) : (
+                <AboutSettings>
+                  <LicencesLink />
+                </AboutSettings>
               )}
             </SettingsPanel>
           </SectionView>
         )}
       </main>
+
+      {/* Where the status line is only heard, what failed (or was said another way) is also seen, over the page. */}
+      <StatusToast message={hidesStatus && needsToast(status) ? status : null} />
 
       {/* The side panel docks to the window edge, beside the workspace (wide screens): the inspector, else the Deck's empty one or the Voice composer. */}
       {inspection && deck && board && (

@@ -52,7 +52,6 @@ import {
   type ServerEvent,
   type VoiceOutputStatusResponse,
 } from "@speed-deck/core";
-import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { networkInterfaces as osNetworkInterfaces } from "node:os";
@@ -62,7 +61,8 @@ import { ClientActionError, createActionExecutor, NothingToRepeatError, type Spe
 import type { AdFeed } from "../ads/ad-feed";
 import type { AdsGrants } from "../ads/ads-grants";
 import { applyObsSettings, ObsDisabledError } from "./obs-settings";
-import { asObject, HttpError, readJsonBody, sendEmpty, sendJson } from "./http-utils";
+import { asObject, HttpError, readJsonBody, sendEmpty, sendJson, streamFile } from "./http-utils";
+import type { DataRecoveryLog } from "../adapters/data-recovery-log";
 import type { OverlayAudio } from "./overlay-audio";
 import { connectionInfo, isLoopbackAddress, type NetworkInterfaces } from "./network";
 
@@ -92,6 +92,8 @@ export interface ApiDependencies {
   ads?: AdFeed;
   /** Plays voice clips on the OBS overlays; absent means the voice only goes to the speakers. */
   overlayAudio?: OverlayAudio;
+  /** What was done about a damaged boards file, told to the person at the computer until dismissed. */
+  dataRecovery?: DataRecoveryLog;
   /** The computer app's updater; absent when the server runs without the app. */
   appUpdater?: AppUpdater;
 }
@@ -147,15 +149,29 @@ export function createApiHandler(deps: ApiDependencies) {
     {
       method: "GET",
       path: "/api/health",
-      handler: async (_request, response) => {
+      handler: async (request, response) => {
+        // A recovery names a file on this computer's disk, so only this computer hears about it.
+        const dataRecovery = isLoopbackAddress(request.socket.remoteAddress) ? deps.dataRecovery?.current() : null;
         const body: HealthResponse = {
           ok: true,
           name: DESKTOP_SERVER_NAME,
           capabilities: synthesizer.capabilities,
           instanceId: deps.instanceId,
           ...(deps.desktopId === undefined ? {} : { desktopId: deps.desktopId }),
+          ...(dataRecovery ? { dataRecovery } : {}),
         };
         sendJson(response, 200, body);
+      },
+    },
+    {
+      /** The person at the computer read the notice about a damaged boards file; it is not shown again. */
+      method: "POST",
+      path: "/api/data-recovery/dismiss",
+      handler: async (request, response) => {
+        asObject(await readJsonBody(request));
+        requireLoopback(request);
+        await deps.dataRecovery?.dismiss();
+        sendJson(response, 200, { ok: true });
       },
     },
     {
@@ -580,15 +596,7 @@ async function sendClip(response: ServerResponse, file: string): Promise<void> {
     "cache-control": "no-store",
     "x-content-type-options": "nosniff",
   });
-  await new Promise<void>((resolve) => {
-    createReadStream(file)
-      .on("error", () => {
-        response.destroy();
-        resolve();
-      })
-      .on("end", resolve)
-      .pipe(response);
-  });
+  await streamFile(file, response);
 }
 
 function matchRoute(routes: readonly Route[], method: string, pathname: string): { route: Route; params: Params } | null {

@@ -1,5 +1,5 @@
-import type { AppUpdateState } from "@speed-deck/core";
-import { useId } from "react";
+import { isDevelopmentVersion, type AppUpdateState } from "@speed-deck/core";
+import { useId, type ReactNode } from "react";
 import { useLanguage, useT } from "../i18n/I18nProvider";
 
 interface AppUpdateSettingsProps {
@@ -9,19 +9,38 @@ interface AppUpdateSettingsProps {
   onCheck: () => void;
   onInstall: () => void;
   onAutoCheckChange: (enabled: boolean) => void;
+  /** Shown last in the group: the link to the open-source licences. */
+  children?: ReactNode;
+}
+
+/**
+ * Presentational: Settings → About, where there is no computer app to tell a version of (a phone on its
+ * own, or a server started without the app): only what `children` hold, the open-source licences.
+ */
+export function AboutSettings({ children }: { children: ReactNode }) {
+  const t = useT();
+  const titleId = useId();
+  return (
+    <div className="settings-group app-update" role="group" aria-labelledby={titleId}>
+      <h3 id={titleId}>{t("about.title")}</h3>
+      {children}
+    </div>
+  );
 }
 
 /**
  * Presentational: Settings → About and updates. The computer app's version, where it is with updates in
  * plain words and, on the computer itself, the manual check, the restart or the download page, and the
- * automatic checks setting. A build that never updates shows its version only.
+ * automatic checks setting. A build that never updates shows its version only, and one without a release
+ * version (0.0.0, built by hand) is called a development build.
  */
-export function AppUpdateSettings({ update, canControl, onCheck, onInstall, onAutoCheckChange }: AppUpdateSettingsProps) {
+export function AppUpdateSettings({ update, canControl, onCheck, onInstall, onAutoCheckChange, children }: AppUpdateSettingsProps) {
   const t = useT();
   const language = useLanguage();
   const titleId = useId();
   const { mode, status, latestVersion, lastCheckedAt } = update;
   const version = latestVersion ?? "";
+  const isDevelopment = isDevelopmentVersion(update.currentVersion);
   const updates = mode !== "disabled";
   const controls = updates && canControl;
 
@@ -48,7 +67,15 @@ export function AppUpdateSettings({ update, canControl, onCheck, onInstall, onAu
   return (
     <div className="settings-group app-update" role="group" aria-labelledby={titleId}>
       <h3 id={titleId}>{t("update.title")}</h3>
-      <p className="app-update-version">{t(canControl ? "update.version" : "update.versionOnComputer", { version: update.currentVersion })}</p>
+      {isDevelopment ? (
+        // 0.0.0 is not a version anyone released: say what the build is instead of showing a number.
+        <>
+          <p className="app-update-version">{t(canControl ? "update.versionDev" : "update.versionDevOnComputer")}</p>
+          <p className="field-hint">{t("update.devHint")}</p>
+        </>
+      ) : (
+        <p className="app-update-version">{t(canControl ? "update.version" : "update.versionOnComputer", { version: update.currentVersion })}</p>
+      )}
       {statusText && (
         <p className="app-update-status" role="status">
           {statusText}
@@ -85,6 +112,7 @@ export function AppUpdateSettings({ update, canControl, onCheck, onInstall, onAu
           <p className="field-hint">{t("update.autoCheckHint")}</p>
         </>
       )}
+      {children}
     </div>
   );
 }

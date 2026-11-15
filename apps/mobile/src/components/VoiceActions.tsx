@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, PenLine, Plus, Square, SquarePen } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleStop, PenLine, Plus, SquarePen } from "lucide-react";
 import { useT } from "../i18n/I18nProvider";
 import type { PagerControls } from "./BoardPlayer";
 
@@ -41,9 +41,15 @@ export function VoiceActions({ isSpeaking, onWrite, onStop, pager, editKeys }: V
       )}
       {isSpeaking && (
         <button type="button" className="button voice-action voice-action-stop" onClick={onStop}>
-          <Square size={ICON_SIZE} aria-hidden="true" focusable="false" />
+          <CircleStop size={ICON_SIZE} aria-hidden="true" focusable="false" />
           <span className="voice-action-label">{t("composer.stop")}</span>
         </button>
+      )}
+      {/* Which page is on screen, for the eye (the words above say it to screen readers); a single page needs none. */}
+      {pager && pager.count > 1 && (
+        <span className="voice-page-count" aria-hidden="true">
+          {pager.page + 1} / {pager.count}
+        </span>
       )}
       {pager?.onPrevious && (
         <button type="button" className="button voice-action voice-action-page" aria-label={t("board.previous")} onClick={pager.onPrevious}>

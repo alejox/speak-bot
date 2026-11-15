@@ -58,7 +58,7 @@ export interface BoardStore {
   restoreDefault(language: UiLanguage, boardId?: string): Promise<Board>;
   /** Gives every board of `kind` `grid`, moving keys that no longer fit; rejects when a board has no room. */
   setGrid(kind: BoardKind, grid: BoardGrid): Promise<Board[]>;
-  /** Boards changed somewhere else (another device). Returns an unsubscribe function. */
+  /** Boards changed somewhere else (another device), or may have while the link to the desktop was down. Returns an unsubscribe function. */
   onChanged(listener: () => void): () => void;
 }
 
@@ -120,9 +120,16 @@ export function createRemoteBoardStore(api: DesktopApiClient, events: DesktopEve
     moveKey: (boardId, from, to) => api.moveKey(boardId, from, to),
     restoreDefault: (language, boardId) => api.restoreDefaultBoard(language, boardId),
     setGrid: (kind, grid) => api.setBoardGrid(kind, grid),
-    onChanged: (listener) =>
-      events.subscribe((event) => {
+    // Also each time the link to the desktop opens or reopens: a change made while it was down sent no event here.
+    onChanged: (listener) => {
+      const stopEvents = events.subscribe((event) => {
         if (event.type === "boards-changed") listener();
-      }),
+      });
+      const stopOpen = events.onOpen(listener);
+      return () => {
+        stopEvents();
+        stopOpen();
+      };
+    },
   };
 }

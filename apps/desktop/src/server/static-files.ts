@@ -1,8 +1,8 @@
-import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { streamFile } from "./http-utils";
 
 /** The OBS caption overlay shipped with the desktop app. */
 export const OVERLAY_FILE = fileURLToPath(new URL("../../public/overlay.html", import.meta.url));
@@ -109,15 +109,7 @@ async function sendFile(request: IncomingMessage, response: ServerResponse, file
     response.end();
     return true;
   }
-  await new Promise<void>((resolve) => {
-    createReadStream(file)
-      .on("error", () => {
-        response.destroy();
-        resolve();
-      })
-      .on("end", resolve)
-      .pipe(response);
-  });
+  await streamFile(file, response);
   return true;
 }
 

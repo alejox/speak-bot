@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAppUpdateState, isServerEvent, type AppUpdateState } from "../src";
+import { isAppUpdateState, isDevelopmentVersion, isServerEvent, type AppUpdateState } from "../src";
 
 const IDLE: AppUpdateState = { currentVersion: "1.2.0", mode: "auto", status: "idle", autoCheck: true };
 
@@ -34,6 +34,16 @@ describe("isAppUpdateState", () => {
     expect(isAppUpdateState({ ...IDLE, releaseUrl: "http://github.com/alejox/speak-bot/releases" })).toBe(false);
     expect(isAppUpdateState({ ...IDLE, releaseUrl: "javascript:alert(1)" })).toBe(false);
     expect(isAppUpdateState({ ...IDLE, releaseUrl: "not a url" })).toBe(false);
+  });
+});
+
+describe("isDevelopmentVersion", () => {
+  it("is true for the version of a build that never got a release version", () => {
+    for (const version of ["0.0.0", "v0.0.0", "0.0.0-dev.12", "0.0.0+local"]) expect(isDevelopmentVersion(version), version).toBe(true);
+  });
+
+  it("is false for every released version and for anything that is not a version", () => {
+    for (const version of ["0.0.1", "0.1.0", "1.0.0", "10.0.0", "1.0.0-beta.1", "", "dev"]) expect(isDevelopmentVersion(version), version).toBe(false);
   });
 });
 

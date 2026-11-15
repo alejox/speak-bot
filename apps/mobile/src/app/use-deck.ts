@@ -7,6 +7,7 @@ import type { KeyContext, ObsLive } from "./key-presentation";
 import { useBoardNavigation, useBoards, type BoardNavigation, type Boards } from "./use-boards";
 import { isNewFolderKey } from "./key-draft";
 import { createKeyRunner, type KeyRun } from "./use-key-runner";
+import { useLinkLost } from "./use-link-lost";
 import { useObs } from "./use-obs";
 import type { Speech } from "./use-speech";
 import type { SpeechTarget } from "./use-speech-target";
@@ -36,22 +37,34 @@ interface DeckState {
 
 function useDeckState(target: SpeechTarget, language: UiLanguage, report: (message: Message | null) => void): DeckState {
   const boards = useBoards(target.boards, language, report);
-  const obs = useObs(target.obs, target.obsSettings?.enabled ?? null);
+  const liveObs = useObs(target.obs, target.obsSettings?.enabled ?? null);
+  // While the link to the computer is down nothing here is live: OBS may have gone on air or stopped since
+  // the last event. Nothing is shown as known until the link is back and the state was read again.
+  const isLinkLost = useLinkLost(target.watchConnection);
+  const obs = isLinkLost ? null : liveObs;
   const voiceLanguage = target.voiceLanguage ?? language;
-  const runningKeys = useRunningKeys(target, report);
+  const runningKeys = useRunningKeys(target, report, isLinkLost);
   const context = useMemo<KeyContext>(
-    () => ({ isConnected: target.isConnected, obs, captionsVisible: target.captionsVisible, voiceLanguage, boards: boards.boards, runningKeys }),
-    [target.isConnected, obs, target.captionsVisible, voiceLanguage, boards.boards, runningKeys],
+    () => ({ isConnected: target.isConnected, isLinkLost, obs, captionsVisible: target.captionsVisible, voiceLanguage, boards: boards.boards, runningKeys }),
+    [target.isConnected, isLinkLost, obs, target.captionsVisible, voiceLanguage, boards.boards, runningKeys],
   );
   return { boards, obs, context, voiceLanguage };
 }
 
-/** The keys whose multi-action runs on the desktop now, by run id; says so when steps of one failed. */
-function useRunningKeys(target: SpeechTarget, report: (message: Message | null) => void): ReadonlySet<string> {
+/**
+ * The keys whose multi-action runs on the desktop now, by run id; says so when steps of one failed. Losing the
+ * link forgets them: the "end" of a run may be among the events that never arrive, and a key shown as
+ * running for ever is worse than one that shows nothing (the desktop still ignores a second press meanwhile).
+ */
+function useRunningKeys(target: SpeechTarget, report: (message: Message | null) => void, isLinkLost: boolean): ReadonlySet<string> {
   const [running, setRunning] = useState<ReadonlySet<string>>(() => new Set());
   const reportRef = useRef(report);
   reportRef.current = report;
   const { onMultiActionEvent } = target;
+
+  useEffect(() => {
+    if (isLinkLost) setRunning(new Set());
+  }, [isLinkLost]);
 
   useEffect(() => {
     setRunning(new Set());

@@ -8,6 +8,7 @@ import {
   Check,
   CircleDot,
   CircleHelp,
+  CircleStop,
   Clapperboard,
   Clock,
   Coffee,
@@ -29,7 +30,6 @@ import {
   Radio,
   Repeat,
   Smile,
-  Square,
   Star,
   X,
   type LucideIcon,
@@ -38,7 +38,8 @@ import {
 /** The drawing of every key icon id (Lucide, ISC license). */
 const ICONS: Record<KeyIconId, LucideIcon> = {
   message: MessageSquare,
-  stop: Square,
+  // A stop sign: an empty square reads as a checkbox.
+  stop: CircleStop,
   repeat: Repeat,
   language: Languages,
   eraser: Eraser,

@@ -109,6 +109,12 @@
   overflow-y: auto;
 }
 
+/* The hint is quieter than typed text and still reads on the field in both themes (the browser's grey does not in the dark). */
+.composer-text::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
 /* The text box with its clear button in the top corner, shown while there is text; the text keeps clear of it. */
 .composer-field {
   position: relative;
@@ -153,6 +159,16 @@
     grid-column: 1 / -1;
     grid-template-columns: repeat(2, max-content);
   }
+}
+
+/*
+ * The wide workspace below the width that docks the Voice panel (1000px to 1199px): the composer stacks
+ * above the keys across the whole workspace, text box and Speak side by side as on tablets, so the phrase
+ * grid under it gets every column of width.
+ */
+.app-workspace .app-main .composer,
+.app-workspace .app-main .recent {
+  max-width: none;
 }
 
 /* Recent phrases: one row of chips that scrolls sideways, with Clear fixed at its end. */

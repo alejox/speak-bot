@@ -1,5 +1,5 @@
 import { MAX_ADS_DEVICE_ID_LENGTH, MAX_ADS_DEVICE_NAME_LENGTH, type AdsPurchaseReport, type AdsResponse } from "@speed-deck/core";
-import { readJsonFile, SerialQueue, writeJsonFileAtomic } from "../adapters/json-file";
+import { readJsonFile, SerialQueue, writeJsonFileAtomic, type JsonFileOptions } from "../adapters/json-file";
 
 /** A phone that reported owning "remove ads". */
 export interface AdsGrant {
@@ -16,6 +16,8 @@ export interface AdsGrantsOptions {
   /** `ads-grants.json` in the data directory. */
   file: string;
   now: () => number;
+  /** Where the recovery of a damaged grants file is logged. */
+  log?: (message: string) => void;
 }
 
 export type AdsListener = (ads: AdsResponse) => void;
@@ -30,6 +32,11 @@ export class AdsGrants {
   private readonly listeners = new Set<AdsListener>();
 
   constructor(private readonly options: AdsGrantsOptions) {}
+
+  /** A damaged grants file is kept aside and its last good copy put back, so a purchase is not forgotten. */
+  private get fileOptions(): JsonFileOptions {
+    return { now: this.options.now, log: this.options.log };
+  }
 
   subscribe(listener: AdsListener): () => void {
     this.listeners.add(listener);
@@ -49,7 +56,7 @@ export class AdsGrants {
       const grants = await this.load();
       const next = applyReport(grants, report, this.options.now());
       if (next === grants) return toResponse(grants);
-      await writeJsonFileAtomic(this.options.file, { grants: next });
+      await writeJsonFileAtomic(this.options.file, { grants: next }, this.fileOptions);
       const response = toResponse(next);
       if (JSON.stringify(response) !== JSON.stringify(toResponse(grants))) {
         for (const listener of [...this.listeners]) listener(response);
@@ -60,7 +67,7 @@ export class AdsGrants {
 
   /** The saved grants, oldest first; a missing, unreadable or malformed file counts as none. */
   private async load(): Promise<AdsGrant[]> {
-    const content = await readJsonFile(this.options.file);
+    const content = await readJsonFile(this.options.file, this.fileOptions);
     if (content.status !== "ok" || typeof content.value !== "object" || content.value === null) return [];
     const { grants } = content.value as Record<string, unknown>;
     if (!Array.isArray(grants)) return [];

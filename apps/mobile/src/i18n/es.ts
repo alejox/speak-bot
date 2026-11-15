@@ -28,6 +28,7 @@ export const es: Messages = {
   "deck.mixer": "Volumen",
   "deck.status.noComputer": "Computadora no conectada",
   "deck.status.obsDisconnected": "OBS no conectado",
+  "deck.status.obsOff": "OBS desactivado",
   "deck.status.obsConnected": "OBS conectado",
   "deck.status.live": "En vivo",
   "deck.status.recording": "Grabando",
@@ -97,6 +98,10 @@ export const es: Messages = {
   "grid.cancel": "Cancelar",
   "grid.saved": "Cuadrícula de {columns} × {rows}.",
   "inspector.label": "Tecla {number}",
+  "inspector.discardTitle": "¿Descartar los cambios de esta tecla?",
+  "inspector.discardPrompt": "Los cambios que hiciste en esta tecla no se han guardado.",
+  "inspector.discardYes": "Descartar",
+  "inspector.discardNo": "Seguir editando",
   "keyMenu.label": "Tecla {number}: {label}",
   "keyMenu.options": "Opciones de la tecla {number}",
   "keyMenu.edit": "Editar",
@@ -263,7 +268,8 @@ export const es: Messages = {
 
   "key.needsComputer": "Requiere la app de la computadora.",
   "key.obsDisconnected": "OBS no está conectado.",
-  "key.obsDisabled": "La conexión con OBS está desactivada en Ajustes.",
+  "key.connectionLost": "Sin conexión con la computadora.",
+  "key.obsDisabled": "La conexión con OBS está desactivada. Actívala en la sección OBS de la app de la computadora.",
   "key.boardMissing": "El tablero de esta tecla ya no existe.",
   "key.currentVoice": "Voz: {language}",
   "key.pageLabel": "Página {page}",
@@ -295,6 +301,8 @@ export const es: Messages = {
 
   "status.typeToSave": "Escribe algo para guardarlo en una tecla.",
   "status.keySaved": "Se guardó en la tecla {number}.",
+  "status.keyAlreadySaved": "Ya está guardado en la tecla {number}.",
+  "voice.spokenOnDevice": "Se dijo en este dispositivo: no se pudo conectar con la computadora.",
   "status.boardFull": "Este tablero no tiene teclas libres.",
   "status.loadFailed": "No se pudieron cargar los tableros.",
 
@@ -337,6 +345,7 @@ export const es: Messages = {
   "error.desktopSpeechFailed": "La computadora no pudo decir eso. Inténtalo de nuevo.",
   "error.desktopRequestFailed": "La computadora no aceptó la solicitud. Inténtalo de nuevo.",
   "error.speechFailed": "No se pudo decir eso. Inténtalo de nuevo.",
+  "error.noVoiceAnywhere": "No se pudo conectar con la computadora y este dispositivo no tiene voz. No se dijo nada.",
   "error.queueFull": "Hay demasiadas frases en espera. Espera a que se diga alguna.",
   "error.loadDesktopSettings": "No se pudo cargar la configuración de la computadora.",
   "error.saveDesktopSettings": "No se pudo guardar la configuración de la computadora.",
@@ -455,4 +464,17 @@ export const es: Messages = {
   "update.manualHint": "En este sistema las actualizaciones se instalan a mano: descarga la versión nueva e instálala sobre esta.",
   "update.autoCheck": "Buscar actualizaciones automáticamente",
   "update.autoCheckHint": "Para buscarlas, Speed Deck se conecta a GitHub, donde se publican sus versiones.",
+  "update.versionDev": "Speed Deck: versión de desarrollo",
+  "update.versionDevOnComputer": "Speed Deck en la computadora: versión de desarrollo",
+  "update.devHint": "Una versión de desarrollo no se actualiza sola.",
+
+  "about.title": "Acerca de",
+  "about.licences": "Licencias de código abierto",
+  "about.licencesLoading": "Cargando las licencias…",
+  "about.licencesFailed": "No se pudieron cargar las licencias. Revisa la conexión e inténtalo de nuevo.",
+
+  "recovery.restored":
+    "Tu archivo de tableros estaba dañado. Speed Deck restauró la última copia guardada, así que puede faltar tu cambio más reciente. El archivo dañado se conservó en {path}.",
+  "recovery.defaults": "Tu archivo de tableros estaba dañado. Speed Deck empezó con los tableros predeterminados. El archivo dañado se conservó en {path}.",
+  "recovery.dismiss": "Cerrar aviso",
 };

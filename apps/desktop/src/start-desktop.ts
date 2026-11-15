@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { homedir, networkInterfaces, tmpdir } from "node:os";
 import { join } from "node:path";
 import { prepareBoards } from "./adapters/board-migration";
+import { DataRecoveryLog } from "./adapters/data-recovery-log";
 import { migrateLegacyDataDir } from "./adapters/legacy-data-dir";
 import { JsonFileBoardRepository } from "./adapters/json-file-board-repository";
 import { JsonFileSettingsStore } from "./adapters/json-file-settings-store";
@@ -84,8 +85,12 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
   // Data saved before the rename to Speed Deck is copied to the new folder once.
   await migrateLegacyDataDir(config, log);
 
-  const repository = new JsonFileBoardRepository(join(config.dataDir, "boards.json"));
-  const settings = new JsonFileSettingsStore(join(config.dataDir, "settings.json"), config.defaults);
+  // A boards file found damaged is kept aside and its last good copy put back; the person is told in the app.
+  const dataRecovery = new DataRecoveryLog({ file: join(config.dataDir, "data-recovery.json"), log });
+  await dataRecovery.load();
+  const repository = new JsonFileBoardRepository(join(config.dataDir, "boards.json"), { log, onRecovery: (recovery) => dataRecovery.record(recovery) });
+  // The other stores recover the same way; their recoveries are only logged.
+  const settings = new JsonFileSettingsStore(join(config.dataDir, "settings.json"), config.defaults, { log });
   // Voice clips for the OBS overlay live in a temporary folder of their own, removed on close.
   const overlayAudio = new OverlayAudio({ dir: join(tmpdir(), `speed-deck-clips-${randomUUID()}`), now: () => Date.now() });
   const synthesizer = createSystemSynthesizer(process.platform, undefined, overlayAudio);
@@ -104,9 +109,20 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
   if (autoCheckUpdates !== undefined) options.appUpdater?.setAutoCheck(autoCheckUpdates);
   const monetization = loadMonetizationConfig(env);
   // Phones that bought "remove ads" report it here; the computer stays ad-free while one grant is saved.
-  const adsGrants = new AdsGrants({ file: join(config.dataDir, "ads-grants.json"), now: () => Date.now() });
-  const ads = new AdFeed({ feedUrl: monetization.adFeedUrl, dir: join(config.dataDir, "ad"), fetch: options.fetch, log });
-  const desktopId = await loadOrCreateDesktopId(join(config.dataDir, "desktop.json"), randomUUID);
+  const adsGrants = new AdsGrants({ file: join(config.dataDir, "ads-grants.json"), now: () => Date.now(), log });
+  // While ads are removed nobody sees a sponsor, so its feed and image host are not contacted at all.
+  const ads = new AdFeed({
+    feedUrl: monetization.adFeedUrl,
+    dir: join(config.dataDir, "ad"),
+    fetch: options.fetch,
+    log,
+    adsRemoved: async () => (await adsGrants.status()).adsFree,
+  });
+  // Ads came back (a refund): ask for the sponsor now instead of at the next 6 h refresh.
+  const stopAdsResume = adsGrants.subscribe((status) => {
+    if (!status.adsFree) void ads.refresh();
+  });
+  const desktopId = await loadOrCreateDesktopId(join(config.dataDir, "desktop.json"), randomUUID, { log });
   const settingsListeners = new Set<(next: DesktopSettings) => void>();
 
   const pageHandler = createPageHandler({
@@ -126,6 +142,7 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
     adsGrants,
     ads,
     overlayAudio,
+    dataRecovery,
     appUpdater: options.appUpdater,
     onSettingsChanged: (next) => {
       for (const listener of [...settingsListeners]) listener(next);
@@ -178,10 +195,12 @@ export async function startDesktop(options: StartDesktopOptions = {}): Promise<R
       closing ??= (async () => {
         synthesizer.cancel();
         await advertisement?.stop();
+        stopAdsResume();
         ads.stop();
         await obs.close();
         await server.close();
         await overlayAudio.close();
+        await dataRecovery.idle();
       })();
       return closing;
     },

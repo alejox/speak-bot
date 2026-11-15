@@ -7,6 +7,7 @@ import type {
   AdsPurchaseReport,
   AdsResponse,
   AppUpdateState,
+  DataRecoveryNotice,
   AudioDevice,
   DesktopSettings,
   DesktopSettingsPatch,
@@ -28,7 +29,7 @@ import { createLocalBoardStore, createRemoteBoardStore, type BoardStore } from "
 import { getLocalStorage, migrateLegacyStorageKeys } from "../adapters/browser-storage";
 import { copyText as copyToClipboard } from "../adapters/clipboard";
 import { DesktopApiClient, type ConnectionInfo, type DesktopProbe } from "../adapters/desktop-api";
-import { DesktopEventSource, type WebSocketFactory } from "../adapters/desktop-events";
+import { DesktopEventSource, followWithReload, type WebSocketFactory } from "../adapters/desktop-events";
 import { findDeviceIdentity, type DeviceIdentity } from "../adapters/device-identity";
 import { createDeviceSignals, type DeviceSignals } from "../adapters/device-signals";
 import { LocalStorageAppearanceStore, type AppearanceStore } from "../adapters/local-storage-appearance-store";
@@ -98,6 +99,16 @@ export interface AppUpdateServices {
   onChanged(listener: (update: AppUpdateState) => void): () => void;
 }
 
+/** What the computer did about a boards file it found damaged; told only in the computer's own window. */
+export interface DataRecoveryServices {
+  /** The recovery nobody dismissed yet, or null (also on any device that is not the computer itself). */
+  load(): Promise<DataRecoveryNotice | null>;
+  /** The person read the notice: the computer remembers it and does not show it again. */
+  dismiss(): Promise<void>;
+  /** A recovery happened or was dismissed, or the link to the computer reopened: load again. Returns an unsubscribe function. */
+  onChanged(listener: () => void): () => void;
+}
+
 /** Speaking and running keys through the desktop computer that serves this app. */
 export interface DesktopServices {
   /** Asks whether a Speed Deck desktop serves this page: found, for sure not (absent), or no answer yet within `timeoutMs`. */
@@ -129,6 +140,7 @@ export interface DesktopServices {
   target: SpeakTargetStore;
   ads: AdsServices;
   appUpdate: AppUpdateServices;
+  dataRecovery: DataRecoveryServices;
   /** The sponsor banner the computer cached, or null for the house banner. */
   loadAd(): Promise<AdCreative | null>;
   /** Present only when this page is open on the desktop computer itself (localhost). */
@@ -197,10 +209,33 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
       listInputs: () => api.listObsInputs(),
       listSceneItems: (sceneName) => api.listObsSceneItems(sceneName),
       connect: () => api.connectObs(),
-      onEvent: (listener) =>
-        events.subscribe((event) => {
-          if (event.type === "obs-status" || event.type === "obs-state") listener(event);
-        }),
+      // Status and state are read again (in one request) each time the link opens or reopens, and told as
+      // the events they stand in for; whichever of the two a real event overtook is left alone.
+      onEvent: (listener) => {
+        let statusPushes = 0;
+        let statePushes = 0;
+        const stopEvents = events.subscribe((event) => {
+          if (event.type === "obs-status") statusPushes += 1;
+          else if (event.type === "obs-state") statePushes += 1;
+          else return;
+          listener(event);
+        });
+        const stopOpen = events.onOpen(() => {
+          const [statusBefore, stateBefore] = [statusPushes, statePushes];
+          api.loadObsStatus().then(
+            ({ status, code, state }) => {
+              const at = Date.now();
+              if (statusPushes === statusBefore) listener({ type: "obs-status", status, ...(code === undefined ? {} : { code }), at });
+              if (statePushes === stateBefore) listener({ type: "obs-state", state, at });
+            },
+            () => undefined,
+          );
+        });
+        return () => {
+          stopEvents();
+          stopOpen();
+        };
+      },
       getInputVolume: (inputName) => api.getObsInputVolume(inputName),
       setInputVolume: (inputName, volumeMul) => api.setObsInputVolume(inputName, volumeMul),
       onInputVolume: (listener) =>
@@ -212,9 +247,12 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
     loadSettings: () => api.loadSettings(),
     saveSettings: (patch) => api.saveSettings(patch),
     onSettingsChanged: (listener) =>
-      events.subscribe((event) => {
-        if (event.type === "settings-changed") listener(event.settings);
-      }),
+      followWithReload(
+        events,
+        (event) => (event.type === "settings-changed" ? event.settings : undefined),
+        () => api.loadSettings(),
+        listener,
+      ),
     onSpeechEvent: (listener) =>
       events.subscribe((event) => {
         if (event.type === "speaking" || event.type === "speak-error") listener(event);
@@ -225,26 +263,49 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
       }),
     loadOverlayConnected: async () => (await api.loadVoiceStatus()).overlayConnected === true,
     onOverlayConnectedChanged: (listener) =>
-      events.subscribe((event) => {
-        if (event.type === "overlay-audio") listener(event.connected);
-      }),
+      followWithReload(
+        events,
+        (event) => (event.type === "overlay-audio" ? event.connected : undefined),
+        async () => (await api.loadVoiceStatus()).overlayConnected === true,
+        listener,
+      ),
     target: options.targetStore ?? new LocalStorageSpeakTargetStore(),
     ads: {
       load: () => api.loadAds(),
       report: (report) => api.reportAdsPurchase(report),
       onChanged: (listener) =>
-        events.subscribe((event) => {
-          if (event.type === "ads-changed") listener(event.ads);
-        }),
+        followWithReload(
+          events,
+          (event) => (event.type === "ads-changed" ? event.ads : undefined),
+          () => api.loadAds(),
+          listener,
+        ),
     },
     appUpdate: {
       load: () => api.loadAppUpdate(),
       check: () => api.checkAppUpdate(),
       install: () => api.installAppUpdate(),
       onChanged: (listener) =>
-        events.subscribe((event) => {
-          if (event.type === "app-update") listener(event.update);
-        }),
+        followWithReload(
+          events,
+          (event) => (event.type === "app-update" ? event.update : undefined),
+          () => api.loadAppUpdate(),
+          listener,
+        ),
+    },
+    dataRecovery: {
+      load: () => api.loadDataRecovery(),
+      dismiss: () => api.dismissDataRecovery(),
+      onChanged: (listener) => {
+        const stopEvents = events.subscribe((event) => {
+          if (event.type === "data-recovery") listener();
+        });
+        const stopOpen = events.onOpen(listener);
+        return () => {
+          stopEvents();
+          stopOpen();
+        };
+      },
     },
     loadAd: () => api.loadAd(),
     watchConnection: (listener) => events.watchConnection(listener),

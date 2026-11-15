@@ -23,7 +23,8 @@ export function RecentPhrases({ phrases, onSpeak, onClear }: RecentPhrasesProps)
           </li>
         ))}
       </ul>
-      <button type="button" className="button button-small recent-clear" onClick={onClear} aria-label={t("recent.clearLabel")}>
+      {/* The short word is what is drawn; the name and the tooltip say what it clears. */}
+      <button type="button" className="button button-small recent-clear" onClick={onClear} aria-label={t("recent.clearLabel")} title={t("recent.clearLabel")}>
         {t("recent.clear")}
       </button>
     </section>

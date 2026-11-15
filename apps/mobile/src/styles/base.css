@@ -117,6 +117,38 @@ h4 {
   background: var(--green-600);
 }
 
+/*
+ * A toast (StatusToast): what did not happen, or happened another way, over a space whose status line is
+ * kept for screen readers. Fixed at the top of the window, away from the controls under the keys; it takes
+ * no room in the layout, no focus and no taps. Drawn in the text colour on the page colour reversed, so it
+ * stands out the same in both themes; its icon tells a failure from a notice.
+ */
+.toast {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + var(--space-3));
+  left: var(--space-3);
+  right: var(--space-3);
+  z-index: 20;
+  width: fit-content;
+  max-width: min(34rem, calc(100% - 2 * var(--space-3)));
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-bg);
+  background: var(--color-text);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-sm);
+  pointer-events: none;
+}
+
+.toast > svg {
+  flex: none;
+}
+
 .status {
   min-height: 1.5em;
   margin: 0;

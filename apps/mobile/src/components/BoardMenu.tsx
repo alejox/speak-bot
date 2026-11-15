@@ -212,6 +212,10 @@ function NameDialog({ title, initialName, submitLabel, statusText, onSubmit, onC
   const inputId = useId();
   const [name, setName] = useState(initialName);
   const [isBusy, setIsBusy] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+
+  // The name it opens with is only a suggestion: selected, so typing replaces it.
+  useEffect(() => input.current?.select(), []);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -225,7 +229,7 @@ function NameDialog({ title, initialName, submitLabel, statusText, onSubmit, onC
       <form className="modal-form" onSubmit={submit}>
         <div className="field">
           <label htmlFor={inputId}>{t("boards.name")}</label>
-          <input id={inputId} value={name} maxLength={MAX_BOARD_NAME_LENGTH} autoComplete="off" onChange={(event) => setName(event.target.value)} />
+          <input ref={input} id={inputId} value={name} maxLength={MAX_BOARD_NAME_LENGTH} autoComplete="off" onChange={(event) => setName(event.target.value)} />
         </div>
         <div className="modal-actions">
           <button type="button" className="button" onClick={onClose}>

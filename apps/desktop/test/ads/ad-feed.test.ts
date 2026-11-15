@@ -235,4 +235,37 @@ describe("AdFeed", () => {
     await feed(fetch).refresh();
     expect(JSON.parse(await readFile(join(dir, "ad.json"), "utf8"))).toMatchObject({ id: "spring-1", imageType: "image/png" });
   });
+
+  it("contacts neither the feed nor the image host while ads are removed, and resumes when they are back", async () => {
+    const { fetch, requested } = fakeFetch({ [FEED]: [json({ ad: CREATIVE })], [IMAGE]: [png()] });
+    let adsRemoved = true;
+    const ads = new AdFeed({
+      feedUrl: FEED,
+      dir,
+      fetch,
+      adsRemoved: async () => adsRemoved,
+      every: (ms, run) => {
+        timers.push({ ms, run, stopped: false });
+        return () => {};
+      },
+    });
+
+    await ads.start();
+    await ads.refresh();
+    timers[0]!.run();
+    await ads.idle();
+    expect(requested).toEqual([]);
+    expect(await ads.current()).toBeNull();
+
+    adsRemoved = false;
+    await ads.refresh();
+    expect(requested.map((request) => request.url)).toEqual([FEED, IMAGE]);
+    expect(await ads.current()).toMatchObject({ id: "spring-1" });
+  });
+
+  it("fetches as before when nothing says whether ads are removed", async () => {
+    const { fetch, requested } = fakeFetch({ [FEED]: [json({ ad: null })] });
+    await feed(fetch).refresh();
+    expect(requested.map((request) => request.url)).toEqual([FEED]);
+  });
 });

@@ -50,6 +50,16 @@ describe("parseSayVoices", () => {
       { id: "Grandma (Alemán (Alemania))", name: "Grandma (Alemán (Alemania))", lang: "de-DE", isDefault: false },
     ]);
   });
+
+  it("lists a voice once when the system prints it twice (a voice installed in two qualities has one name)", () => {
+    const output = [
+      "Mónica (Español (España)) es_ES    # ¡Hola! Me llamo Mónica.",
+      "Paulina (Español (México)) es_MX    # ¡Hola! Me llamo Paulina.",
+      "Mónica (Español (España)) es_ES    # ¡Hola! Me llamo Mónica.",
+    ].join("\n");
+
+    expect(parseSayVoices(output).map((voice) => voice.id)).toEqual(["Mónica (Español (España))", "Paulina (Español (México))"]);
+  });
 });
 
 describe("parseSayDevices", () => {

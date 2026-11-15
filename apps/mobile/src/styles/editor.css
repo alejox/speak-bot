@@ -10,14 +10,33 @@
   margin-top: 0;
 }
 
-.key-editor-actions {
-  margin-top: var(--space-3);
-}
-
 .key-editor-move {
   margin-top: var(--space-4);
   padding-top: var(--space-3);
   border-top: 1px solid var(--color-border);
+}
+
+/*
+ * The form's footer: what went wrong, then Save and Test. It is the last thing in the form and sticks to
+ * the bottom edge of whatever scrolls the form (the dialog, the side panel), so Save is always in reach
+ * while the fields scroll under it. It reaches the scrolling box's edges (--footer-inset is that box's
+ * side padding, --footer-drop its bottom padding) on the box's own surface, with a line above it.
+ */
+.key-editor-footer {
+  --footer-inset: var(--space-4);
+  --footer-drop: var(--space-4);
+  /* How far past the scrolling box's content edge it sticks: that box's own bottom padding, when it has one. */
+  --footer-stick: 0px;
+  position: sticky;
+  bottom: calc(var(--footer-stick) * -1);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-4) calc(var(--footer-inset) * -1) calc(var(--footer-drop) * -1);
+  padding: var(--space-3) var(--footer-inset) var(--footer-drop);
+  background: var(--color-surface);
+  border-top: var(--border-width) solid var(--color-border);
 }
 
 .picker {
@@ -411,23 +430,21 @@
   overflow-wrap: anywhere;
 }
 
-/* In the panel the name comes after the pickers, then Save across the whole width. */
-.key-editor-inspector .key-editor-name {
-  order: 1;
-}
-
-.key-editor-inspector .field-error {
-  order: 2;
+/*
+ * In the panel the name comes after the pickers (the form writes it there, so Tab follows the eye), then
+ * moving the key, and Save across the whole width in the footer that stays at the panel's bottom edge.
+ */
+.key-editor-inspector .key-editor-footer {
+  --footer-inset: var(--space-5);
+  --footer-drop: var(--space-6);
+  /* The panel scrolls and has the padding itself, so the footer sticks through it, down to the panel's edge. */
+  --footer-stick: var(--space-6);
+  padding-bottom: var(--space-4);
 }
 
 .key-editor-inspector .key-editor-actions {
-  order: 3;
   flex-direction: column;
   align-items: stretch;
-}
-
-.key-editor-inspector .key-editor-move {
-  order: 4;
 }
 
 /* Colours as round swatches, the way the panel shows them. */
