@@ -346,7 +346,9 @@
     transform var(--duration-fast) var(--ease);
 }
 
+/* The cell a key is being added to (its dialog or panel is open) shows like one under the pointer, with the selection ring. */
 .deck-key-empty:focus-visible,
+.deck-key-empty.deck-key-selected,
 .deck-key-empty.deck-key-drop {
   color: var(--color-text);
   border-color: var(--color-border-strong);
@@ -439,6 +441,22 @@
   font-variant-numeric: tabular-nums;
   text-align: center;
   color: var(--color-text-muted);
+}
+
+/* "2 / 3" between the arrows of a board with several pages (in the app's spaces; the dock spells it out). */
+.deck-page-count,
+.voice-page-count {
+  flex: none;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+
+.voice-page-count {
+  align-self: center;
 }
 
 /*

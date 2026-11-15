@@ -1,6 +1,6 @@
 # Launch readiness
 
-Status: IN PROGRESS (authorized by the owner 2026-11-14). Branch `feat/launch-readiness` from `main` (v0.1.0).
+Status: IMPLEMENTED; installers pending owner hand-over (authorized by the owner 2026-11-14). Branch `feat/launch-readiness` from `main` (v0.1.0).
 
 ## Objective
 Get the computer app ready for a public launch: fix the two grid problems the owner reported, review the product as a UX/UI expert and as a software architect, fix what blocks a launch, and hand over Windows and macOS installers.
@@ -36,7 +36,11 @@ Get the computer app ready for a public launch: fix the two grid problems the ow
   Evidence: RED per fix then GREEN; parent re-run: typecheck clean, core 237, desktop 354, electron 87, mobile 611 passing; workflow permissions parsed. Writer packaged a 0.2.0 macOS dmg with the notices inside.
   Open for the owner: the product's own LICENSE is not chosen; `lazy-val@1.0.5` ships no licence file anywhere, a standard MIT text with a note was written for it and needs approval; last-good is one change behind, so a restore can lose the most recent change (the notice says so).
   Not verifiable here: fsync under real power loss, Electron's dialog suppression in the packaged app, the workflow on GitHub. Follow-ups: Android native libraries are not in the notices; last-good and corrupt copies of settings can hold the OBS password until the next save; notices are not precached offline.
-- [ ] L4b UX fixes. Route: delegated writer.
+- [x] L4b UX fixes. Route: delegated writer. "Save and connect" enables and connects; a phrase is spoken with the device's own voice, with a visible notice, when the computer does not answer (4 s timeout); the key editor's actions are a sticky footer, Enter saves, Escape closes and returns focus, the target cell is marked; below 1200px the Voice composer stacks above the grid; key labels are fitted by a pure rule from key size and text-size setting, never breaking a word; plus the polish list (empty dialog status, selected board name, unique voices, placeholder contrast, vibrate only where possible, visible page count, stop icon).
+  Evidence: RED 32 mobile + 1 desktop failing then GREEN; parent re-run: typecheck clean, core 237, desktop 355, electron 87, mobile 660 passing; parent viewed Voice at 1024x768. Writer measured 20 views: Voice keys at 1024x768 from 81x113 with 12-13.7px labels to 149x208 with 22.5-25.3px; Save visible in all 20 (was off-screen in all 20); no truncated or broken default phrase; no page scroll; placeholder 6.73:1 dark. U1 and U2 were exercised against the server run from source with a temporary data directory.
+  Partial: at a fixed window, two labels limited by their longest word still get slightly smaller at Extra large (22.5 to 21px), because the rem-sized sidebar narrows the keys.
+  Known rough edges left: the fallback toast overlaps the disconnect banner on a phone; the banner pushes keys down a row when it appears; key size jumps at the 1199/1200px breakpoint; Escape closes the inspector only while focus is inside it; editing another key discards a dirty draft without asking.
+  Not seen: real audio, iOS Safari, the Android app, the Electron window, OBS connected.
 - [ ] L5 Full checks, then Windows and macOS installers.
 
 ## Checks

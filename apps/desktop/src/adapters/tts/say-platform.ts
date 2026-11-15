@@ -44,11 +44,18 @@ function voiceArgs(options: DesktopSpeakOptions): string[] {
 // "Eddy (English (US)) en_US    # Hello! My name is Eddy."
 const VOICE_LINE = /^(.+?)\s+([a-z]{2,3}[_-][A-Za-z0-9]+)\s+#/;
 
+/**
+ * The name is the id `say -v` takes. A voice installed in two qualities is printed twice under one name:
+ * it is listed once, since both lines name the same voice to `say`.
+ */
 export function parseSayVoices(output: string): Voice[] {
+  const seen = new Set<string>();
   return output.split(/\r?\n/).flatMap((line) => {
     const match = VOICE_LINE.exec(line.trim());
     if (!match) return [];
     const name = match[1]!.trim();
+    if (seen.has(name)) return [];
+    seen.add(name);
     return [{ id: name, name, lang: match[2]!.replace("_", "-"), isDefault: false }];
   });
 }

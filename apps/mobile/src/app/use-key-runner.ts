@@ -1,14 +1,14 @@
 import { ACTION_REGISTRY, type Action, type KeyRef, type NavigationAction, type UiLanguage } from "@speed-deck/core";
 import { LANGUAGE_NAMES, type Message } from "../i18n/messages";
 import { describeRequestError } from "./describe-error";
-import type { Speech } from "./use-speech";
+import { computerDidNotAnswer, type Speech } from "./use-speech";
 import type { SpeechTarget } from "./use-speech-target";
 
 type RunnerTarget = Pick<SpeechTarget, "executeAction" | "speaksOnComputer" | "noteDesktopSettings" | "setVoiceLanguage">;
 
 export interface KeyRunnerOptions {
   target: RunnerTarget;
-  speech: Pick<Speech, "speak" | "stop" | "repeat">;
+  speech: Pick<Speech, "speak" | "stop" | "repeat"> & Partial<Pick<Speech, "isComputerUnreachable" | "speakOnDevice">>;
   /** The voice language in use right now (for the language key when this device speaks). */
   voiceLanguage: UiLanguage;
   navigate: (action: NavigationAction) => void;
@@ -35,6 +35,13 @@ export function createKeyRunner({ target, speech, voiceLanguage, navigate, repor
       runOnDevice(action);
       return;
     }
+    // A phrase is never left unsaid because the computer dropped: with the link known to be down it is said
+    // here at once, inside the tap; a request that gets no answer falls back to this device's voice too.
+    const phrase = action.type === "voice.speak" ? action.text : null;
+    if (phrase !== null && speech.isComputerUnreachable) {
+      speech.speak(phrase);
+      return;
+    }
     report(null);
     // Only a multi-action needs to know its key: it runs once per key at a time and shows it running.
     executeAction(action, action.type === "system.multiAction" ? key : undefined).then(
@@ -48,7 +55,10 @@ export function createKeyRunner({ target, speech, voiceLanguage, navigate, repor
         } else if (action.type === "captions.clear") report({ key: "actions.captionCleared" });
         else if (action.type === "voice.stop") report({ key: "actions.stopped" });
       },
-      (error: unknown) => report(describeRequestError(error)),
+      (error: unknown) => {
+        if (phrase !== null && computerDidNotAnswer(error) && speech.speakOnDevice?.(phrase)) return;
+        report(describeRequestError(error));
+      },
     );
   };
 

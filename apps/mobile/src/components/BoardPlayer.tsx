@@ -4,7 +4,10 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type DragEvent,
 import type { BoardNavigation } from "../app/use-boards";
 import type { KeyRun } from "../app/use-key-runner";
 import { KEY_STATE_LABELS, keyFillColor, keyLabel, keyLook, presentKey, type KeyContext } from "../app/key-presentation";
+import type { TextSize } from "../adapters/local-storage-appearance-store";
 import { displayedCellIndexes } from "../app/board-display";
+import { fitKeyLabel, TEXT_SIZE_SCALE } from "../app/key-label-fit";
+import { measureWordWidths, useKeyBox } from "../app/use-key-box";
 import { hiddenKeySlots } from "../app/voice-keys";
 import type { InputVolumeServices } from "../app/use-input-volume";
 import { PORTRAIT_BOARD_QUERY, useMediaQuery } from "../app/use-media-query";
@@ -119,6 +122,8 @@ interface BoardPlayerProps {
    * (wider or taller than a square, within an aspect limit) to fill the room the grid gets, from the top.
    */
   fillsArea?: boolean;
+  /** The text-size setting: key labels are sized for their key and enlarged by it. Normal when absent. */
+  textSize?: TextSize;
   /** Draws the pager outside the deck (after it) instead of under the keys. */
   renderPager?: (pager: PagerControls) => ReactNode;
 }
@@ -142,6 +147,7 @@ export function BoardPlayer({
   compact = false,
   keepsGrid = false,
   fillsArea = false,
+  textSize = "normal",
   renderPager,
 }: BoardPlayerProps) {
   const t = useT();
@@ -192,9 +198,19 @@ export function BoardPlayer({
     const slot = page * pageSize + index;
     return addKey !== undefined && !dropsEmpty && keys[index] === undefined && !covered.has(slot) && !hidden.has(slot);
   };
+  // How the cells take the room the grid gets: "whole" and "fill" stretch them; otherwise they stay square.
+  const layout = compact && keepsGrid ? "whole" : fillsArea ? "fill" : undefined;
   // The first + in the order drawn; controls outside the grid (an Add key button) add at the same slot.
   const firstAddIndex = cellIndexes.find(offersAdd);
   const addSlot = firstAddIndex === undefined ? null : page * pageSize + firstAddIndex;
+
+  // The box of a key of this page, so each label is sized for its key and scaled by the text-size setting
+  // (in the app's spaces, where a key's size is set by the room the page gets; the dock keeps the styles' sizes).
+  const keyBox = useKeyBox(
+    gridElement,
+    [board?.id, page, keys.filter(Boolean).length, compact, keepsGrid, fillsArea, canEdit, isTransposed].join(":"),
+    variant === "full" && board !== null,
+  );
 
   useEffect(() => {
     onAddSlotChange?.(addSlot);
@@ -396,8 +412,6 @@ export function BoardPlayer({
     onRun(key.action, { boardId: board.id, slot });
   };
 
-  // How the cells take the room the grid gets: "whole" and "fill" stretch them; otherwise they stay square.
-  const layout = compact && keepsGrid ? "whole" : fillsArea ? "fill" : undefined;
   // The grid's own box, so wide layouts can size the keys to the room it gets.
   const gridArea = (
     <div className="deck-grid-area" style={gridSize}>
@@ -422,7 +436,8 @@ export function BoardPlayer({
                   <button
                     ref={slotRef(slot)}
                     type="button"
-                    className={["deck-key", "deck-key-empty", dropClass].filter(Boolean).join(" ")}
+                    // Marked while a key is being added here, so the cell the dialog or panel talks about is seen.
+                    className={["deck-key", "deck-key-empty", selectedSlot === slot ? "deck-key-selected" : "", dropClass].filter(Boolean).join(" ")}
                     aria-label={t("board.addKey", { number: slot + 1 })}
                     onClick={() => press(slot, undefined, false)}
                     {...dropHandlers(slot)}
@@ -440,6 +455,20 @@ export function BoardPlayer({
           }
           const label = keyLabel(key, context.boards, t);
           const presentation = presentKey(key.action, context, { boardId: board.id, slot });
+          const look = keyLook(key, presentation.iconId);
+          const labelFit =
+            keyBox && key.action.type !== "obs.inputVolume"
+              ? fitKeyLabel({
+                  width: keyBox.width,
+                  height: keyBox.height,
+                  textScale: TEXT_SIZE_SCALE[textSize],
+                  words: measureWordWidths(label, keyBox),
+                  stretched: layout !== undefined,
+                  phrase: look.role === "phrase",
+                  hasIcon: look.iconId !== undefined,
+                  hasDetail: presentation.detail !== undefined,
+                })
+              : undefined;
           const isFixed = isFixedSlot(slot);
           const isMovable = canDrag && !isFixed;
           const disabled = presentation.disabledReason !== undefined;
@@ -529,7 +558,8 @@ export function BoardPlayer({
               <BoardKey
                 ref={slotRef(slot)}
                 label={label}
-                {...keyLook(key, presentation.iconId)}
+                {...look}
+                labelFit={labelFit}
                 color={keyFillColor(key, presentation.pressed)}
                 pressed={presentation.pressed}
                 state={presentation.state}
@@ -640,6 +670,12 @@ export function BoardPlayer({
           <span className={variant === "full" ? "deck-page visually-hidden" : "deck-page"} aria-live="polite">
             {t("board.page", { page: page + 1, count: shownPageCount })}
           </span>
+          {/* Which page is on screen, for the eye; the words above say it to screen readers. A single page needs none. */}
+          {variant === "full" && shownPageCount > 1 && (
+            <span className="deck-page-count" aria-hidden="true">
+              {page + 1} / {shownPageCount}
+            </span>
+          )}
           <button
             type="button"
             className="button button-small"

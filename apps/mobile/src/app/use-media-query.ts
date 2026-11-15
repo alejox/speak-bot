@@ -17,6 +17,12 @@ export function useMediaQuery(query: string): boolean {
 /** Windows at least this wide edit keys in a side panel (the inspector) instead of a modal. */
 export const INSPECTOR_QUERY = "(min-width: 1000px)";
 
+/**
+ * Windows at least this wide keep the Voice composer in a side column. Narrower ones (still wide enough for
+ * the inspector) stack it above the keys: the column would take the width the phrase keys need to be read.
+ */
+export const VOICE_PANEL_QUERY = "(min-width: 1200px)";
+
 /** Windows this narrow show the menu as a bottom tab bar instead of a sidebar. */
 export const TAB_BAR_QUERY = "(max-width: 719px)";
 

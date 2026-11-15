@@ -14,9 +14,11 @@ interface DeckStatusProps {
 /** The connection the Deck runs its keys through. */
 function deckConnection(isComputerConnected: boolean, obs: ObsLive | null) {
   const isObsConnected = isComputerConnected && obs !== null && obs.enabled && obs.status === "connected";
+  // Turned off is said as such: it is fixed in the OBS section, not by waiting for OBS to answer.
+  const isObsOff = obs !== null && !obs.enabled;
   return {
     isObsConnected,
-    connection: !isComputerConnected ? "noComputer" : isObsConnected ? "obsConnected" : "obsDisconnected",
+    connection: !isComputerConnected ? "noComputer" : isObsConnected ? "obsConnected" : isObsOff ? "obsOff" : "obsDisconnected",
     ConnectionIcon: !isComputerConnected ? MonitorOff : isObsConnected ? Plug : Unplug,
     isLive: isObsConnected && obs.state.streaming,
     isRecording: isObsConnected && obs.state.recording,

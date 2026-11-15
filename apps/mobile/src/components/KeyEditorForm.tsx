@@ -92,6 +92,7 @@ export function KeyEditorForm({
   const [draft, setDraft] = useState<KeyDraft>(() => draftOf(existing, assignedType));
   const [error, setError] = useState<{ message: Message; field: string } | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const isSaving = useRef(false);
   const [moveTo, setMoveTo] = useState(String(slot + 1));
 
   useEffect(() => {
@@ -115,13 +116,19 @@ export function KeyEditorForm({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    // A second Enter or tap before the first save came back (and before the button could be disabled) saves nothing more.
+    if (isSaving.current) return;
     const result = draftToKey(slot, draft, t);
     if (!result.ok) {
       fail(result.error, result.field);
       return;
     }
+    isSaving.current = true;
     setIsBusy(true);
-    void onSave(result.key).finally(() => setIsBusy(false));
+    void onSave(result.key).finally(() => {
+      isSaving.current = false;
+      setIsBusy(false);
+    });
   };
 
   const test = () => {
@@ -158,9 +165,27 @@ export function KeyEditorForm({
       ? existing.action.type
       : undefined;
   const number = slot + 1;
+  const isInspector = variant === "inspector";
+  // In the side panel the name comes after the pickers; it is written there too, so Tab follows what is seen.
+  const nameField = (
+    <div className="field key-editor-name">
+      <label htmlFor={ids.label}>{t("editor.label")}</label>
+      <input
+        id={ids.label}
+        maxLength={MAX_KEY_LABEL_LENGTH}
+        autoComplete="off"
+        value={draft.label}
+        aria-describedby={ids.labelHint}
+        onChange={(event) => update({ label: event.target.value })}
+      />
+      <p id={ids.labelHint} className="field-hint">
+        {t("editor.labelHint")}
+      </p>
+    </div>
+  );
 
   return (
-    <form ref={form} className={variant === "inspector" ? "key-editor key-editor-inspector" : "key-editor"} onSubmit={submit} noValidate aria-describedby={error ? ids.error : undefined}>
+    <form ref={form} className={isInspector ? "key-editor key-editor-inspector" : "key-editor"} onSubmit={submit} noValidate aria-describedby={error ? ids.error : undefined}>
       {heading}
 
       {showsFixedAction && draft.actionType ? (
@@ -251,20 +276,7 @@ export function KeyEditorForm({
         </div>
       )}
 
-      <div className="field key-editor-name">
-        <label htmlFor={ids.label}>{t("editor.label")}</label>
-        <input
-          id={ids.label}
-          maxLength={MAX_KEY_LABEL_LENGTH}
-          autoComplete="off"
-          value={draft.label}
-          aria-describedby={ids.labelHint}
-          onChange={(event) => update({ label: event.target.value })}
-        />
-        <p id={ids.labelHint} className="field-hint">
-          {t("editor.labelHint")}
-        </p>
-      </div>
+      {!isInspector && nameField}
 
       <fieldset className="picker">
         <legend>{t("editor.icon")}</legend>
@@ -303,23 +315,7 @@ export function KeyEditorForm({
         <ColorPicker legend={t("editor.color")} name={`color-${ids.action}`} hexId={ids.hex} value={draft.color} onChange={(color) => update({ color })} />
       )}
 
-      <p id={ids.error} className="field-error" role="alert">
-        {error ? t(error.message.key, error.message.params) : ""}
-      </p>
-
-      <div className="key-editor-actions">
-        <button type="submit" className={variant === "inspector" ? "button button-primary button-block" : "button button-small button-primary"} disabled={isBusy}>
-          {t("editor.save")}
-        </button>
-        <button type="button" className="button button-small button-quiet" onClick={test}>
-          {t("editor.test")}
-        </button>
-        {onCancel && (
-          <button type="button" className="button button-small" onClick={onCancel}>
-            {cancelLabel ?? t("editor.cancel")}
-          </button>
-        )}
-      </div>
+      {isInspector && nameField}
 
       {existing && onMove && (
         <div className="field field-inline key-editor-move">
@@ -338,6 +334,26 @@ export function KeyEditorForm({
           </button>
         </div>
       )}
+
+      {/* Last in the form and kept in view by the styles while the fields scroll: what went wrong, then Save and Test. */}
+      <div className="key-editor-footer">
+        <p id={ids.error} className="field-error" role="alert">
+          {error ? t(error.message.key, error.message.params) : ""}
+        </p>
+        <div className="key-editor-actions">
+          <button type="submit" className={isInspector ? "button button-primary button-block" : "button button-small button-primary"} disabled={isBusy}>
+            {t("editor.save")}
+          </button>
+          <button type="button" className="button button-small button-quiet" onClick={test}>
+            {t("editor.test")}
+          </button>
+          {onCancel && (
+            <button type="button" className="button button-small" onClick={onCancel}>
+              {cancelLabel ?? t("editor.cancel")}
+            </button>
+          )}
+        </div>
+      </div>
     </form>
   );
 }

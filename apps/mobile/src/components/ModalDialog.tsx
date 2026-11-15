@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode, type SyntheticEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode, type SyntheticEvent } from "react";
 import { useT } from "../i18n/I18nProvider";
 
 interface ModalDialogProps {
@@ -20,6 +20,11 @@ export function ModalDialog({ title, onClose, statusText = "", className, childr
   const t = useT();
   const titleId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
+  // What was being said when the dialog opened belongs to an earlier action: the dialog's own status starts
+  // empty and speaks from the first message that comes after.
+  const [openedWith] = useState(statusText);
+  const [hasNews, setHasNews] = useState(false);
+  if (!hasNews && statusText !== openedWith) setHasNews(true);
 
   useEffect(() => {
     const element = dialog.current;
@@ -52,7 +57,7 @@ export function ModalDialog({ title, onClose, statusText = "", className, childr
         </button>
       </div>
       <p className="status modal-status" role="status" aria-live="polite">
-        {statusText}
+        {hasNews ? statusText : ""}
       </p>
       <div className="modal-body">{children}</div>
     </dialog>

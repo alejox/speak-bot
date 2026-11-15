@@ -62,6 +62,13 @@ export interface ConnectionInfo {
 
 const DETECT_TIMEOUT_MS = 1500;
 
+/**
+ * How long a request to say a phrase waits for the computer to take it. The computer answers as soon as the
+ * phrase starts or is queued, so no answer by then means it cannot be reached (a phone out of Wi-Fi range
+ * would otherwise wait in silence for as long as the network keeps trying).
+ */
+export const SPEAK_REQUEST_TIMEOUT_MS = 4000;
+
 /** What asking for the desktop found: it, for sure not it, or no answer yet. */
 export type DesktopProbe = { kind: "found"; capabilities: SpeechCapabilities } | { kind: "absent" } | { kind: "unreachable" };
 
@@ -156,7 +163,9 @@ export class DesktopApiClient {
    * `key` is the key pressed: a multi-action runs once per key at a time (`ignored` while it still runs).
    */
   executeAction(action: Action, key?: KeyRef): Promise<{ ok: true; captionsVisible?: boolean; voiceLanguage?: UiLanguage; ignored?: true }> {
-    return this.request("POST", "/api/actions/execute", key ? { action, key } : { action }) as Promise<{ ok: true }>;
+    // A phrase must not wait on a computer that went quiet; other actions keep the network's own patience.
+    const timeoutMs = action.type === "voice.speak" ? SPEAK_REQUEST_TIMEOUT_MS : undefined;
+    return this.request("POST", "/api/actions/execute", key ? { action, key } : { action }, timeoutMs) as Promise<{ ok: true }>;
   }
 
   /** Creates a folder in a board and the key that opens it on `input.slot`. */
@@ -172,7 +181,7 @@ export class DesktopApiClient {
   }
 
   async speak(request: SpeakRequest): Promise<void> {
-    await this.request("POST", "/api/speak", request);
+    await this.request("POST", "/api/speak", request, SPEAK_REQUEST_TIMEOUT_MS);
   }
 
   /** Tells the desktop whether someone is typing something to say: a flag for the overlay, never the text. */
@@ -307,12 +316,24 @@ export class DesktopApiClient {
     return isAdCreative(body?.ad) ? body.ad : null;
   }
 
-  private async request(method: string, url: string, body?: unknown): Promise<unknown> {
+  private async request(method: string, url: string, body?: unknown, timeoutMs?: number): Promise<unknown> {
     const init: RequestInit = { method };
     if (body !== undefined) {
       init.headers = { "content-type": "application/json" };
       init.body = JSON.stringify(body);
     }
+    if (timeoutMs === undefined) return this.send(url, init);
+    // Given up after `timeoutMs`: the fetch rejects, like a network that could not reach the computer.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await this.send(url, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private async send(url: string, init: RequestInit): Promise<unknown> {
     const response = await this.fetchFn(url, init);
     if (response.status === 204) return undefined;
     const payload = (await response.json().catch(() => undefined)) as unknown;

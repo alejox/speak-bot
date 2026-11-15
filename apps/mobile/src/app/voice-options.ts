@@ -62,14 +62,26 @@ function regionName(locale: string, uiLanguage: string): string | null {
   return region ? displayName("region", region, uiLanguage) : null;
 }
 
-/** What a browser may repeat inside a voice name: the locale code and the language's name. */
+/**
+ * What a system may repeat inside a voice name: the locale code and the language's name, in English, in the
+ * interface language, in Spanish and in the language itself (macOS writes it in the system's language).
+ */
 function languageHints(voice: Voice, uiLanguage: string): string[] {
-  const hints = [voice.lang, voice.lang.replace(/_/g, "-"), ...["en", uiLanguage].map((language) => languageName(voice.lang, language))];
+  const namedIn = [...new Set(["en", uiLanguage, "es", languageOf(voice.lang)])].filter(Boolean);
+  const hints = [voice.lang, voice.lang.replace(/_/g, "-"), ...namedIn.map((language) => languageName(voice.lang, language))];
   return hints.filter((hint) => hint.length > 2).map((hint) => hint.toLowerCase());
 }
 
 const TRAILING_PARENTHESES = /\s*\(((?:[^()]|\([^()]*\))*)\)$/;
 const TRAILING_DASH = /\s+[-–—]\s+([^-–—]+)$/;
+/** "Eddy (Alemán (Alemania))": a language with its region in brackets, in whatever language the system uses. */
+const TRAILING_LANGUAGE_AND_REGION = /\s*\([^()]+\([^()]+\)\)$/;
+
+/** Each voice once: a system may list the same id twice (one voice installed in two qualities). The first one stays. */
+export function uniqueVoices<T extends Pick<Voice, "id">>(voices: readonly T[]): T[] {
+  const seen = new Set<string>();
+  return voices.filter((voice) => !seen.has(voice.id) && Boolean(seen.add(voice.id)));
+}
 
 /**
  * The voice's own name. Browsers often append its language ("Paulina (Spanish (Mexico))",
@@ -78,7 +90,7 @@ const TRAILING_DASH = /\s+[-–—]\s+([^-–—]+)$/;
  */
 export function voiceDisplayName(voice: Voice, uiLanguage: string): string {
   const hints = languageHints(voice, uiLanguage);
-  let name = voice.name.trim();
+  let name = voice.name.trim().replace(TRAILING_LANGUAGE_AND_REGION, "").trim();
   for (const pattern of [TRAILING_PARENTHESES, TRAILING_DASH]) {
     const suffix = pattern.exec(name)?.[1]?.toLowerCase();
     if (suffix && hints.some((hint) => suffix.includes(hint))) name = name.replace(pattern, "").trim();
@@ -102,7 +114,7 @@ function sortVoices(voices: readonly Voice[], uiLanguage: string): Voice[] {
 export function voicesForLanguage(voices: readonly Voice[], language: string, uiLanguage: string = language): Voice[] {
   const wanted = languageOf(language);
   return sortVoices(
-    voices.filter((voice) => languageOf(voice.lang) === wanted),
+    uniqueVoices(voices).filter((voice) => languageOf(voice.lang) === wanted),
     uiLanguage,
   );
 }
@@ -110,7 +122,7 @@ export function voicesForLanguage(voices: readonly Voice[], language: string, ui
 /** Every voice under its language: `language` first, the others by name. Inside a group only the region is shown. */
 export function groupVoicesByLanguage(voices: readonly Voice[], language: string, uiLanguage: string): VoiceGroup[] {
   const byLanguage = new Map<string, Voice[]>();
-  for (const voice of voices) {
+  for (const voice of uniqueVoices(voices)) {
     const key = languageOf(voice.lang);
     byLanguage.set(key, [...(byLanguage.get(key) ?? []), voice]);
   }

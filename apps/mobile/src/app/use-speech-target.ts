@@ -18,7 +18,7 @@ import {
   type Application,
 } from "@speed-deck/core";
 import { pendingBoardStore, type BoardStore } from "../adapters/board-stores";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SpeechSettings } from "../adapters/local-storage-settings-store";
 import type { SpeakTarget } from "../adapters/local-storage-speak-target-store";
 import type { AppSpeechSynthesizer } from "../adapters/web-speech-synthesizer";
@@ -51,6 +51,12 @@ export interface SpeechTarget {
   /** True when a desktop server answered, whichever target is chosen. */
   isDesktopAvailable: boolean;
   synthesizer: AppSpeechSynthesizer;
+  /**
+   * This device's own voice while the computer is the one that speaks: what a phrase is said with when the
+   * computer cannot be reached (its synthesizer may still be one that cannot speak). Null while this device
+   * speaks anyway, and in a view that only ever speaks on the computer (the OBS dock, the computer app's window).
+   */
+  deviceSpeech: { synthesizer: AppSpeechSynthesizer; settings: SpeechSettings; voices: Voice[] } | null;
   /** The boards of the desktop when connected, otherwise of this device. */
   boards: BoardStore;
   /** Runs actions on the desktop; null without one. Voice actions run here unless `speaksOnComputer`. */
@@ -248,6 +254,25 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
     };
   }, [synthesizer]);
 
+  // The device's own voices are read ahead of time: when the computer drops, the phrase must be said inside the tap.
+  const deviceSynthesizer = speaksOnComputer && !forceComputer ? services.synthesizer : null;
+  const [deviceVoices, setDeviceVoices] = useState<Voice[]>([]);
+  useEffect(() => {
+    if (!deviceSynthesizer?.isSupported) return;
+    let active = true;
+    const load = () => void deviceSynthesizer.listVoices().then((loaded) => active && setDeviceVoices(loaded), () => {});
+    load();
+    const unsubscribe = deviceSynthesizer.onVoicesChanged(load);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [deviceSynthesizer]);
+  const deviceSpeech = useMemo(
+    () => (deviceSynthesizer ? { synthesizer: deviceSynthesizer, settings: localSettings, voices: deviceVoices } : null),
+    [deviceSynthesizer, localSettings, deviceVoices],
+  );
+
   const saveDesktopSettings = useCallback(
     (patch: Omit<DesktopSettingsPatch, "obs">) => {
       if (!remote) return;
@@ -285,6 +310,7 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
     speaksOnComputer,
     isDesktopAvailable: isConnected,
     synthesizer,
+    deviceSpeech,
     // While still looking, no boards: the phone's own would flash (and be created) before the desktop's.
     boards: remote?.boards ?? (detection === "pending" ? pendingBoardStore : services.boards),
     executeAction: remote ? remote.executeAction : null,

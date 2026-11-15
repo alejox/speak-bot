@@ -115,7 +115,7 @@ describe("after the link to the computer comes back", () => {
     const settingsReads = reads(requests, "/api/settings");
     await reconnect();
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /^Stream/ })).toHaveAccessibleDescription("The OBS connection is turned off in Settings."));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Stream/ })).toHaveAccessibleDescription("The OBS connection is turned off. Turn it on in the OBS section of the computer app."));
     expect(reads(requests, "/api/settings")).toBeGreaterThan(settingsReads);
   });
 

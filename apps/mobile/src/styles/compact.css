@@ -492,3 +492,25 @@
 .app-space .deck-compact.deck-whole .deck-grid[data-layout="whole"] .deck-key .deck-key-text {
   font-size: clamp(12px, min(17cqmin, var(--word-fit), var(--line-fit)), var(--text-2xl));
 }
+
+/*
+ * A label sized for its key (.deck-key-fitted): in every space the page's keys are measured and each label
+ * gets its size and its lines from fitKeyLabel (--key-label-size, --key-label-lines), which starts from
+ * the key's size, enlarges it by the text-size setting and never lets a word be wider than the key. So the
+ * label wraps between words only, on as many lines as the key holds, and a larger text setting never makes
+ * it smaller. The rules above stay as the sizes before a key is measured. Written last and with the
+ * weight to win over every layout's own label rules.
+ */
+.app-space .deck.deck-full .deck-grid.deck-grid .deck-key.deck-key-fitted .deck-key-text {
+  font-size: var(--key-label-size);
+  -webkit-line-clamp: var(--key-label-lines);
+  line-clamp: var(--key-label-lines);
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
+}
+
+/* Only a word wider than its key at the smallest size may break. */
+.app-space .deck.deck-full .deck-grid.deck-grid .deck-key.deck-key-fitted.deck-key-breaks .deck-key-text {
+  overflow-wrap: anywhere;
+}

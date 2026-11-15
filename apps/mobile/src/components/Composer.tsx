@@ -1,4 +1,4 @@
-import { BookmarkPlus, Square, Volume2, X } from "lucide-react";
+import { BookmarkPlus, CircleStop, Volume2, X } from "lucide-react";
 import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import { useComposingSignal } from "../app/use-composing-signal";
 import { useT } from "../i18n/I18nProvider";
@@ -95,7 +95,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       </button>
       <div className="composer-actions">
         <button type="button" className="button button-icon" onClick={onStop} disabled={!isSpeaking}>
-          <Square size={ICON_SIZE} aria-hidden="true" focusable="false" />
+          {/* A stop sign: an empty square reads as a checkbox. */}
+          <CircleStop size={ICON_SIZE} aria-hidden="true" focusable="false" />
           {t("composer.stop")}
         </button>
         {/* The short label is what is drawn; the full one stays the button's name. */}

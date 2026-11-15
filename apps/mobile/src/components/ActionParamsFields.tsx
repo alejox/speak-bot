@@ -188,7 +188,21 @@ function ParamField({ param, field, value, invalid, options, hint, onChange }: P
       </select>
     );
   } else if (param.kind === "text") {
-    control = <textarea {...common} rows={3} maxLength={param.maxLength} value={value} onChange={(event) => onChange(event.target.value)} />;
+    control = (
+      <textarea
+        {...common}
+        rows={3}
+        maxLength={param.maxLength}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        // Like the composer: Enter does the main thing (here it saves the key), Shift+Enter makes a new line.
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+          event.preventDefault();
+          event.currentTarget.form?.requestSubmit();
+        }}
+      />
+    );
   } else if (param.kind === "number") {
     control = (
       <input {...common} type="number" inputMode="numeric" min={param.min} max={param.max} step={1} value={value} onChange={(event) => onChange(event.target.value)} />
