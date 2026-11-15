@@ -1,4 +1,4 @@
-import { ACTION_REGISTRY, applicationNameOf, type Action, type ActionType, type Board, type Key, type KeyRef, type ObsConnectionStatus, type ObsState, type UiLanguage } from "@speed-deck/core";
+import { ACTION_REGISTRY, actionsOf, applicationNameOf, type Action, type ActionType, type Board, type Key, type KeyRef, type ObsConnectionStatus, type ObsState, type UiLanguage } from "@speed-deck/core";
 import type { Translate } from "../i18n/I18nProvider";
 import { LANGUAGE_NAMES, type Message, type MessageKey } from "../i18n/messages";
 
@@ -14,7 +14,9 @@ export interface ObsLive {
 export interface KeyContext {
   /** Running keys on the desktop (connected to the computer, whichever device speaks). */
   isConnected: boolean;
-  /** Null in phone-only mode or before the desktop answered. */
+  /** The live link to the computer was up and is down now: the states its events kept up to date are unknown. */
+  isLinkLost?: boolean;
+  /** Null in phone-only mode, before the desktop answered, or while the link to it is lost. */
   obs: ObsLive | null;
   captionsVisible: boolean | null;
   voiceLanguage: UiLanguage;
@@ -51,6 +53,9 @@ export interface KeyPresentation {
 export function presentKey(action: Action, context: KeyContext, key?: KeyRef): KeyPresentation {
   const definition = ACTION_REGISTRY[action.type];
   if (definition.requiresDesktop && !context.isConnected) return { disabledReason: "key.needsComputer" };
+  // With the live link down, what a toggle would do is a guess (a stale "off" would stop a stream that went
+  // live meanwhile): it shows no on or off and waits for the link, like any key that cannot run.
+  if (context.isLinkLost && actionsOf(action).some(dependsOnLiveState)) return { disabledReason: "key.connectionLost" };
   if (definition.requiresObs) {
     const { obs } = context;
     if (obs && !obs.enabled) return { disabledReason: "key.obsDisabled" };
@@ -92,6 +97,11 @@ export function presentKey(action: Action, context: KeyContext, key?: KeyRef): K
     default:
       return {};
   }
+}
+
+/** Whether what the action does depends on a state the computer reports live: everything in OBS, and the captions toggle. */
+function dependsOnLiveState(action: Action): boolean {
+  return ACTION_REGISTRY[action.type].requiresObs === true || action.type === "captions.toggle";
 }
 
 /** Actions whose key shows an on state (see `presentKey`); only these keys offer a colour for when they are on. */

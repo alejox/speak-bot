@@ -260,6 +260,7 @@ export const en = {
 
   "key.needsComputer": "Needs the computer app.",
   "key.obsDisconnected": "OBS is not connected.",
+  "key.connectionLost": "No connection to the computer.",
   "key.obsDisabled": "The OBS connection is turned off in Settings.",
   "key.boardMissing": "The board of this key no longer exists.",
   "key.currentVoice": "Voice: {language}",
@@ -450,6 +451,19 @@ export const en = {
   "update.manualHint": "On this system updates are installed by hand: download the new version and install it over this one.",
   "update.autoCheck": "Check for updates automatically",
   "update.autoCheckHint": "To check, Speed Deck contacts GitHub, where its versions are published.",
+  "update.versionDev": "Speed Deck: development build",
+  "update.versionDevOnComputer": "Speed Deck on the computer: development build",
+  "update.devHint": "A development build does not update itself.",
+
+  "about.title": "About",
+  "about.licences": "Open-source licences",
+  "about.licencesLoading": "Loading the licences…",
+  "about.licencesFailed": "Could not load the licences. Check the connection and try again.",
+
+  "recovery.restored":
+    "Your boards file was damaged. Speed Deck restored the last saved copy, so your most recent change may be missing. The damaged file was kept at {path}.",
+  "recovery.defaults": "Your boards file was damaged. Speed Deck started with the default boards. The damaged file was kept at {path}.",
+  "recovery.dismiss": "Dismiss",
 } as const;
 
 export type MessageKey = keyof typeof en;

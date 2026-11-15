@@ -176,7 +176,35 @@ export interface AppUpdateResponse {
   readonly update: AppUpdateState | null;
 }
 
+/**
+ * The computer found its boards file damaged when it read it, and what it did about it. Reported in
+ * GET /api/health, only to the computer itself (the path is a place on its disk), until someone there
+ * dismisses it with POST /api/data-recovery/dismiss.
+ */
+export interface DataRecoveryNotice {
+  readonly file: "boards";
+  /** "restored": the boards saved before the last change were put back; "defaults": there was no usable copy, so the default boards were created. */
+  readonly outcome: "restored" | "defaults";
+  /** Epoch ms of the recovery. */
+  readonly at: number;
+  /** Where the damaged file was kept on the computer. */
+  readonly damagedCopyPath: string;
+}
+
+export function isDataRecoveryNotice(value: unknown): value is DataRecoveryNotice {
+  if (typeof value !== "object" || value === null) return false;
+  const { file, outcome, at, damagedCopyPath } = value as Record<string, unknown>;
+  return file === "boards" && (outcome === "restored" || outcome === "defaults") && typeof at === "number" && Number.isFinite(at) && typeof damagedCopyPath === "string";
+}
+
+/** A data recovery happened or was dismissed; the computer's own window reads GET /api/health again. Carries no path. */
+export interface DataRecoveryEvent {
+  readonly type: "data-recovery";
+  readonly at: number;
+}
+
 export type ServerEvent =
+  | DataRecoveryEvent
   | AppUpdateEvent
   | OverlayAudioEvent
   | MultiActionEvent
@@ -203,6 +231,7 @@ export function isServerEvent(value: unknown): value is ServerEvent {
     case "speaking":
       return event.state === "start" || event.state === "end";
     case "boards-changed":
+    case "data-recovery":
       return true;
     case "overlay-audio":
       return typeof event.connected === "boolean";
@@ -352,6 +381,8 @@ export interface HealthResponse {
   readonly instanceId: string;
   /** Stable across restarts and IP changes; matches the `id` TXT field of the `_speeddeck._tcp` announcement. */
   readonly desktopId?: string;
+  /** A recovery of the boards file nobody dismissed yet; only sent to requests from the computer itself. */
+  readonly dataRecovery?: DataRecoveryNotice;
 }
 
 /** GET /api/boards → Board[] in display order. */

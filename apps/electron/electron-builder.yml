@@ -17,6 +17,10 @@ extraResources:
     to: mobile
   - from: ../desktop/public/overlay.html
     to: overlay.html
+  # The licences of the open-source software in the app, written by the web build (scripts/third-party-notices.mjs).
+  # It is also inside mobile/, from where the app shows it in Settings → Open-source licences.
+  - from: ../mobile/dist/THIRD-PARTY-NOTICES.txt
+    to: THIRD-PARTY-NOTICES.txt
 npmRebuild: false
 # Where the installed app looks for new versions: electron-builder embeds this as app-update.yml and writes
 # the update metadata (latest.yml, latest-mac.yml, latest-linux.yml) and blockmaps next to the installers.

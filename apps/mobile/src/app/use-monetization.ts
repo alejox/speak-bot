@@ -79,13 +79,19 @@ export function useMonetization(
       (ads) => active && setAdsState({ status: "loaded", ads }),
       () => active && setAdsState({ status: "failed" }),
     );
-    desktop.loadAd().then(
-      (loaded) => active && setAd(loaded),
-      () => undefined,
-    );
+    const loadSponsor = () =>
+      desktop.loadAd().then(
+        (loaded) => active && setAd(loaded),
+        () => undefined,
+      );
+    void loadSponsor();
+    // No event tells about a new sponsor, so it is read again each time the link to the computer (re)opens;
+    // `ads.onChanged` does the same for the ads status.
+    const stopSponsor = desktop.watchConnection((connected) => connected && void loadSponsor());
     return () => {
       active = false;
       stop();
+      stopSponsor();
     };
   }, [available, desktop]);
 

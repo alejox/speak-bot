@@ -15,6 +15,7 @@ import { Composer, type ComposerHandle } from "../components/Composer";
 import { ComposerSheet } from "../components/ComposerSheet";
 import { ConnectionBanner } from "../components/ConnectionBanner";
 import { ConnectPanel } from "../components/ConnectPanel";
+import { DataRecoveryNotice } from "../components/DataRecoveryNotice";
 import { DeckStatusIndicator } from "../components/DeckStatus";
 import { EditKeysToggle } from "../components/EditKeysToggle";
 import { AdBanner } from "../components/AdBanner";
@@ -22,7 +23,8 @@ import { ActionPickerDialog, KeyEditorDialog } from "../components/KeyEditorDial
 import { KeyInspector } from "../components/KeyInspector";
 import { ObsSettings } from "../components/ObsSettings";
 import { QuickPhrases } from "../components/QuickPhrases";
-import { AppUpdateSettings } from "../components/AppUpdateSettings";
+import { AboutSettings, AppUpdateSettings } from "../components/AppUpdateSettings";
+import { LicencesLink } from "../components/LicencesLink";
 import { RemoveAdsSettings } from "../components/RemoveAdsSettings";
 import { RecentPhrases } from "../components/RecentPhrases";
 import { SectionView } from "../components/SectionView";
@@ -47,6 +49,7 @@ import { useSpaceDecks } from "./use-deck";
 import { actionOnlyKey, needsDetails } from "./key-draft";
 import { useLanguagePreference, type LanguagePreference } from "./use-language-preference";
 import { useAppUpdate } from "./use-app-update";
+import { useDataRecovery } from "./use-data-recovery";
 import { useMonetization } from "./use-monetization";
 import { COMPACT_HEIGHT_QUERY, COMPACT_WIDTH_QUERY, INSPECTOR_QUERY, SHORT_SIDEBAR_QUERY, TAB_BAR_QUERY, useMediaQuery } from "./use-media-query";
 import { SECTIONS, spaceOfSection, useNavCollapsed, useSection, type Section } from "./use-section";
@@ -153,6 +156,8 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
   const [isComposerOpen, setComposerOpen] = useState(false);
   const monetization = useMonetization(services.desktop, target, services.adsPurchase, services.deviceIdentity);
   const appUpdate = useAppUpdate(services.desktop, target.isDesktopAvailable, target.isOnComputer);
+  // A boards file the computer found damaged is told in its own window, where the file is.
+  const dataRecovery = useDataRecovery(services.desktop, target.isDesktopAvailable && target.isOnComputer);
   // Set when the house banner leads to Settings, so focus lands on the Remove ads group.
   const [focusRemoveAds, setFocusRemoveAds] = useState(false);
   // Losing the computer shows a banner everywhere and, unless turned off on this device, vibrates.
@@ -364,6 +369,7 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
 
       <main className="app-main">
         <ConnectionBanner banner={connectionBanner} computerName={connectionBanner === "none" ? null : (services.device?.computerName() ?? null)} />
+        {dataRecovery.notice && <DataRecoveryNotice notice={dataRecovery.notice} onDismiss={dataRecovery.dismiss} />}
         {!target.synthesizer.isSupported && (
           <p className="notice" role="alert">
             {t("app.speechUnsupported")}
@@ -551,14 +557,21 @@ function AppContent({ services, target, preference, appearance }: AppContentProp
                 focusHeading={focusRemoveAds}
                 store={store && storeBuyLabel ? { ...store, buyLabel: storeBuyLabel, onPurchase: purchaseOnStore, onRestore: restoreFromStore } : null}
               />
-              {appUpdate.update && (
+              {/* The licences of the open-source software shipped with the app are one tap away on every device. */}
+              {appUpdate.update ? (
                 <AppUpdateSettings
                   update={appUpdate.update}
                   canControl={appUpdate.canControl}
                   onCheck={appUpdate.check}
                   onInstall={appUpdate.install}
                   onAutoCheckChange={appUpdate.setAutoCheck}
-                />
+                >
+                  <LicencesLink />
+                </AppUpdateSettings>
+              ) : (
+                <AboutSettings>
+                  <LicencesLink />
+                </AboutSettings>
               )}
             </SettingsPanel>
           </SectionView>

@@ -2,7 +2,7 @@ import type { AdCreative } from "@speed-deck/core";
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { SerialQueue, readJsonFile, writeJsonFileAtomic } from "../adapters/json-file";
+import { SerialQueue, readJsonFile, writeJsonFileAtomic, type JsonFileOptions } from "../adapters/json-file";
 import { httpsUrl } from "../config/monetization";
 
 export const AD_REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -39,6 +39,11 @@ export interface AdFeedOptions {
   fetch?: typeof globalThis.fetch;
   /** Runs `run` every `ms`; returns a function that stops it. Defaults to an unref'd setInterval. */
   every?: (ms: number, run: () => void) => () => void;
+  /**
+   * Whether ads are removed on this computer right now. While they are, nobody sees a sponsor, so neither the
+   * feed nor its image host is contacted; absent means ads always show.
+   */
+  adsRemoved?: () => Promise<boolean>;
   log?: (message: string) => void;
 }
 
@@ -47,7 +52,8 @@ export interface AdFeedOptions {
  * `{ "text", "url", "image": https URL | null }` (see `parseFlatCreative`). It downloads
  * the creative's image (png, jpeg or webp, at most 500 KB) and keeps the last good creative on disk.
  * Any failure keeps the cache; `{ "ad": null }` removes the sponsor. Everything is fetched over https
- * without following redirects, and clients only ever receive `linkUrl` and local paths.
+ * without following redirects, and clients only ever receive `linkUrl` and local paths. While ads are
+ * removed (`adsRemoved`) nothing is fetched at all; call `refresh` when they come back.
  */
 export class AdFeed {
   private readonly queue = new SerialQueue();
@@ -67,6 +73,14 @@ export class AdFeed {
 
   private get imageFile(): string {
     return join(this.options.dir, "image");
+  }
+
+  /**
+   * `ad.json` is a cache of the feed, not something the person made: a damaged one is kept aside and fetched
+   * again, never restored from an older copy (an old sponsor next to a newer image).
+   */
+  private get cacheOptions(): JsonFileOptions {
+    return { log: this.options.log, lastGood: false };
   }
 
   /** The cached sponsor as clients see it, or null. */
@@ -123,6 +137,8 @@ export class AdFeed {
 
   private async update(): Promise<void> {
     if (!this.feedUrl) return;
+    // Nobody sees a sponsor while ads are removed, so no one is contacted for it.
+    if (await this.options.adsRemoved?.()) return;
     const response = await this.get(this.feedUrl);
     const raw = await readLimited(response, MAX_FEED_BYTES);
     let body: unknown;
@@ -151,7 +167,7 @@ export class AdFeed {
         next.imageType = image.type;
       }
     }
-    await writeJsonFileAtomic(this.metaFile, next);
+    await writeJsonFileAtomic(this.metaFile, next, this.cacheOptions);
     if (!creative.imageUrl) await rm(this.imageFile, { force: true });
   }
 
@@ -188,7 +204,7 @@ export class AdFeed {
   }
 
   private async readCache(): Promise<CachedAd | null> {
-    const content = await readJsonFile(this.metaFile);
+    const content = await readJsonFile(this.metaFile, this.cacheOptions);
     if (content.status !== "ok") return null;
     try {
       const creative = parseCreative(content.value);

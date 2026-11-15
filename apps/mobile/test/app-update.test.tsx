@@ -9,6 +9,8 @@ const PHONE = "192.168.1.20";
 const RELEASE = "https://github.com/alejox/speak-bot/releases/tag/v1.3.0";
 const AUTO: AppUpdateState = { currentVersion: "1.2.0", mode: "auto", status: "up-to-date", lastCheckedAt: Date.UTC(2026, 10, 13, 15, 0), autoCheck: true };
 const NOTIFY: AppUpdateState = { ...AUTO, mode: "notify" };
+/** An installer built by hand: the package version, which no release ever carries. */
+const DEVELOPMENT: AppUpdateState = { currentVersion: "0.0.0", mode: "disabled", status: "idle", autoCheck: true };
 const GROUP = "About and updates";
 
 async function openSettings(appUpdate: AppUpdateState | null | undefined, hostname = COMPUTER, language: "en" | "es" = "en") {
@@ -25,7 +27,8 @@ const group = () => screen.findByRole("group", { name: GROUP });
 /** Nothing that acts on the computer: no button, link or checkbox. */
 function expectReadOnly(element: HTMLElement) {
   expect(within(element).queryByRole("button")).not.toBeInTheDocument();
-  expect(within(element).queryByRole("link")).not.toBeInTheDocument();
+  // The licences link reads; it changes nothing on the computer.
+  expect(within(element).queryAllByRole("link").filter((link) => link.textContent !== "Open-source licences" && link.textContent !== "Licencias de código abierto")).toEqual([]);
   expect(within(element).queryByRole("checkbox")).not.toBeInTheDocument();
 }
 
@@ -40,7 +43,7 @@ describe("Settings → About and updates", () => {
     expect(about).toHaveTextContent(/Last checked: .*2026/);
     expect(within(about).getByRole("checkbox", { name: "Check for updates automatically" })).toBeChecked();
     expect(within(about).queryByRole("button", { name: "Restart to update" })).not.toBeInTheDocument();
-    expect(within(about).queryByRole("link")).not.toBeInTheDocument();
+    expect(within(about).queryByRole("link", { name: /Download/ })).not.toBeInTheDocument();
 
     await user.click(within(about).getByRole("button", { name: "Check for updates" }));
     await waitFor(() => expect(writes(requests)).toContain("POST /api/app-update/check"));
@@ -131,11 +134,35 @@ describe("Settings → About and updates", () => {
   });
 
   it("shows only the version in a build that never updates", async () => {
-    await openSettings({ currentVersion: "0.0.0", mode: "disabled", status: "idle", autoCheck: true });
+    await openSettings({ currentVersion: "1.2.0", mode: "disabled", status: "idle", autoCheck: true });
     const about = await group();
-    expect(about).toHaveTextContent("Speed Deck 0.0.0");
+    expect(about).toHaveTextContent("Speed Deck 1.2.0");
     expect(within(about).queryByRole("status")).not.toBeInTheDocument();
     expectReadOnly(about);
+  });
+
+  it("calls a build without a release version a development build instead of showing 0.0.0", async () => {
+    await openSettings(DEVELOPMENT);
+    const about = await group();
+    expect(about).toHaveTextContent("Speed Deck: development build");
+    expect(about).toHaveTextContent("A development build does not update itself.");
+    expect(about).not.toHaveTextContent("0.0.0");
+    expect(within(about).queryByRole("status")).not.toBeInTheDocument();
+    expectReadOnly(about);
+  });
+
+  it("calls it a development build on a paired phone too", async () => {
+    await openSettings({ ...DEVELOPMENT, currentVersion: "0.0.0-dev.12" }, PHONE);
+    const about = await group();
+    expect(about).toHaveTextContent("Speed Deck on the computer: development build");
+    expect(about).not.toHaveTextContent("0.0.0");
+  });
+
+  it("calls it a development build in Spanish", async () => {
+    await openSettings(DEVELOPMENT, COMPUTER, "es");
+    const about = await screen.findByRole("group", { name: "Acerca de y actualizaciones" });
+    expect(about).toHaveTextContent("Speed Deck: versión de desarrollo");
+    expect(about).toHaveTextContent("Una versión de desarrollo no se actualiza sola.");
   });
 
   it("is read-only on a paired phone: the computer's version and state, nothing to press", async () => {

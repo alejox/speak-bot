@@ -57,6 +57,8 @@ export interface SpeechTarget {
   executeAction: ((action: Action, key?: KeyRef) => Promise<ExecuteActionResult>) | null;
   /** A multi-action started or ended on the desktop (from any device); never fires on this device. */
   onMultiActionEvent: (listener: (event: MultiActionEvent) => void) => () => void;
+  /** Follows the live link to the desktop: opened (true) or closed (false); null without a desktop. */
+  watchConnection: ((listener: (connected: boolean) => void) => () => void) | null;
   /** Lists the applications of the computer for "open application" keys; null without a desktop. */
   listApplications: (() => Promise<Application[]>) | null;
   /** Tells the desktop whether someone is typing something to say; null when speaking on this device. */
@@ -292,6 +294,7 @@ export function useSpeechTarget(services: AppServices, { forceComputer = false }
     obs: remote ? remote.obs : null,
     onSpeechEvent: speechRemote ? speechRemote.onSpeechEvent : noSubscription,
     onMultiActionEvent: remote ? remote.onMultiActionEvent : noSubscription,
+    watchConnection: remote ? remote.watchConnection : null,
     settings,
     updateSettings,
     voices,

@@ -3,6 +3,7 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { JsonFileRecovery } from "../src/adapters/json-file";
 import { JsonFileBoardRepository } from "../src/adapters/json-file-board-repository";
 
 const board = (id: string, keys: Board["keys"] = []): Board => ({ id, name: id.toUpperCase(), kind: "voice", columns: 5, rows: 3, keys });
@@ -80,10 +81,40 @@ describe("JsonFileBoardRepository", () => {
     expect(await new JsonFileBoardRepository(file).list()).toEqual(written.boards);
   });
 
-  it("keeps a corrupt file as a backup and starts empty", async () => {
+  it("keeps a damaged file aside and starts empty when there is no earlier copy", async () => {
     await writeFile(file, "{ not json");
-    expect(await new JsonFileBoardRepository(file).list()).toEqual([]);
-    expect(await readFile(`${file}.bak`, "utf8")).toBe("{ not json");
+    const recoveries: JsonFileRecovery[] = [];
+    expect(await new JsonFileBoardRepository(file, { onRecovery: (recovery) => recoveries.push(recovery) }).list()).toEqual([]);
+    const copies = (await readdir(dir)).filter((name) => name.startsWith("boards.json.corrupt-"));
+    expect(copies).toHaveLength(1);
+    expect(await readFile(join(dir, copies[0]!), "utf8")).toBe("{ not json");
+    expect(recoveries).toMatchObject([{ file, outcome: "reset", damagedCopy: join(dir, copies[0]!) }]);
+  });
+
+  it("restores the boards saved before the last change when the file is truncated", async () => {
+    const repository = new JsonFileBoardRepository(file);
+    await repository.update(() => ({ boards: [board("a")], result: undefined }));
+    await repository.update(() => ({ boards: [board("a"), board("b")], result: undefined }));
+    await repository.update(() => ({ boards: [board("a"), board("b"), board("c")], result: undefined }));
+    const good = await readFile(file, "utf8");
+    await writeFile(file, good.slice(0, Math.floor(good.length / 2)));
+
+    const recoveries: JsonFileRecovery[] = [];
+    const reopened = new JsonFileBoardRepository(file, { onRecovery: (recovery) => recoveries.push(recovery) });
+    expect((await reopened.list()).map(({ id }) => id)).toEqual(["a", "b"]);
+    expect(recoveries.map(({ outcome }) => outcome)).toEqual(["restored"]);
+    // The restored boards are back in the file itself, and a change after it works as usual.
+    await reopened.update((boards) => ({ boards: [...boards, board("d")], result: undefined }));
+    expect((await new JsonFileBoardRepository(file).list()).map(({ id }) => id)).toEqual(["a", "b", "d"]);
+  });
+
+  it("treats a boards file without a boards list as damaged instead of as no boards", async () => {
+    const repository = new JsonFileBoardRepository(file);
+    await repository.update(() => ({ boards: [board("a")], result: undefined }));
+    await repository.update(() => ({ boards: [board("a"), board("b")], result: undefined }));
+    await writeFile(file, "null");
+    expect((await new JsonFileBoardRepository(file).list()).map(({ id }) => id)).toEqual(["a"]);
+    expect((await readdir(dir)).filter((name) => name.startsWith("boards.json.corrupt-"))).toHaveLength(1);
   });
 
   it("writes nothing when a change throws or returns no boards", async () => {

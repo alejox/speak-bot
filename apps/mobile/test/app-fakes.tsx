@@ -150,6 +150,8 @@ export interface DesktopState {
   healthStatus?: number;
   /** The sponsor GET /api/ad answers; none (the house banner) unless a test sets it. */
   ad?: Record<string, unknown> | null;
+  /** What GET /api/health reports about a damaged boards file (to the computer itself); none unless a test sets it. */
+  dataRecovery?: { file: "boards"; outcome: "restored" | "defaults"; at: number; damagedCopyPath: string } | null;
   /** GET /api/app-update: the computer app's update state, null for a server without the app; not set = a desktop too old to know the route (404). */
   appUpdate?: object | null;
 }
@@ -198,7 +200,12 @@ export function desktopRoute(state: DesktopState) {
           return { status: 503 };
         }
         return {
-          body: { ok: true, name: "speed-deck-desktop", capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: state.supportsDeviceSelection } },
+          body: {
+            ok: true,
+            name: "speed-deck-desktop",
+            capabilities: { platform: "darwin", engine: "say", supportsDeviceSelection: state.supportsDeviceSelection },
+            ...(state.dataRecovery ? { dataRecovery: state.dataRecovery } : {}),
+          },
         };
       case "GET /api/boards":
         return { body: state.boards };
@@ -270,6 +277,9 @@ export function desktopRoute(state: DesktopState) {
         else if (entitlement === "not-owned") state.adsGrants = others;
         return { body: adsOf(state) };
       }
+      case "POST /api/data-recovery/dismiss":
+        state.dataRecovery = null;
+        return { body: { ok: true } };
       case "GET /api/ad":
         return { body: { ad: state.ad ?? null } };
       case "GET /api/app-update":

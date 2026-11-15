@@ -2,6 +2,8 @@ import {
   DESKTOP_SERVER_NAME,
   isAdsResponse,
   isAppUpdateState,
+  isDataRecoveryNotice,
+  type DataRecoveryNotice,
   readStoredBoards,
   type Action,
   type AdCreative,
@@ -282,6 +284,21 @@ export class DesktopApiClient {
   /** Restarts the computer app to install the update it downloaded; "update-not-ready" when there is none. */
   async installAppUpdate(): Promise<void> {
     await this.request("POST", "/api/app-update/install", {});
+  }
+
+  /**
+   * What the computer did about a boards file it found damaged and nobody dismissed yet, or null. The computer
+   * only tells its own window (in GET /api/health), so this is always null on a phone.
+   */
+  async loadDataRecovery(): Promise<DataRecoveryNotice | null> {
+    const body = (await this.request("GET", "/api/health")) as { dataRecovery?: unknown } | undefined;
+    const recovery = body?.dataRecovery;
+    return isDataRecoveryNotice(recovery) ? recovery : null;
+  }
+
+  /** The person at the computer read the notice; it is not shown again. */
+  async dismissDataRecovery(): Promise<void> {
+    await this.request("POST", "/api/data-recovery/dismiss", {});
   }
 
   /** The sponsor the computer cached, or null (the house banner). Anything malformed counts as none. */

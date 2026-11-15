@@ -42,6 +42,15 @@ export interface AppUpdater {
   setAutoCheck(enabled: boolean): void;
 }
 
+/**
+ * Whether `version` belongs to a build that never got a release version: the packages stay at 0.0.0 and the
+ * release workflow puts the tag's version in (`0.0.0-dev.<run>` for a run without a tag). Every published
+ * version is "newer" than such a build, so letting it update would replace it with older code.
+ */
+export function isDevelopmentVersion(version: string): boolean {
+  return /^v?0\.0\.0(?:[-+].*)?$/.test(version.trim());
+}
+
 export function isAppUpdateState(value: unknown): value is AppUpdateState {
   if (typeof value !== "object" || value === null) return false;
   const { currentVersion, mode, status, latestVersion, progressPercent, releaseUrl, lastCheckedAt, autoCheck } = value as Record<string, unknown>;

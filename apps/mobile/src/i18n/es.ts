@@ -263,6 +263,7 @@ export const es: Messages = {
 
   "key.needsComputer": "Requiere la app de la computadora.",
   "key.obsDisconnected": "OBS no está conectado.",
+  "key.connectionLost": "Sin conexión con la computadora.",
   "key.obsDisabled": "La conexión con OBS está desactivada en Ajustes.",
   "key.boardMissing": "El tablero de esta tecla ya no existe.",
   "key.currentVoice": "Voz: {language}",
@@ -455,4 +456,17 @@ export const es: Messages = {
   "update.manualHint": "En este sistema las actualizaciones se instalan a mano: descarga la versión nueva e instálala sobre esta.",
   "update.autoCheck": "Buscar actualizaciones automáticamente",
   "update.autoCheckHint": "Para buscarlas, Speed Deck se conecta a GitHub, donde se publican sus versiones.",
+  "update.versionDev": "Speed Deck: versión de desarrollo",
+  "update.versionDevOnComputer": "Speed Deck en la computadora: versión de desarrollo",
+  "update.devHint": "Una versión de desarrollo no se actualiza sola.",
+
+  "about.title": "Acerca de",
+  "about.licences": "Licencias de código abierto",
+  "about.licencesLoading": "Cargando las licencias…",
+  "about.licencesFailed": "No se pudieron cargar las licencias. Revisa la conexión e inténtalo de nuevo.",
+
+  "recovery.restored":
+    "Tu archivo de tableros estaba dañado. Speed Deck restauró la última copia guardada, así que puede faltar tu cambio más reciente. El archivo dañado se conservó en {path}.",
+  "recovery.defaults": "Tu archivo de tableros estaba dañado. Speed Deck empezó con los tableros predeterminados. El archivo dañado se conservó en {path}.",
+  "recovery.dismiss": "Cerrar aviso",
 };
