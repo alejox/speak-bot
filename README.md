@@ -18,10 +18,11 @@ Download the installer for your system from the [latest release](https://github.
 
 | System                | File                                   |
 | --------------------- | -------------------------------------- |
-| macOS (Apple Silicon) | `speed-deck-<version>-mac-arm64.dmg`   |
-| macOS (Intel)         | `speed-deck-<version>-mac-x64.dmg`     |
+| macOS (Apple Silicon and Intel) | `speed-deck-<version>-mac-universal.dmg` |
 | Windows               | `speed-deck-<version>-win-x64.exe`     |
 | Linux                 | `.AppImage` or `.deb`                  |
+
+Up to version 0.2.0 macOS had two files. If macOS says Speed Deck "will not work" in a future version, you installed the Intel one (`mac-x64`) on an Apple Silicon Mac: install the current universal file over it. Your boards and settings are kept.
 
 #### The installers are not signed yet
 
@@ -396,7 +397,7 @@ Installed computer apps update from published GitHub Releases, so publishing a v
    ```
 
 3. **Wait for the workflow.** `.github/workflows/release.yml` runs the tests and builds on macOS, Windows and Linux, then creates the GitHub Release `v1.4.0` with generated release notes and attaches:
-   - the installers: `speed-deck-1.4.0-mac-arm64.dmg`, `speed-deck-1.4.0-mac-x64.dmg`, `speed-deck-1.4.0-win-x64.exe`, and the Linux `.AppImage` and `.deb`;
+   - the installers: `speed-deck-1.4.0-mac-universal.dmg`, `speed-deck-1.4.0-win-x64.exe`, and the Linux `.AppImage` and `.deb`;
    - the update metadata the installed apps read: `latest.yml` (Windows), `latest-mac.yml` and `latest-linux.yml`, plus the `.blockmap` files that let Windows download only what changed.
 
    The release job stops without publishing if an operating system's metadata file is missing or if two jobs produced a file with the same name. It needs no secret besides the `GITHUB_TOKEN` every workflow gets.

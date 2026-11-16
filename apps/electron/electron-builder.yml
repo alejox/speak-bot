@@ -38,9 +38,11 @@ mac:
   identity: "-"
   # Only needed for notarization; with ad-hoc signing it would block loading Electron's frameworks.
   hardenedRuntime: false
+  # One universal app for Apple Silicon and Intel, so nobody can pick the wrong download. An Intel
+  # build on an Apple Silicon Mac runs under Rosetta, which macOS reports as ending support.
   target:
     - target: dmg
-      arch: [arm64, x64]
+      arch: [universal]
 
 win:
   target:
