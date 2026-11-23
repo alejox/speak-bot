@@ -12,6 +12,9 @@ export const MAX_BOARD_ID_LENGTH = 100;
 /** Highest page number (1-based) a `nav.goToPage` action may target. */
 export const MAX_PAGE_NUMBER = 100;
 
+/** Positions a source can save in the AC Motion Mask OBS plugin and reach by number. */
+export const MAX_MOTION_POSITION = 9;
+
 /** Longest application id accepted in a `system.openApp` action (a path on the computer). */
 export const MAX_APPLICATION_ID_LENGTH = 1024;
 
@@ -53,6 +56,10 @@ export type Action =
   | { readonly type: "obs.toggleSourceVisibility"; readonly sceneName: string; readonly sourceName: string }
   /** A slider for the volume of one OBS input; its key may span several cells (see `Key.span`). */
   | { readonly type: "obs.inputVolume"; readonly inputName: string }
+  /** Moves an OBS source to one of the positions (place + shape) saved in its AC Motion Mask filter; `position` is 1-based. */
+  | { readonly type: "obs.motionPosition"; readonly sourceName: string; readonly position: number }
+  /** Moves an OBS source to the next position saved in its AC Motion Mask filter, wrapping to the first. */
+  | { readonly type: "obs.motionNextPosition"; readonly sourceName: string }
   /** `appId` is one of the ids the desktop lists (GET /api/applications); the desktop opens nothing else. */
   | { readonly type: "system.openApp"; readonly appId: string }
   /** Runs its steps in order on the desktop, waiting before each one as asked. */
@@ -145,6 +152,8 @@ function define(
 
 const sceneParam = textParam("sceneName", "scene", MAX_OBS_NAME_LENGTH);
 const inputParam = textParam("inputName", "input", MAX_OBS_NAME_LENGTH);
+// A source that carries the AC Motion Mask filter: picked from the OBS inputs, labelled as a source.
+const motionSourceParam = textParam("sourceName", "input", MAX_OBS_NAME_LENGTH);
 
 /** Metadata for every action type, in library order. */
 export const ACTION_REGISTRY: { readonly [T in ActionType]: ActionDefinition } = {
@@ -179,6 +188,11 @@ export const ACTION_REGISTRY: { readonly [T in ActionType]: ActionDefinition } =
     params: [sceneParam, textParam("sourceName", "source", MAX_OBS_NAME_LENGTH)],
   }),
   "obs.inputVolume": define("obs.inputVolume", "obs", "music", { requiresObs: true, canSpan: true, params: [inputParam] }),
+  "obs.motionPosition": define("obs.motionPosition", "obs", "scene", {
+    requiresObs: true,
+    params: [motionSourceParam, { name: "position", kind: "number", min: 1, max: MAX_MOTION_POSITION, labelKey: "actionParam.position" }],
+  }),
+  "obs.motionNextPosition": define("obs.motionNextPosition", "obs", "repeat", { requiresObs: true, params: [motionSourceParam] }),
   "system.openApp": define("system.openApp", "system", "star", {
     requiresDesktop: true,
     params: [textParam("appId", "application", MAX_APPLICATION_ID_LENGTH)],

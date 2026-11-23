@@ -168,6 +168,24 @@ describe("ObsConnectionManager", () => {
     expect(manager.state().monitoredInputs).toEqual(["Mic"]);
   });
 
+  it("moves a source to an AC Motion Mask position through the hotkey of its filter", async () => {
+    await manager.connect(config);
+    const client = FakeObsClient.created[0]!;
+    client.responses.GetSourceFilterList = (data) => ({
+      filters: data?.sourceName === "Camera" ? [{ filterName: "Color", filterKind: "color_filter_v2" }, { filterName: "Mask Cam", filterKind: "ac_motion_mask_filter" }] : [],
+    });
+    client.calls.length = 0;
+
+    await manager.goToMotionPosition("Camera", 2);
+    await manager.goToMotionPosition("Camera", "next");
+
+    expect(client.calls.filter((call) => call.type === "TriggerHotkeyByName")).toEqual([
+      { type: "TriggerHotkeyByName", data: { hotkeyName: "ac_motion_mask.position_2.Mask Cam", contextName: "Camera" } },
+      { type: "TriggerHotkeyByName", data: { hotkeyName: "ac_motion_mask.next.Mask Cam", contextName: "Camera" } },
+    ]);
+    await expect(manager.goToMotionPosition("Mic", 1)).rejects.toThrow(ObsRequestError);
+  });
+
   it("toggles monitoring: none turns on as monitor and output, any monitoring turns off", async () => {
     await manager.connect(config);
     const client = FakeObsClient.created[0]!;

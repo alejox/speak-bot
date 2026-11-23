@@ -148,7 +148,10 @@ export function keyLabel(key: Key, boards: readonly Board[], t: Translate): stri
     case "obs.inputVolume":
       return action.inputName;
     case "obs.toggleSourceVisibility":
+    case "obs.motionNextPosition":
       return action.sourceName;
+    case "obs.motionPosition":
+      return `${action.sourceName} ${action.position}`;
     case "system.openApp":
       return applicationNameOf(action.appId);
     case "nav.goToPage":

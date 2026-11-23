@@ -90,6 +90,11 @@ export interface ObsController {
   toggleStream(): Promise<void>;
   toggleRecord(): Promise<void>;
   toggleSourceVisibility(sceneName: string, sourceName: string): Promise<void>;
+  /**
+   * Moves a source to a position saved in its AC Motion Mask filter (1-based), or to the next one. Rejects with
+   * `ObsRequestError` when the source has no such filter.
+   */
+  goToMotionPosition(sourceName: string, position: number | "next"): Promise<void>;
   /** An input's volume as OBS's multiplier (1 = 0 dB); `ObsRequestError` when it has no audio or does not exist. */
   getInputVolume(inputName: string): Promise<number>;
   /** Sets an input's volume as a multiplier from 0 to `MAX_OBS_VOLUME_MUL`. */
