@@ -301,6 +301,12 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
       case "obs.toggleSourceVisibility":
         await requireObs().toggleSourceVisibility(action.sceneName, action.sourceName);
         return { status: 200, body: { ok: true } };
+      case "obs.motionPosition":
+        await requireObs().goToMotionPosition(action.sourceName, action.position);
+        return { status: 200, body: { ok: true } };
+      case "obs.motionNextPosition":
+        await requireObs().goToMotionPosition(action.sourceName, "next");
+        return { status: 200, body: { ok: true } };
       case "system.openApp":
         await openApplication(action.appId);
         return { status: 200, body: { ok: true } };

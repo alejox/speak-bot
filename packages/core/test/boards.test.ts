@@ -41,7 +41,7 @@ const board = (id: string, keys: Board["keys"] = [], name = id, kind: Board["kin
 
 describe("action registry", () => {
   it("describes every action type with a category, executor side and i18n keys", () => {
-    expect(ACTION_TYPES).toHaveLength(21);
+    expect(ACTION_TYPES).toHaveLength(23);
     for (const type of ACTION_TYPES) {
       const definition = ACTION_REGISTRY[type];
       expect(definition.type).toBe(type);
@@ -65,6 +65,13 @@ describe("action registry", () => {
     expect(ACTION_REGISTRY["obs.toggleMonitor"].params.map((p) => [p.name, p.kind])).toEqual([["inputName", "input"]]);
     expect(ACTION_REGISTRY["obs.toggleMonitor"].requiresObs).toBe(true);
     expect(parseAction({ type: "obs.toggleMonitor", inputName: " Mic/Aux ", extra: 1 })).toEqual({ type: "obs.toggleMonitor", inputName: " Mic/Aux " });
+    expect(ACTION_REGISTRY["obs.motionPosition"].params.map((p) => [p.name, p.kind])).toEqual([
+      ["sourceName", "input"],
+      ["position", "number"],
+    ]);
+    expect(parseAction({ type: "obs.motionPosition", sourceName: "Cam", position: 2, extra: 1 })).toEqual({ type: "obs.motionPosition", sourceName: "Cam", position: 2 });
+    expect(() => parseAction({ type: "obs.motionPosition", sourceName: "Cam", position: 10 })).toThrow(InvalidBoardError);
+    expect(parseAction({ type: "obs.motionNextPosition", sourceName: "Cam" })).toEqual({ type: "obs.motionNextPosition", sourceName: "Cam" });
     expect(ACTION_REGISTRY["obs.toggleSourceVisibility"].params.map((p) => [p.name, p.kind])).toEqual([
       ["sceneName", "scene"],
       ["sourceName", "source"],

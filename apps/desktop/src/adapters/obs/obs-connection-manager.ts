@@ -18,6 +18,8 @@ const MAX_RETRY_MS = 30_000;
 const DEFAULT_ATTEMPT_TIMEOUT_MS = 10_000;
 /** obs-websocket monitor types: off, heard only on the computer, or heard on the computer and in the output. */
 const MONITOR_NONE = "OBS_MONITORING_TYPE_NONE";
+/** The filter of the AC Motion Mask OBS plugin, which saves positions for the source it is on. */
+const MOTION_MASK_FILTER_KIND = "ac_motion_mask_filter";
 const MONITOR_AND_OUTPUT = "OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT";
 
 const EMPTY_STATE: ObsState = { currentScene: null, mutedInputs: [], streaming: false, recording: false };
@@ -139,6 +141,15 @@ export class ObsConnectionManager implements ObsController {
     const { sceneItemId } = await this.request("GetSceneItemId", { sceneName, sourceName });
     const { sceneItemEnabled } = await this.request("GetSceneItemEnabled", { sceneName, sceneItemId });
     await this.request("SetSceneItemEnabled", { sceneName, sceneItemId, sceneItemEnabled: sceneItemEnabled !== true });
+  }
+
+  async goToMotionPosition(sourceName: string, position: number | "next"): Promise<void> {
+    // The plugin registers its hotkeys on the source, named after the filter: ask OBS what the filter is called.
+    const { filters } = await this.request("GetSourceFilterList", { sourceName });
+    const filter = asArray(filters).find((candidate) => candidate.filterKind === MOTION_MASK_FILTER_KIND);
+    if (!filter || typeof filter.filterName !== "string") throw new ObsRequestError(`"${sourceName}" has no AC Motion Mask filter.`);
+    const hotkey = position === "next" ? "next" : `position_${position}`;
+    await this.request("TriggerHotkeyByName", { hotkeyName: `ac_motion_mask.${hotkey}.${filter.filterName}`, contextName: sourceName });
   }
 
   async getInputVolume(inputName: string): Promise<number> {
