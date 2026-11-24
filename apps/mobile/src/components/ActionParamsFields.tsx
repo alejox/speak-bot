@@ -3,6 +3,7 @@ import { useEffect, useId, useState } from "react";
 import type { ObsServices } from "../app/composition-root";
 import { useT } from "../i18n/I18nProvider";
 import type { MessageKey } from "../i18n/messages";
+import { MoveSourceFields } from "./MoveSourceFields";
 
 interface ActionParamsFieldsProps {
   actionType: ActionType;
@@ -19,7 +20,10 @@ interface ActionParamsFieldsProps {
   fieldOf?: (name: string) => string;
 }
 
-/** One field per action parameter, from the registry: text, number, or a pick list of OBS names, boards or applications. */
+/**
+ * One field per action parameter, from the registry: text, number, or a pick list of OBS names, boards or
+ * applications. A "move source" key adds where the source goes and how fast.
+ */
 export function ActionParamsFields({ actionType, values, onChange, boards, obs, listApplications, invalidField, fieldOf = (name) => name }: ActionParamsFieldsProps) {
   // A folder key's folder is created with it and never chosen by hand.
   const params = ACTION_REGISTRY[actionType].params.filter((param) => param.kind !== "folder");
@@ -44,6 +48,7 @@ export function ActionParamsFields({ actionType, values, onChange, boards, obs, 
           }}
         />
       ))}
+      {actionType === "obs.moveSource" && <MoveSourceFields values={values} onChange={onChange} obs={obs} invalidField={invalidField} fieldOf={fieldOf} />}
     </>
   );
 }

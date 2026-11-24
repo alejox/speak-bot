@@ -25,6 +25,8 @@ import {
   type ObsInput,
   type ObsInputVolumeResponse,
   type ObsSceneItem,
+  type ObsSourceTransform,
+  type ObsSourceTransformResponse,
   type ObsStatus,
   type ObsStatusResponse,
   type SetBoardGridRequest,
@@ -246,6 +248,11 @@ export class DesktopApiClient {
 
   listObsSceneItems(sceneName: string): Promise<ObsSceneItem[]> {
     return this.request("GET", `/api/obs/scenes/${encodeURIComponent(sceneName)}/items`) as Promise<ObsSceneItem[]>;
+  }
+
+  /** Where a source of a scene is now; "obs-request-failed" when OBS has no such scene or source in it. */
+  getObsSourceTransform(sceneName: string, sourceName: string): Promise<ObsSourceTransform> {
+    return this.request("GET", `/api/obs/scenes/${encodeURIComponent(sceneName)}/items/${encodeURIComponent(sourceName)}/transform`) as Promise<ObsSourceTransformResponse>;
   }
 
   /** Connects again with the saved OBS settings; resolves with the first attempt's status ("obs-disabled" when off). */

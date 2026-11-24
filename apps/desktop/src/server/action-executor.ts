@@ -301,6 +301,10 @@ export function createActionExecutor(deps: ActionExecutorDependencies) {
       case "obs.toggleSourceVisibility":
         await requireObs().toggleSourceVisibility(action.sceneName, action.sourceName);
         return { status: 200, body: { ok: true } };
+      case "obs.moveSource":
+        // Answers once the source is there, so a failure midway reaches whoever pressed the key.
+        await requireObs().moveSource(action.sceneName, action.sourceName, action.transform, action.durationMs);
+        return { status: 200, body: { ok: true } };
       case "obs.motionPosition":
         await requireObs().goToMotionPosition(action.sourceName, action.position);
         return { status: 200, body: { ok: true } };

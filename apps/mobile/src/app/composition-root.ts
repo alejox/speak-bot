@@ -13,6 +13,7 @@ import type {
   DesktopSettingsPatch,
   ObsInput,
   ObsSceneItem,
+  ObsSourceTransform,
   ObsStateEvent,
   ObsStatus,
   ObsStatusEvent,
@@ -68,6 +69,8 @@ export interface ObsServices {
   listScenes(): Promise<string[]>;
   listInputs(): Promise<ObsInput[]>;
   listSceneItems(sceneName: string): Promise<ObsSceneItem[]>;
+  /** Where a source of a scene is now, for a "move source" key; rejects when OBS is not connected or has no such source. */
+  getSourceTransform(sceneName: string, sourceName: string): Promise<ObsSourceTransform>;
   /** Connects again with the saved settings (only from the computer itself). */
   connect(): Promise<ObsStatus>;
   onEvent(listener: (event: ObsStatusEvent | ObsStateEvent) => void): () => void;
@@ -208,6 +211,7 @@ export function createDesktopServices(options: DesktopServicesOptions = {}): Des
       listScenes: () => api.listObsScenes(),
       listInputs: () => api.listObsInputs(),
       listSceneItems: (sceneName) => api.listObsSceneItems(sceneName),
+      getSourceTransform: (sceneName, sourceName) => api.getObsSourceTransform(sceneName, sourceName),
       connect: () => api.connectObs(),
       // Status and state are read again (in one request) each time the link opens or reopens, and told as
       // the events they stand in for; whichever of the two a real event overtook is left alone.

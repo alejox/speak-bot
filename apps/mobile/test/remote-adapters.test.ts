@@ -111,6 +111,7 @@ describe("DesktopApiClient OBS", () => {
     await api.listObsScenes();
     await api.listObsInputs();
     await api.listObsSceneItems("Main / Live");
+    await api.getObsSourceTransform("Main / Live", "Cam 1");
     await api.connectObs();
     await api.saveSettings({ obs: { enabled: true, password: "" } });
 
@@ -119,6 +120,7 @@ describe("DesktopApiClient OBS", () => {
       { method: "GET", url: "/api/obs/scenes", body: undefined },
       { method: "GET", url: "/api/obs/inputs", body: undefined },
       { method: "GET", url: "/api/obs/scenes/Main%20%2F%20Live/items", body: undefined },
+      { method: "GET", url: "/api/obs/scenes/Main%20%2F%20Live/items/Cam%201/transform", body: undefined },
       { method: "POST", url: "/api/obs/connect", body: {} },
       { method: "PUT", url: "/api/settings", body: { obs: { enabled: true, password: "" } } },
     ]);

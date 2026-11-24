@@ -12,6 +12,7 @@ import {
 } from "@speed-deck/core";
 import type { KeyInput } from "../adapters/board-stores";
 import { hasOnState } from "./key-presentation";
+import { MOVE_DURATION_FIELD, moveDurationValue, moveTargetValues, rawMoveTarget } from "./move-source-draft";
 import type { Message, MessageKey } from "../i18n/messages";
 
 /** What the key editor holds while the user types: every field as text. */
@@ -70,6 +71,7 @@ export function emptyStep(): StepDraft {
 function paramsOf(action: Action): Record<string, string> {
   const params: Record<string, string> = {};
   for (const param of ACTION_REGISTRY[action.type].params) params[param.name] = String((action as Record<string, unknown>)[param.name] ?? "");
+  if (action.type === "obs.moveSource") Object.assign(params, moveTargetValues(action.transform), { [MOVE_DURATION_FIELD]: moveDurationValue(action.durationMs) });
   return params;
 }
 
@@ -149,6 +151,11 @@ function rawAction(actionType: ActionType, values: Record<string, string>, t: (k
       }
       raw[param.name] = number;
     } else raw[param.name] = value;
+  }
+  if (actionType === "obs.moveSource") {
+    const target = rawMoveTarget(values, t, fieldOf);
+    if (!target.ok) return target;
+    Object.assign(raw, target.value);
   }
   return { ok: true, value: raw };
 }

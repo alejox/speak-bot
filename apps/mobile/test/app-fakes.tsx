@@ -139,6 +139,13 @@ export interface DesktopState {
   speak?: { status?: number; body?: unknown };
   /** When set, PUT /api/boards/grid answers 409 "grid-full". */
   gridFull?: boolean;
+  /** The sources of each OBS scene, by scene name; not set = the desktop cannot list them. */
+  sceneItems?: Record<string, string[]>;
+  /**
+   * Where each source is, by "scene/source" (GET …/items/:source/transform); any other answers 502
+   * "obs-request-failed", and null answers 409 "obs-unavailable".
+   */
+  transforms?: Record<string, object> | null;
   /** OBS input volumes (multipliers) by input name; any other input answers 502 "obs-request-failed". */
   volumes?: Record<string, number>;
   /** The phones whose purchase removed the computer's ads (GET /api/ads); none, so ads show, unless a test sets them. */
@@ -291,6 +298,17 @@ export function desktopRoute(state: DesktopState) {
       case "POST /api/app-update/check":
       case "POST /api/app-update/install":
         return state.appUpdate ? { body: { update: state.appUpdate } } : { status: 409, body: { error: "No updater.", code: "update-unavailable" } };
+    }
+    const itemsMatch = /^\/api\/obs\/scenes\/([^/]+)\/items$/.exec(request.url);
+    if (itemsMatch && state.sceneItems) {
+      const names = state.sceneItems[decodeURIComponent(itemsMatch[1]!)] ?? [];
+      return { body: names.map((sourceName, index) => ({ id: index + 1, sourceName, enabled: true })) };
+    }
+    const transformMatch = /^\/api\/obs\/scenes\/([^/]+)\/items\/([^/]+)\/transform$/.exec(request.url);
+    if (transformMatch) {
+      if (state.transforms === null) return { status: 409, body: { error: "OBS is not connected.", code: "obs-unavailable" } };
+      const transform = state.transforms?.[`${decodeURIComponent(transformMatch[1]!)}/${decodeURIComponent(transformMatch[2]!)}`];
+      return transform ? { body: transform } : { status: 502, body: { error: "No scene items were found.", code: "obs-request-failed" } };
     }
     const volumeMatch = /^\/api\/obs\/inputs\/([^/]+)\/volume$/.exec(request.url);
     if (volumeMatch) {

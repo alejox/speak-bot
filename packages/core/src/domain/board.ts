@@ -116,6 +116,7 @@ export const KEY_ICON_IDS = [
   "record",
   "eye",
   "eye-off",
+  "move",
   "heart",
   "hand",
   "check",
