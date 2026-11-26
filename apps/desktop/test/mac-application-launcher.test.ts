@@ -2,6 +2,7 @@ import { ApplicationNotListedError, ApplicationsUnsupportedError } from "@speed-
 import { describe, expect, it } from "vitest";
 import { createApplicationLauncher } from "../src/adapters/apps/create-application-launcher";
 import { MacApplicationLauncher, type DirectoryEntry } from "../src/adapters/apps/mac-application-launcher";
+import { WindowsApplicationLauncher } from "../src/adapters/apps/windows-application-launcher";
 
 const dir = (name: string): DirectoryEntry => ({ name, isDirectory: true });
 const file = (name: string): DirectoryEntry => ({ name, isDirectory: false });
@@ -79,11 +80,10 @@ describe("MacApplicationLauncher", () => {
 
 describe("createApplicationLauncher", () => {
   it("lists nothing and refuses to open anything on other systems", async () => {
-    for (const platform of ["win32", "linux"] as const) {
-      const other = createApplicationLauncher(platform);
-      expect(await other.list()).toEqual([]);
-      await expect(other.open("/Applications/Safari.app")).rejects.toBeInstanceOf(ApplicationsUnsupportedError);
-    }
+    const other = createApplicationLauncher("linux");
+    expect(await other.list()).toEqual([]);
+    await expect(other.open("/Applications/Safari.app")).rejects.toBeInstanceOf(ApplicationsUnsupportedError);
     expect(createApplicationLauncher("darwin")).toBeInstanceOf(MacApplicationLauncher);
+    expect(createApplicationLauncher("win32")).toBeInstanceOf(WindowsApplicationLauncher);
   });
 });

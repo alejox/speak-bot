@@ -1,6 +1,6 @@
 /** An application installed on the computer that a deck key can open. */
 export interface Application {
-  /** What `open` takes; on macOS the absolute path of the `.app` bundle. */
+  /** What `open` takes: on macOS the absolute path of the `.app` bundle, on Windows that of a Start Menu `.lnk` shortcut. */
   readonly id: string;
   readonly name: string;
 }
@@ -40,8 +40,8 @@ export interface ApplicationLauncher {
   open(id: string): Promise<void>;
 }
 
-/** The name an application id shows on a key: its last path segment without `.app`. */
+/** The name an application id shows on a key: its last path segment without `.app` or `.lnk`. */
 export function applicationNameOf(id: string): string {
   const segment = id.split(/[\\/]/).filter(Boolean).pop() ?? id;
-  return segment.replace(/\.app$/i, "") || id;
+  return segment.replace(/\.(app|lnk)$/i, "") || id;
 }

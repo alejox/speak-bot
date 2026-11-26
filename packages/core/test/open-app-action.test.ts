@@ -36,6 +36,7 @@ describe("system.openApp", () => {
   it("names an application after its bundle", () => {
     expect(applicationNameOf("/Applications/Adobe Photoshop 2025/Adobe Photoshop 2025.app")).toBe("Adobe Photoshop 2025");
     expect(applicationNameOf("C:\\Apps\\Tool.exe")).toBe("Tool.exe");
+    expect(applicationNameOf("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\OBS Studio\\OBS Studio.lnk")).toBe("OBS Studio");
     expect(applicationNameOf("Notes")).toBe("Notes");
   });
 });
