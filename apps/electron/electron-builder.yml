@@ -49,6 +49,16 @@ win:
     - target: nsis
       arch: [x64]
 
+# Microsoft Store package (MSIX), built only by `npm run dist:store` (or .github/workflows/store.yml): the Store
+# signs it, so Windows shows no SmartScreen warning. Its identity (identityName, publisher, publisherDisplayName)
+# comes from Partner Center and is passed by scripts/dist-store.mjs. Tile images are in build/appx.
+appx:
+  applicationId: SpeedDeck
+  displayName: Speed Deck
+  backgroundColor: "#111318"
+  languages: [es-ES, en-US]
+  artifactName: speed-deck-${version}-store.${ext}
+
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true

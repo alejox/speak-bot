@@ -20,6 +20,11 @@ describe("updateMode", () => {
     expect(updateMode({ ...packaged, platform: "darwin", appImage: "/tmp/x.AppImage" })).toBe("notify");
   });
 
+  it("is disabled for a Microsoft Store install, which the Store updates", () => {
+    expect(updateMode({ ...packaged, platform: "win32", windowsStore: true })).toBe("disabled");
+    expect(updateMode({ ...packaged, platform: "win32", windowsStore: false })).toBe("auto");
+  });
+
   it("is disabled in development and when the build has no update source", () => {
     for (const platform of ["win32", "darwin", "linux"] as const) {
       expect(updateMode({ ...packaged, platform, isPackaged: false })).toBe("disabled");

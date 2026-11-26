@@ -191,6 +191,7 @@ function createUpdater(): AppUpdateController {
     appImage: process.env.APPIMAGE,
     hasUpdateConfig: existsSync(join(process.resourcesPath, "app-update.yml")),
     currentVersion: app.getVersion(),
+    windowsStore: process.windowsStore === true,
   });
   const noticeFile = join(app.getPath("userData"), "update-notice.json");
   let backend: UpdaterBackend | undefined;

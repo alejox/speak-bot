@@ -14,7 +14,8 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dist:store": "node scripts/dist-store.mjs"
   },
   "devDependencies": {
     "@speed-deck/core": "0.0.0",

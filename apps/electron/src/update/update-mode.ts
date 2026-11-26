@@ -10,6 +10,8 @@ export interface UpdateEnvironment {
   hasUpdateConfig: boolean;
   /** The app's own version (`app.getVersion()`). */
   currentVersion: string;
+  /** `process.windowsStore`: installed from the Microsoft Store, which delivers the updates itself. */
+  windowsStore?: boolean;
 }
 
 /**
@@ -17,11 +19,13 @@ export interface UpdateEnvironment {
  * - Windows (NSIS installer) and a Linux AppImage replace themselves: "auto".
  * - macOS only accepts updates signed with an Apple Developer ID, which this app does not have, and a Linux
  *   .deb belongs to the system's package manager: both only announce the version ("notify").
+ * - A Microsoft Store install is updated by the Store, which does not allow apps to replace themselves: "disabled".
  * - A development build, or one built without an update source, never looks: "disabled". So does an
  *   installer built by hand without a release version (0.0.0, see `isDevelopmentVersion`): every published
  *   version counts as newer than it, so updating would replace it with older code.
  */
-export function updateMode({ platform, isPackaged, appImage, hasUpdateConfig, currentVersion }: UpdateEnvironment): AppUpdateMode {
+export function updateMode({ platform, isPackaged, appImage, hasUpdateConfig, currentVersion, windowsStore }: UpdateEnvironment): AppUpdateMode {
+  if (windowsStore) return "disabled";
   if (!isPackaged || !hasUpdateConfig || isDevelopmentVersion(currentVersion)) return "disabled";
   switch (platform) {
     case "win32":

@@ -1,0 +1,43 @@
+name: Microsoft Store package
+
+# Builds the MSIX for the Microsoft Store on Windows and keeps it as a build artifact, to upload by hand in
+# Partner Center. Run it from Actions → "Microsoft Store package" → Run workflow. The package identity comes
+# from the repository variables STORE_IDENTITY_NAME, STORE_PUBLISHER and STORE_PUBLISHER_DISPLAY_NAME
+# (Settings → Secrets and variables → Actions → Variables), copied from Partner Center → Product identity.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to package (x.y.z); must grow with every Store submission"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  msix:
+    runs-on: windows-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      SPEED_DECK_STORE_IDENTITY_NAME: ${{ vars.STORE_IDENTITY_NAME }}
+      SPEED_DECK_STORE_PUBLISHER: ${{ vars.STORE_PUBLISHER }}
+      SPEED_DECK_STORE_PUBLISHER_DISPLAY_NAME: ${{ vars.STORE_PUBLISHER_DISPLAY_NAME }}
+      SPEED_DECK_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build -w @speed-deck/mobile
+      - run: npm run build -w @speed-deck/electron
+      - run: npm run dist:store -w @speed-deck/electron
+      - uses: actions/upload-artifact@v4
+        with:
+          name: speed-deck-store-msix
+          path: apps/electron/release/*.appx
+          if-no-files-found: error

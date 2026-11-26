@@ -449,6 +449,21 @@ The Android app (`apps/android`, application id `com.alejoxcode.speeddeck`) is f
 
 The purchase is restored by Google Play itself: the app asks what the Google account owns at start, when it comes back to the screen and on **Restore purchase**, so it follows the account to a reinstall or another phone. The last answer is kept on the phone, so ads stay hidden offline; a refunded purchase brings them back the next time Google Play answers.
 
+### Publishing to the Microsoft Store
+
+The Windows app can also be published to the Microsoft Store as an MSIX package. The Store signs it, so it installs without the SmartScreen "unknown publisher" warning that the unsigned NSIS installer shows, and the Store delivers its updates (the app does not update itself when `process.windowsStore` is true).
+
+1. **Create a developer account** at [storedeveloper.microsoft.com](https://storedeveloper.microsoft.com) (free, verified with an ID and a selfie).
+2. **Reserve the name** "Speed Deck" in Partner Center (Apps and games → New product → MSIX or PWA app).
+3. **Copy the product identity** from Partner Center → Speed Deck → Product management → Product identity into the repository variables (Settings → Secrets and variables → Actions → Variables):
+   - `STORE_IDENTITY_NAME` ← Package/Identity/Name
+   - `STORE_PUBLISHER` ← Package/Identity/Publisher (`CN=...`)
+   - `STORE_PUBLISHER_DISPLAY_NAME` ← Package/Properties/PublisherDisplayName
+4. **Build the package**: Actions → "Microsoft Store package" → Run workflow, with a version that grows with every submission. The `.appx` is in the run's artifacts. On a Windows computer the same package comes from `npm run build -w @speed-deck/mobile && npm run build -w @speed-deck/electron && npm run dist:store -w @speed-deck/electron`, with the three values in `SPEED_DECK_STORE_IDENTITY_NAME`, `SPEED_DECK_STORE_PUBLISHER` and `SPEED_DECK_STORE_PUBLISHER_DISPLAY_NAME`.
+5. **Submit it** in Partner Center: upload the `.appx` under Packages, fill in the Store listing, age rating and privacy policy, and send it for certification. The app runs a local server for the phone, so declare the `runFullTrust` capability when asked (electron-builder adds it to the package).
+
+The tile images are in `apps/electron/build/appx`.
+
 ## Notes
 
 - Voices come from the operating system, so the available voices and their quality vary by device.
