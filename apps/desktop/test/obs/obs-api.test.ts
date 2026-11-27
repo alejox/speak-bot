@@ -146,6 +146,60 @@ describe("OBS API", () => {
     expect(await failed.json()).toMatchObject({ code: "obs-request-failed", error: "Output is busy." });
   });
 
+  const transformPath = (scene: string, source: string) => `/api/obs/scenes/${encodeURIComponent(scene)}/items/${encodeURIComponent(source)}/transform`;
+  const corner = { positionX: 1440, positionY: 810, scaleX: 0.25, scaleY: 0.25, rotation: 0, crop: { left: 0, top: 0, right: 0, bottom: 0 } };
+
+  it("reads where a source is for the key editor, answering 409 while disconnected and 502 for one OBS does not have", async () => {
+    const offline = await fetch(`${baseUrl}${transformPath("Main", "Cam")}`);
+    expect(offline.status).toBe(409);
+    expect(await offline.json()).toMatchObject({ code: "obs-unavailable" });
+
+    await enable();
+    await waitForStatus("connected");
+    expect(await getJson(transformPath("Main / Live", "Cam 1"))).toEqual({ positionX: 0, positionY: 0, scaleX: 1, scaleY: 1, rotation: 0, crop: { left: 0, top: 0, right: 0, bottom: 0 } });
+    expect(FakeObsClient.created[0]!.calls).toContainEqual({ type: "GetSceneItemId", data: { sceneName: "Main / Live", sourceName: "Cam 1" } });
+
+    expect((await fetch(`${baseUrl}${transformPath("x".repeat(201), "Cam")}`)).status).toBe(400);
+    expect((await fetch(`${baseUrl}${transformPath("Main", "x".repeat(201))}`)).status).toBe(400);
+
+    FakeObsClient.created[0]!.responses.GetSceneItemId = () => {
+      throw new Error("No scene items were found in the specified scene by that name or offset.");
+    };
+    const missing = await fetch(`${baseUrl}${transformPath("Main", "Gone")}`);
+    expect(missing.status).toBe(502);
+    expect(await missing.json()).toMatchObject({ code: "obs-request-failed" });
+  });
+
+  it("moves a source through the action route, refusing a target out of bounds", async () => {
+    const execute = (action: unknown) => send("/api/actions/execute", "POST", { action });
+    const move = { type: "obs.moveSource", sceneName: "Main", sourceName: "Cam", transform: corner };
+    expect((await execute(move)).status).toBe(409);
+
+    await enable();
+    await waitForStatus("connected");
+    expect((await execute(move)).status).toBe(200);
+    expect(FakeObsClient.created[0]!.calls).toContainEqual({
+      type: "SetSceneItemTransform",
+      data: {
+        sceneName: "Main",
+        sceneItemId: 3,
+        sceneItemTransform: { positionX: 1440, positionY: 810, scaleX: 0.25, scaleY: 0.25, rotation: 0, cropLeft: 0, cropTop: 0, cropRight: 0, cropBottom: 0, boundsType: "OBS_BOUNDS_NONE" },
+      },
+    });
+    // The captured place is where the source is now.
+    expect(await getJson(transformPath("Main", "Cam"))).toEqual(corner);
+
+    const animated = await execute({ ...move, transform: { ...corner, positionX: 0 }, durationMs: 60 });
+    expect(animated.status).toBe(200);
+    expect(await getJson(transformPath("Main", "Cam"))).toEqual({ ...corner, positionX: 0 });
+
+    for (const bad of [{ ...move, transform: { ...corner, positionX: 1e9 } }, { ...move, durationMs: 5000 }, { ...move, transform: undefined }]) {
+      const refused = await execute(bad);
+      expect(refused.status).toBe(400);
+      expect(await refused.json()).toMatchObject({ code: "invalid-board" });
+    }
+  });
+
   it("reads and sets an input's volume, refusing bad values and answering 409 while disconnected", async () => {
     const volumePath = `/api/obs/inputs/${encodeURIComponent("Mic")}/volume`;
     const offline = await fetch(`${baseUrl}${volumePath}`);
@@ -279,6 +333,14 @@ describe("OBS API from other devices", () => {
     const stored = await settings.loadStored();
     expect(stored.obs).toEqual({ enabled: true, host: "127.0.0.1", port: 4455, password: PASSWORD });
     expect(FakeObsClient.created).toHaveLength(0);
+  });
+
+  it("lets other devices read where a source is, like the scene and source lists", async () => {
+    await obs.connect({ host: "127.0.0.1", port: 4455, password: PASSWORD });
+    for (const path of ["/api/obs/scenes", "/api/obs/scenes/Main/items", "/api/obs/scenes/Main/items/Cam/transform"]) {
+      expect({ path, status: (await ask("192.168.1.30", "GET", path, {})).status }).toEqual({ path, status: 200 });
+    }
+    expect((await ask("192.168.1.30", "GET", "/api/obs/scenes/Main/items/Cam/transform", {})).body).toMatchObject({ positionX: 0, scaleX: 1 });
   });
 
   it("still lets other devices change settings that do not touch OBS", async () => {

@@ -42,8 +42,37 @@ export class FakeObsClient implements ObsClient {
   }
 }
 
-/** Typical OBS answers: two scenes, a muted mic, a monitored desktop audio input, not streaming, recording. */
+/** A scene item's transform as obs-websocket reports it: full screen, no crop, no bounding box. */
+export function fullScreenTransform(): Record<string, unknown> {
+  return {
+    sourceWidth: 1920,
+    sourceHeight: 1080,
+    positionX: 0,
+    positionY: 0,
+    rotation: 0,
+    scaleX: 1,
+    scaleY: 1,
+    width: 1920,
+    height: 1080,
+    alignment: 5,
+    boundsType: "OBS_BOUNDS_NONE",
+    boundsAlignment: 0,
+    boundsWidth: 0,
+    boundsHeight: 0,
+    cropLeft: 0,
+    cropTop: 0,
+    cropRight: 0,
+    cropBottom: 0,
+    cropToBounds: false,
+  };
+}
+
+/**
+ * Typical OBS answers: two scenes, a muted mic, a monitored desktop audio input, not streaming, recording, and
+ * one scene item (id 3) whose transform starts full screen and keeps what SetSceneItemTransform sends.
+ */
 export function obsResponses(): Record<string, Responder> {
+  let transform = fullScreenTransform();
   return {
     GetSceneList: () => ({ currentProgramSceneName: "Main", scenes: [{ sceneName: "BRB" }, { sceneName: "Main" }] }),
     GetStreamStatus: () => ({ outputActive: false }),
@@ -66,6 +95,11 @@ export function obsResponses(): Record<string, Responder> {
     GetSceneItemList: () => ({ sceneItems: [{ sceneItemId: 3, sourceName: "Cam", sceneItemEnabled: true }, { sceneItemId: "bad" }] }),
     GetSceneItemId: () => ({ sceneItemId: 3 }),
     GetSceneItemEnabled: () => ({ sceneItemEnabled: true }),
+    GetSceneItemTransform: () => ({ sceneItemTransform: { ...transform } }),
+    SetSceneItemTransform: (data) => {
+      transform = { ...transform, ...(data?.sceneItemTransform as Record<string, unknown>) };
+      return undefined;
+    },
     GetInputVolume: (data) => {
       if (data?.inputName === "Camera") throw new Error("The specified input does not support audio.");
       return { inputVolumeMul: 0.5, inputVolumeDb: -6.02 };

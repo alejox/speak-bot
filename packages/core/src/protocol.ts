@@ -4,6 +4,7 @@
  */
 import type { Action, ActionType } from "./domain/actions";
 import type { Board, BoardKind, Key, KeySpan } from "./domain/board";
+import type { ObsSourceTransform } from "./domain/source-transform";
 import type { AdsEntitlement } from "./ports/ads-purchase";
 import { isAppUpdateState, type AppUpdateState } from "./ports/app-updater";
 import type { Application } from "./ports/application-launcher";
@@ -566,6 +567,13 @@ export interface ObsStatusResponse {
 export type ObsScenesResponse = string[];
 export type ObsInputsResponse = ObsInput[];
 export type ObsSceneItemsResponse = ObsSceneItem[];
+
+/**
+ * GET /api/obs/scenes/:name/items/:source/transform → where that source of the scene is now, in the shape an
+ * `obs.moveSource` action keeps. Open to whoever may list scenes and sources. 409 "obs-unavailable" when not
+ * connected; 502 "obs-request-failed" when OBS has no such scene or source in it.
+ */
+export type ObsSourceTransformResponse = ObsSourceTransform;
 
 /**
  * GET /api/obs/inputs/:name/volume → the input's volume as OBS's multiplier (1 = 0 dB); 502

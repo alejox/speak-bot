@@ -3,6 +3,18 @@
  * wire and validated; `ACTION_REGISTRY` describes every action type for editors and executors.
  */
 
+import {
+  MAX_MOVE_DURATION_MS,
+  MAX_OBS_BOUNDS_SIZE,
+  MAX_OBS_CROP,
+  MAX_OBS_POSITION,
+  MAX_OBS_ROTATION,
+  MAX_OBS_SCALE,
+  OBS_BOUNDS_TYPES,
+  type ObsBoundsType,
+  type ObsSourceTransform,
+} from "./source-transform";
+
 /** Longest text a `voice.speak` action may hold, matching the longest text the desktop speaks at once. */
 export const MAX_ACTION_TEXT_LENGTH = 1000;
 /** Longest OBS scene, input or source name accepted in an action. */
@@ -54,6 +66,11 @@ export type Action =
   | { readonly type: "obs.toggleStream" }
   | { readonly type: "obs.toggleRecord" }
   | { readonly type: "obs.toggleSourceVisibility"; readonly sceneName: string; readonly sourceName: string }
+  /**
+   * Moves a source of a scene to `transform`, at once or over `durationMs` (0 to `MAX_MOVE_DURATION_MS`). The
+   * transform is captured from OBS in the key editor rather than typed blind.
+   */
+  | { readonly type: "obs.moveSource"; readonly sceneName: string; readonly sourceName: string; readonly transform: ObsSourceTransform; readonly durationMs: number }
   /** A slider for the volume of one OBS input; its key may span several cells (see `Key.span`). */
   | { readonly type: "obs.inputVolume"; readonly inputName: string }
   /** Moves an OBS source to one of the positions (place + shape) saved in its AC Motion Mask filter; `position` is 1-based. */
@@ -187,6 +204,11 @@ export const ACTION_REGISTRY: { readonly [T in ActionType]: ActionDefinition } =
     requiresObs: true,
     params: [sceneParam, textParam("sourceName", "source", MAX_OBS_NAME_LENGTH)],
   }),
+  // Its target and time are checked by `parseAction`; the key editor has its own fields for them.
+  "obs.moveSource": define("obs.moveSource", "obs", "move", {
+    requiresObs: true,
+    params: [sceneParam, textParam("sourceName", "source", MAX_OBS_NAME_LENGTH)],
+  }),
   "obs.inputVolume": define("obs.inputVolume", "obs", "music", { requiresObs: true, canSpan: true, params: [inputParam] }),
   "obs.motionPosition": define("obs.motionPosition", "obs", "scene", {
     requiresObs: true,
@@ -244,6 +266,10 @@ export function parseAction(value: unknown): Action {
   const action: Record<string, unknown> = { type: definition.type };
   for (const param of definition.params) action[param.name] = parseParam(param, input[param.name]);
   if (definition.type === "system.multiAction") action.steps = parseSteps(input.steps);
+  if (definition.type === "obs.moveSource") {
+    action.transform = parseSourceTransform(input.transform);
+    action.durationMs = parseMoveDuration(input.durationMs);
+  }
   return action as unknown as Action;
 }
 
@@ -261,6 +287,59 @@ function parseSteps(value: unknown): MultiActionStep[] {
     if (!isMultiActionStepType(parsed.type)) throw new InvalidBoardError(`A multi-action step cannot be ${parsed.type}.`);
     return { action: parsed, delayMs };
   });
+}
+
+/** A missing time means the move is instant. */
+function parseMoveDuration(value: unknown = 0): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > MAX_MOVE_DURATION_MS) {
+    throw new InvalidBoardError(`action.durationMs must be an integer from 0 to ${MAX_MOVE_DURATION_MS}.`);
+  }
+  return value;
+}
+
+/** Validates untrusted input as the place of a source in a scene; unknown properties are dropped. */
+export function parseSourceTransform(value: unknown): ObsSourceTransform {
+  const input = asRecord(value, "action.transform");
+  const number = (name: string, limit: number) => boundedNumber(input[name], -limit, limit, `action.transform.${name}`);
+  const transform = {
+    positionX: number("positionX", MAX_OBS_POSITION),
+    positionY: number("positionY", MAX_OBS_POSITION),
+    scaleX: number("scaleX", MAX_OBS_SCALE),
+    scaleY: number("scaleY", MAX_OBS_SCALE),
+    rotation: number("rotation", MAX_OBS_ROTATION),
+    crop: parseCrop(input.crop),
+  };
+  if (input.bounds === undefined) return transform;
+  const bounds = asRecord(input.bounds, "action.transform.bounds");
+  if (!OBS_BOUNDS_TYPES.includes(bounds.type as ObsBoundsType)) throw new InvalidBoardError("action.transform.bounds.type is not a known kind of bounding box.");
+  return {
+    ...transform,
+    bounds: {
+      type: bounds.type as ObsBoundsType,
+      width: boundedNumber(bounds.width, 1, MAX_OBS_BOUNDS_SIZE, "action.transform.bounds.width"),
+      height: boundedNumber(bounds.height, 1, MAX_OBS_BOUNDS_SIZE, "action.transform.bounds.height"),
+    },
+  };
+}
+
+function parseCrop(value: unknown): ObsSourceTransform["crop"] {
+  const input = asRecord(value, "action.transform.crop");
+  const side = (name: string) => {
+    const pixels = boundedNumber(input[name], 0, MAX_OBS_CROP, `action.transform.crop.${name}`);
+    if (!Number.isInteger(pixels)) throw new InvalidBoardError(`action.transform.crop.${name} must be a whole number.`);
+    return pixels;
+  };
+  return { left: side("left"), top: side("top"), right: side("right"), bottom: side("bottom") };
+}
+
+function asRecord(value: unknown, path: string): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw new InvalidBoardError(`${path} must be an object.`);
+  return value as Record<string, unknown>;
+}
+
+function boundedNumber(value: unknown, min: number, max: number, path: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) throw new InvalidBoardError(`${path} must be a number from ${min} to ${max}.`);
+  return value;
 }
 
 function parseParam(param: ActionParamDefinition, value: unknown): string | number {

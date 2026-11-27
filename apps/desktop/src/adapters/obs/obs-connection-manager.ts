@@ -1,11 +1,17 @@
 import {
+  OBS_BOUNDS_NONE,
+  OBS_BOUNDS_TYPES,
   ObsRequestError,
   ObsUnavailableError,
+  planSourceMove,
+  type ObsBoundsType,
   type ObsConnectionConfig,
   type ObsController,
   type ObsControllerEvent,
   type ObsInput,
   type ObsSceneItem,
+  type ObsSourceTransform,
+  type ObsSourceTransformReading,
   type ObsState,
   type ObsStatus,
 } from "@speed-deck/core";
@@ -53,6 +59,8 @@ export class ObsConnectionManager implements ObsController {
   private currentState: ObsState = EMPTY_STATE;
   /** Each scene's items by id, so visibility events (which name only the id) map to sources; null while unknown. */
   private sceneItems: Map<string, Map<number, ObsSceneItem>> | null = null;
+  /** Animated moves still running, by scene item: a new move of the same item replaces the one here. */
+  private readonly moves = new Map<string, RunningMove>();
 
   constructor(private readonly options: ObsConnectionManagerOptions) {
     this.log = options.log ?? (() => {});
@@ -143,6 +151,58 @@ export class ObsConnectionManager implements ObsController {
     await this.request("SetSceneItemEnabled", { sceneName, sceneItemId, sceneItemEnabled: sceneItemEnabled !== true });
   }
 
+  async getSourceTransform(sceneName: string, sourceName: string): Promise<ObsSourceTransform> {
+    const sceneItemId = await this.sceneItemId(sceneName, sourceName);
+    const { sourceWidth: _width, sourceHeight: _height, ...transform } = await this.readTransform(sceneName, sceneItemId);
+    return transform;
+  }
+
+  async moveSource(sceneName: string, sourceName: string, target: ObsSourceTransform, durationMs: number): Promise<void> {
+    const sceneItemId = await this.sceneItemId(sceneName, sourceName);
+    const item = `${sceneItemId}:${sceneName}`;
+    // A second press for the same source wins: the move still running stops where it is.
+    this.moves.get(item)?.end("replaced");
+    const send = (frame: ObsSourceTransform) => this.request("SetSceneItemTransform", { sceneName, sceneItemId, sceneItemTransform: transformUpdate(frame) });
+    if (!(durationMs > 0)) return void (await send(target));
+
+    const move = new RunningMove();
+    this.moves.set(item, move);
+    try {
+      const current = await this.readTransform(sceneName, sceneItemId);
+      const { frames, intervalMs } = planSourceMove(current, target, durationMs);
+      const startedAt = Date.now();
+      for (const [index, frame] of frames.entries()) {
+        // Each frame has its own time, so a slow answer from OBS does not push the later ones back.
+        if (move.ended === undefined) await move.wait(startedAt + (index + 1) * intervalMs - Date.now());
+        if (move.ended === "replaced") return;
+        if (move.ended === "stopped") throw new ObsUnavailableError();
+        await send(frame);
+      }
+    } finally {
+      move.end("replaced");
+      if (this.moves.get(item) === move) this.moves.delete(item);
+    }
+  }
+
+  private async sceneItemId(sceneName: string, sourceName: string): Promise<number> {
+    const { sceneItemId } = await this.request("GetSceneItemId", { sceneName, sourceName });
+    if (typeof sceneItemId !== "number") throw new ObsRequestError("OBS did not report the scene item.");
+    return sceneItemId;
+  }
+
+  private async readTransform(sceneName: string, sceneItemId: number): Promise<ObsSourceTransformReading> {
+    const { sceneItemTransform } = await this.request("GetSceneItemTransform", { sceneName, sceneItemId });
+    const transform = asTransformReading(sceneItemTransform);
+    if (!transform) throw new ObsRequestError("OBS did not report the source's transform.");
+    return transform;
+  }
+
+  /** Ends every animated move: OBS is gone, so each one fails as unavailable instead of waiting for its next frame. */
+  private stopMoves(): void {
+    for (const move of this.moves.values()) move.end("stopped");
+    this.moves.clear();
+  }
+
   async goToMotionPosition(sourceName: string, position: number | "next"): Promise<void> {
     // The plugin registers its hotkeys on the source, named after the filter: ask OBS what the filter is called.
     const { filters } = await this.request("GetSourceFilterList", { sourceName });
@@ -226,6 +286,7 @@ export class ObsConnectionManager implements ObsController {
     client.on("ConnectionClosed", (data) => {
       if (!current()) return;
       this.client = null;
+      this.stopMoves();
       this.log(`OBS connection closed: ${asClientError(data).message}`);
       this.setStatus({ status: "error", code: "connection-lost" });
       this.scheduleRetry();
@@ -388,6 +449,7 @@ export class ObsConnectionManager implements ObsController {
     this.generation += 1;
     clearTimeout(this.retryTimer);
     this.retryTimer = undefined;
+    this.stopMoves();
     const client = this.client;
     this.client = null;
     this.currentState = EMPTY_STATE;
@@ -415,6 +477,73 @@ export class ObsConnectionManager implements ObsController {
       }
     }
   }
+}
+
+/** One animated move: the wait for its next frame can be cut short, and it never leaves a timer behind. */
+class RunningMove {
+  /** Why it ended early: another move of the same source replaced it, or the connection went away. */
+  ended: "replaced" | "stopped" | undefined;
+  private timer: ReturnType<typeof setTimeout> | undefined;
+  private wake: (() => void) | undefined;
+
+  wait(ms: number): Promise<void> {
+    if (ms <= 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      this.wake = resolve;
+      // Whole milliseconds, rounded up: a frame is never sent before its time.
+      this.timer = setTimeout(resolve, Math.ceil(ms));
+    });
+  }
+
+  /** Ends the move; the first reason given stays. */
+  end(reason: "replaced" | "stopped"): void {
+    this.ended ??= reason;
+    clearTimeout(this.timer);
+    this.timer = undefined;
+    this.wake?.();
+    this.wake = undefined;
+  }
+}
+
+/** A transform as an obs-websocket `SetSceneItemTransform` update; the bounding box is always stated, even as none. */
+function transformUpdate(transform: ObsSourceTransform): Record<string, unknown> {
+  const { crop, bounds } = transform;
+  return {
+    positionX: transform.positionX,
+    positionY: transform.positionY,
+    scaleX: transform.scaleX,
+    scaleY: transform.scaleY,
+    rotation: transform.rotation,
+    cropLeft: crop.left,
+    cropTop: crop.top,
+    cropRight: crop.right,
+    cropBottom: crop.bottom,
+    ...(bounds ? { boundsType: bounds.type, boundsWidth: bounds.width, boundsHeight: bounds.height } : { boundsType: OBS_BOUNDS_NONE }),
+  };
+}
+
+/** Reads the `sceneItemTransform` obs-websocket reports; null when a number it must have is missing. */
+function asTransformReading(value: unknown): ObsSourceTransformReading | null {
+  if (typeof value !== "object" || value === null) return null;
+  const raw = value as Record<string, unknown>;
+  const finite = (name: string) => (typeof raw[name] === "number" && Number.isFinite(raw[name]) ? (raw[name] as number) : null);
+  const [positionX, positionY, scaleX, scaleY, rotation] = ["positionX", "positionY", "scaleX", "scaleY", "rotation"].map(finite);
+  if (positionX == null || positionY == null || scaleX == null || scaleY == null || rotation == null) return null;
+  const pixels = (name: string) => Math.max(0, Math.round(finite(name) ?? 0));
+  const boundsWidth = finite("boundsWidth");
+  const boundsHeight = finite("boundsHeight");
+  const hasBounds = OBS_BOUNDS_TYPES.includes(raw.boundsType as ObsBoundsType) && boundsWidth !== null && boundsHeight !== null && boundsWidth >= 1 && boundsHeight >= 1;
+  return {
+    positionX,
+    positionY,
+    scaleX,
+    scaleY,
+    rotation,
+    crop: { left: pixels("cropLeft"), top: pixels("cropTop"), right: pixels("cropRight"), bottom: pixels("cropBottom") },
+    ...(hasBounds ? { bounds: { type: raw.boundsType as ObsBoundsType, width: boundsWidth, height: boundsHeight } } : {}),
+    sourceWidth: Math.max(0, finite("sourceWidth") ?? 0),
+    sourceHeight: Math.max(0, finite("sourceHeight") ?? 0),
+  };
 }
 
 function webSocketUrl({ host, port }: ObsConnectionConfig): string {

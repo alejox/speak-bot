@@ -1,3 +1,5 @@
+import type { ObsSourceTransform } from "../domain/source-transform";
+
 /** Where the desktop reaches OBS (obs-websocket v5, OBS → Tools → WebSocket Server Settings). */
 export interface ObsConnectionConfig {
   host: string;
@@ -90,6 +92,14 @@ export interface ObsController {
   toggleStream(): Promise<void>;
   toggleRecord(): Promise<void>;
   toggleSourceVisibility(sceneName: string, sourceName: string): Promise<void>;
+  /** Where a source of a scene is now; `ObsRequestError` when OBS has no such scene or source in it. */
+  getSourceTransform(sceneName: string, sourceName: string): Promise<ObsSourceTransform>;
+  /**
+   * Moves a source of a scene to `target`, at once or in frames over `durationMs`, and resolves when it is
+   * there. Moving the same source again drops the move still running, which then resolves early. Rejects with
+   * `ObsRequestError` when OBS refuses and with `ObsUnavailableError` when the connection is lost midway.
+   */
+  moveSource(sceneName: string, sourceName: string, target: ObsSourceTransform, durationMs: number): Promise<void>;
   /**
    * Moves a source to a position saved in its AC Motion Mask filter (1-based), or to the next one. Rejects with
    * `ObsRequestError` when the source has no such filter.

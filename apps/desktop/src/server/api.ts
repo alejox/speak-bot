@@ -48,6 +48,7 @@ import {
   type HealthResponse,
   type ObsController,
   type ObsInputVolumeResponse,
+  type ObsSourceTransformResponse,
   type ObsStatusResponse,
   type ServerEvent,
   type VoiceOutputStatusResponse,
@@ -558,6 +559,16 @@ export function createApiHandler(deps: ApiDependencies) {
       handler: async (_request, response, { name }) => {
         if (name!.length > MAX_OBS_NAME_LENGTH) throw new HttpError(400, "Scene name is too long.");
         sendJson(response, 200, await requireObs().listSceneItems(name!));
+      },
+    },
+    {
+      /** Where a source is now, for the key editor of a "move source" key; open like the scene and source lists. */
+      method: "GET",
+      path: "/api/obs/scenes/:name/items/:source/transform",
+      handler: async (_request, response, { name, source }) => {
+        if (name!.length > MAX_OBS_NAME_LENGTH || source!.length > MAX_OBS_NAME_LENGTH) throw new HttpError(400, "Scene or source name is too long.");
+        const body: ObsSourceTransformResponse = await requireObs().getSourceTransform(name!, source!);
+        sendJson(response, 200, body);
       },
     },
   ];
