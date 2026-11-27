@@ -28,10 +28,10 @@ async function openDeck(options: { deckKeys?: Key[]; transforms?: Record<string,
 
 type User = Awaited<ReturnType<typeof openDeck>>["user"];
 
-/** Opens the editor of a new "Move source" key and picks the scene and the source. */
+/** Opens the editor of a new "Move and resize source" key and picks the scene and the source. */
 async function addMoveKey(user: User, sourceName = "Cam") {
   await user.click(screen.getByRole("button", { name: "Add a key at position 1" }));
-  await user.click(within(screen.getByRole("dialog", { name: "Add key 1" })).getByRole("button", { name: "Move source" }));
+  await user.click(within(screen.getByRole("dialog", { name: "Add key 1" })).getByRole("button", { name: "Move and resize source" }));
   const dialog = screen.getByRole("dialog", { name: "Add key 1" });
   await user.selectOptions(await within(dialog).findByRole("combobox", { name: "Scene" }), await within(dialog).findByRole("option", { name: "Main" }));
   await user.selectOptions(within(dialog).getByRole("combobox", { name: "Source" }), await within(dialog).findByRole("option", { name: sourceName }));
@@ -99,14 +99,14 @@ describe("the move source action in the key editor", () => {
     const { user } = await openDeck();
     await user.click(screen.getByRole("button", { name: "Add a key at position 1" }));
     const names = within(within(screen.getByRole("dialog")).getByRole("region", { name: "OBS" })).getAllByRole("button").map((button) => button.textContent);
-    expect(names[names.indexOf("Show or hide source") + 1]).toBe("Move source");
+    expect(names[names.indexOf("Show or hide source") + 1]).toBe("Move and resize source");
   });
 
   it("is not offered on Voice boards", async () => {
     const { user } = renderRemoteApp({ state: desktopState({ boards: boards() }) });
     await screen.findByRole("button", { name: "Hi" }, { timeout: 5000 });
     await user.click(screen.getByRole("button", { name: "Add a key at position 2" }));
-    expect(within(screen.getByRole("dialog")).queryByRole("button", { name: "Move source" })).not.toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).queryByRole("button", { name: "Move and resize source" })).not.toBeInTheDocument();
   });
 
   it("cannot be saved before a position is captured", async () => {
@@ -161,7 +161,7 @@ describe("the move source action in the key editor", () => {
   it("asks for the scene and the source before it can capture", async () => {
     const { user } = await openDeck();
     await user.click(screen.getByRole("button", { name: "Add a key at position 1" }));
-    await user.click(within(screen.getByRole("dialog", { name: "Add key 1" })).getByRole("button", { name: "Move source" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Add key 1" })).getByRole("button", { name: "Move and resize source" }));
     const dialog = screen.getByRole("dialog", { name: "Add key 1" });
     expect(capture(dialog)).toBeDisabled();
     expect(within(dialog).getByText("Choose the scene and the source first.")).toBeInTheDocument();
